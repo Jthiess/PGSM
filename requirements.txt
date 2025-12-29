@@ -1,0 +1,5 @@
+proxmoxer
+flask
+dotenv
+requests
+requests_toolbelt # Only needed if file transfers are happening (which they probably will).
