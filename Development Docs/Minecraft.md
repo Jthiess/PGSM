@@ -1,10 +1,12 @@
 # Minecraft Notes
 Java versions should be used as follows:
+
 | Minecraft Version | Java Version |
 | ----------------- | ------------ |
-| ≤ 1.16.5          | Java 8       |
-| 1.17              | Java 16      |
-| ≥ 1.18            | Java 17      |
+| < 1.17            | 8            |
+| 1.17              | 16           |
+| >1.17             | 17           |
+| ≥ 1.20.6          | 21           |
 
 I will be using temurin binaries for the JRE, stored in /opt
 
