@@ -1,0 +1,1 @@
+The user account for PGSM is created to avoid anything running as root. This user has no home directory, and should only be used for running the actual server. This way, if the server were to get breached, there is as little of a knock on effect as possible.
