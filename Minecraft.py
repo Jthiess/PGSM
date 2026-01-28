@@ -1,7 +1,7 @@
-from main import MANIFEST_URL, requests
+from main import MINECRAFT_MANIFEST_URL, requests
 def JavaManifester(version: str, snapshot:bool=False):
-    response = requests.get(MANIFEST_URL, timeout=10).json()
-    
+    response = requests.get(MINECRAFT_MANIFEST_URL, timeout=10).json()
+
     # Handle "latest" since its not actually a thing
     if version == 'latest':
         version_id = (
