@@ -17,12 +17,15 @@ JAVA21_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk
 JAVA17_URL="https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.17%2B10/OpenJDK17U-jre_x64_linux_hotspot_17.0.17_10.tar.gz"
 JAVA16_URL="https://github.com/adoptium/temurin16-binaries/releases/download/jdk-16.0.2%2B7/OpenJDK16U-jdk_x64_linux_hotspot_16.0.2_7.tar.gz"
 JAVA8_URL="https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u472-b08/OpenJDK8U-jre_x64_linux_hotspot_8u472b08.tar.gz"
+STARTUP_COMMAND="/opt/java/java21/bin/java -jar server.jar"
 
 # Step 1: Update and Upgrade
+echo "Running updates..."
 apt update
 apt upgrade -y
 
 # Step 2: Install Java
+echo "Installing Java..."
 mkdir -p /opt/java
 cd /opt/java
   wget $JAVA21_URL
@@ -31,6 +34,7 @@ cd /opt/java
   wget $JAVA8_URL
 
 # Step 3: Extract Javas
+echo "Extracting Java files..."
 for f in *.tar.gz; do
     tar -xzf "$f"
 done
@@ -41,6 +45,7 @@ mv jdk-16* java16
 mv jdk8* java8
 
 # Step 4: Download Minecraft Server File
+echo "Downloading Minecraft server file..."
 mkdir /PGSM
 cd /PGSM
 wget $SERVERFILELINK
@@ -48,9 +53,47 @@ mv *.jar server.jar
 chmod +x server.jar
 
 # Step 5: Create User for minecraft
-useradd -M -s /bin/bash PGSM-User
-chown -R PGSM-User:PGSM-User /PGSM
+echo "Creating PGSM User..."
+useradd -M -s /bin/bash PGSM
+chown -R PGSM:PGSM /PGSM
 chmod -R 755 /opt/java
 
 # Step 6: Accept EULA (For testing purposes only, of course.)
+echo "Accepting EULA..."
 echo "eula=true" > /PGSM/eula.txt # This line of code should never be used in a production environment.
+
+# Step 7: Install tmux
+apt install tmux -y
+
+# Step 8: Create tmux service
+tee /etc/systemd/system/PGSM.service > /dev/null <<EOF
+[Unit]
+Description=Proxmox Game Server Manager
+After=network.target
+
+[Service]
+Type=forking
+User=PGSM
+Group=PGSM
+
+# Ensure tmux has a predictable environment
+Environment=TERM=xterm-256color
+Environment=TMUX_TMPDIR=/tmp
+# Start tmux session (only if it doesn't already exist)
+ExecStart=/usr/bin/tmux new-session -d -c /PGSM -s PGSM "$STARTUP_COMMAND"
+# Optional: stop the tmux session cleanly
+ExecStop=/usr/bin/tmux kill-session -t PGSM
+# Restart if the tmux server exits unexpectedly
+Restart=on-failure
+# Needed so systemd doesn't kill tmux when ExecStart exits
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+
+# Step 9: Enable and start the service
+systemctl enable PGSM
+systemctl start PGSM

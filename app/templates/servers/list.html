@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}- Servers{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Servers</h1>
+    <a href="{{ url_for('servers.create_server') }}" class="btn btn-primary">+ New Server</a>
+</div>
+
+{% if servers %}
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Version</th>
+                <th>Node</th>
+                <th>IP</th>
+                <th>Port</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for server in servers %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('servers.detail', server_id=server.id) }}"
+                       style="color: var(--text); text-decoration: none; font-weight: 500;">
+                        {{ server.name }}
+                    </a>
+                </td>
+                <td class="text-muted">{{ server.server_type }}</td>
+                <td class="text-mono">{{ server.game_version }}</td>
+                <td class="text-mono text-muted">{{ server.proxmox_node }}</td>
+                <td class="text-mono">{{ server.ip_address }}</td>
+                <td class="text-mono">{{ server.game_port }}</td>
+                <td>
+                    <span class="badge badge-{{ server.status }}" id="status-{{ server.id }}">{{ server.status }}</span>
+                </td>
+                <td>
+                    <div class="flex gap-1">
+                        <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-ghost btn-sm">View</a>
+                        <a href="{{ url_for('console.console', server_id=server.id) }}" class="btn btn-ghost btn-sm">Console</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <h3>No servers yet</h3>
+        <p>Create your first game server to get started.</p>
+        <a href="{{ url_for('servers.create_server') }}" class="btn btn-primary">Create Server</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Poll status for servers currently creating
+const creating = document.querySelectorAll('[id^="status-"]');
+creating.forEach(function(el) {
+    if (el.textContent.trim() === 'creating') {
+        const serverId = el.id.replace('status-', '');
+        const interval = setInterval(function() {
+            fetch('/api/servers/' + serverId + '/status')
+                .then(r => r.json())
+                .then(data => {
+                    const status = data.db_status;
+                    el.textContent = status;
+                    el.className = 'badge badge-' + status;
+                    if (status !== 'creating') clearInterval(interval);
+                })
+                .catch(() => {});
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block title %}- Create Server{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Create Server</h1>
+</div>
+
+<div class="wizard-steps">
+    <div class="wizard-step-indicator active" id="step-ind-1">1. Game Type</div>
+    <div class="wizard-step-indicator" id="step-ind-2">2. Resources</div>
+    <div class="wizard-step-indicator" id="step-ind-3">3. Settings</div>
+</div>
+
+<form method="POST" action="{{ url_for('servers.create_server') }}" id="create-form">
+
+    <!-- Step 1: Game type + version -->
+    <div class="wizard-panel active card" id="panel-1">
+        <h2 class="section-title">Game Type &amp; Version</h2>
+        <div class="form-group">
+            <label for="server_type">Server Type</label>
+            <select name="server_type" id="server_type">
+                <option value="vanilla">Minecraft Java - Vanilla</option>
+                <option value="paper">Minecraft Java - Paper</option>
+                <option value="fabric">Minecraft Java - Fabric</option>
+                <option value="forge">Minecraft Java - Forge</option>
+                <option value="bedrock">Minecraft Bedrock</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="game_version">Game Version</label>
+            <select name="game_version" id="game_version">
+                {% for v in versions %}
+                    <option value="{{ v.id }}">{{ v.id }}</option>
+                {% endfor %}
+                {% if not versions %}
+                    <option value="latest">latest</option>
+                {% endif %}
+            </select>
+        </div>
+        <div class="wizard-nav">
+            <span></span>
+            <button type="button" class="btn btn-primary" onclick="wizardGo(2)">Next &rarr;</button>
+        </div>
+    </div>
+
+    <!-- Step 2: Resources + node -->
+    <div class="wizard-panel card" id="panel-2">
+        <h2 class="section-title">Resources &amp; Node</h2>
+        {% if nodes %}
+        <div class="form-group">
+            <label for="node">Proxmox Node</label>
+            <select name="node" id="node">
+                {% for node in nodes %}
+                    <option value="{{ node.node }}">{{ node.node }} ({{ node.status }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% else %}
+        <div class="alert alert-warning" style="margin-bottom:1rem">
+            <span>Could not retrieve Proxmox nodes. Check your connection settings.</span>
+        </div>
+        <input type="hidden" name="node" value="">
+        {% endif %}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="disk_gb">Disk (GB)</label>
+                <input type="number" name="disk_gb" id="disk_gb" value="20" min="5" max="500">
+                <div class="form-hint">Recommended: 20 GB minimum</div>
+            </div>
+            <div class="form-group">
+                <label for="cores">CPU Cores</label>
+                <input type="number" name="cores" id="cores" value="2" min="1" max="32">
+            </div>
+            <div class="form-group">
+                <label for="memory_mb">Memory (MB)</label>
+                <input type="number" name="memory_mb" id="memory_mb" value="2048" min="512" max="65536">
+                <div class="form-hint">Recommended: 2048 MB minimum</div>
+            </div>
+        </div>
+        <div class="wizard-nav">
+            <button type="button" class="btn btn-secondary" onclick="wizardGo(1)">&larr; Back</button>
+            <button type="button" class="btn btn-primary" onclick="wizardGo(3)">Next &rarr;</button>
+        </div>
+    </div>
+
+    <!-- Step 3: Game settings -->
+    <div class="wizard-panel card" id="panel-3">
+        <h2 class="section-title">Game Settings</h2>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="name">Server Name</label>
+                <input type="text" name="name" id="name" placeholder="My Minecraft Server" required>
+            </div>
+            <div class="form-group">
+                <label for="game_port">Game Port</label>
+                <input type="number" name="game_port" id="game_port" value="25565" min="1024" max="65535">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="motd">MOTD (Server Description)</label>
+            <input type="text" name="motd" id="motd" placeholder="A PGSM Minecraft Server" maxlength="256">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="render_distance">Render Distance</label>
+                <input type="number" name="render_distance" id="render_distance" value="10" min="2" max="32">
+            </div>
+            <div class="form-group">
+                <label for="spawn_protection">Spawn Protection</label>
+                <input type="number" name="spawn_protection" id="spawn_protection" value="16" min="0" max="100">
+            </div>
+            <div class="form-group">
+                <label for="difficulty">Difficulty</label>
+                <select name="difficulty" id="difficulty">
+                    <option value="peaceful">Peaceful</option>
+                    <option value="easy">Easy</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="checkbox-row">
+                <input type="checkbox" name="hardcore" id="hardcore">
+                <label for="hardcore">Hardcore Mode</label>
+            </div>
+        </div>
+        <div class="wizard-nav">
+            <button type="button" class="btn btn-secondary" onclick="wizardGo(2)">&larr; Back</button>
+            <button type="submit" class="btn btn-primary">&#9654; Create Server</button>
+        </div>
+    </div>
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/wizard.js') }}"></script>
+{% endblock %}

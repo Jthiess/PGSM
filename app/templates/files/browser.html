@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}- Files: {{ server.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Files &mdash; {{ server.name }}</h1>
+    <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-secondary btn-sm">
+        &larr; Back to Server
+    </a>
+</div>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+    <a href="{{ url_for('files.browse', server_id=server.id) }}">/</a>
+    {% for crumb in breadcrumbs %}
+        <span class="breadcrumb-sep">/</span>
+        <a href="{{ url_for('files.browse', server_id=server.id, remote_path=crumb.path) }}">{{ crumb.name }}</a>
+    {% endfor %}
+</div>
+
+<!-- Upload form -->
+<div class="card" style="margin-bottom: 1rem;">
+    <form method="POST" action="{{ url_for('files.upload', server_id=server.id) }}"
+          enctype="multipart/form-data" class="flex gap-1 items-center">
+        <input type="hidden" name="path" value="{{ current_path }}">
+        <input type="file" name="file" style="flex:1; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.4rem 0.75rem; color: var(--text); font-size: 0.875rem;">
+        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+    </form>
+</div>
+
+<!-- File listing -->
+<div class="table-container">
+    {% if entries %}
+    <ul class="file-list">
+        {% if current_path != '/PGSM' and current_path != '/' %}
+        <li class="file-item">
+            <span class="file-icon">&#128193;</span>
+            <span class="file-name">
+                <a href="{{ url_for('files.browse', server_id=server.id, remote_path='/'.join(current_path.split('/')[:-1]) or '/PGSM') }}">..</a>
+            </span>
+        </li>
+        {% endif %}
+        {% for entry in entries %}
+        <li class="file-item">
+            <span class="file-icon">{% if entry.is_dir %}&#128193;{% else %}&#128196;{% endif %}</span>
+            <span class="file-name">
+                {% if entry.is_dir %}
+                    <a href="{{ url_for('files.browse', server_id=server.id, remote_path=entry.path) }}">{{ entry.name }}/</a>
+                {% else %}
+                    {{ entry.name }}
+                {% endif %}
+            </span>
+            <span class="file-size">
+                {% if not entry.is_dir %}
+                    {% if entry.size < 1024 %}
+                        {{ entry.size }} B
+                    {% elif entry.size < 1048576 %}
+                        {{ (entry.size / 1024) | round(1) }} KB
+                    {% else %}
+                        {{ (entry.size / 1048576) | round(1) }} MB
+                    {% endif %}
+                {% endif %}
+            </span>
+            {% if not entry.is_dir %}
+            <div class="flex gap-1">
+                <a href="{{ url_for('files.download', server_id=server.id, path=entry.path) }}"
+                   class="btn btn-ghost btn-sm">Download</a>
+                <form method="POST" action="{{ url_for('files.delete_file', server_id=server.id) }}"
+                      onsubmit="return confirm('Delete {{ entry.name }}?')" style="display:inline">
+                    <input type="hidden" name="path" value="{{ entry.path }}">
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger)">Delete</button>
+                </form>
+            </div>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty-state">
+        <h3>Empty directory</h3>
+        <p>Upload files using the form above.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}- Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <a href="{{ url_for('servers.create_server') }}" class="btn btn-primary">+ New Server</a>
+</div>
+
+<div class="grid-stats">
+    <div class="card">
+        <div class="card-title">Total Servers</div>
+        <div class="card-value">{{ servers|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Running</div>
+        <div class="card-value" style="color: var(--accent-success)">{{ running }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Stopped</div>
+        <div class="card-value" style="color: var(--text-muted)">{{ stopped }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Provisioning</div>
+        <div class="card-value" style="color: #70a5fd">{{ creating }}</div>
+    </div>
+</div>
+
+{% if servers %}
+    <h2 class="section-title">Your Servers</h2>
+    <div class="server-list-recent">
+        {% for server in servers[:12] %}
+        <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="server-card">
+            <div class="server-card-name">{{ server.name }}</div>
+            <div class="server-card-meta">
+                {{ server.game_version }} &bull; {{ server.server_type }} &bull; {{ server.ip_address }}
+            </div>
+            <span class="badge badge-{{ server.status }}">{{ server.status }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% if servers|length > 12 %}
+    <div class="mt-2">
+        <a href="{{ url_for('servers.list_servers') }}" class="btn btn-secondary">View all {{ servers|length }} servers</a>
+    </div>
+    {% endif %}
+{% else %}
+    <div class="card">
+        <div class="empty-state">
+            <h3>No servers yet</h3>
+            <p>Create your first game server to get started.</p>
+            <a href="{{ url_for('servers.create_server') }}" class="btn btn-primary">Create Server</a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

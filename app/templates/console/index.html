@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}- Console: {{ server.name }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        Console &mdash; {{ server.name }}
+    </h1>
+    <div class="flex gap-1 items-center">
+        <span class="badge badge-{{ server.status }}">{{ server.status }}</span>
+        <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-secondary btn-sm">
+            &larr; Back to Server
+        </a>
+    </div>
+</div>
+
+{% if server.status != 'running' %}
+<div class="alert alert-warning" style="margin-bottom: 1rem;">
+    <span>Server is not running. Start it from the <a href="{{ url_for('servers.detail', server_id=server.id) }}">server detail page</a> to use the console.</span>
+</div>
+{% endif %}
+
+<div class="console-container" id="terminal-container" style="height: 480px; padding: 4px;"></div>
+
+<div class="console-input-row mt-1">
+    <input type="text" id="cmd-input" placeholder="Type a server command and press Enter..." {% if server.status != 'running' %}disabled{% endif %}>
+    <button class="btn btn-primary" id="cmd-send" {% if server.status != 'running' %}disabled{% endif %}>Send</button>
+</div>
+
+<div class="mt-2 text-muted" style="font-size: 0.8rem;">
+    Commands are sent to the tmux session on the server. Prefix Minecraft commands with <code>/</code> (e.g. <code>/say Hello</code>).
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+<script src="{{ url_for('static', filename='js/console.js') }}"></script>
+<script>
+    initConsole("{{ server.id }}", {{ 'true' if server.status == 'running' else 'false' }});
+</script>
+{% endblock %}

@@ -12,7 +12,7 @@ LXC Containers are cool, but they are certainly not as powerful for many servers
 | Disk size (GiB)        | User Specified                       |
 | Cores                  | User Specified                       |
 | Memory                 | User Specified                       |
-| Bridge                 | PGSM-NET                             |
+| Bridge                 | PGSM                                 |
 | IPv4                   | Lowest available IP                  |
 | DNS Domain             | PGSM.lan                             |
 | DNS Servers            | 1.1.1.1                              |

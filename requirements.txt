@@ -1,5 +1,19 @@
-proxmoxer
+# Web framework
 flask
-dotenv
+flask-sqlalchemy
+flask-socketio
+eventlet
+
+# Proxmox API
+proxmoxer
+
+# HTTP
 requests
-requests_toolbelt # Only needed if file transfers are happening (which they probably will).
+requests_toolbelt
+
+# SSH / SFTP
+paramiko
+cryptography
+
+# Environment
+python-dotenv
