@@ -41,6 +41,18 @@ class SSHManager:
     def get_client(self, ip: str, username: str = 'root') -> paramiko.SSHClient:
         """Returns a connected, authenticated Paramiko SSH client."""
         key_path = current_app.config['SSH_KEY_PATH']
+        # Resolve relative paths against the Flask app root so this works
+        # correctly from background threads regardless of working directory
+        if not os.path.isabs(key_path):
+            key_path = os.path.join(current_app.root_path, '..', key_path)
+        key_path = os.path.normpath(key_path)
+
+        if not os.path.exists(key_path):
+            raise FileNotFoundError(
+                f'SSH private key not found at {key_path}. '
+                f'Has the keypair been generated? (SSH_Key_Path in .env)'
+            )
+
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(
