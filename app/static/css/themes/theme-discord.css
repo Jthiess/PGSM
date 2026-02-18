@@ -1,0 +1,30 @@
+/* Discord Theme — inspired by Discord's dark UI */
+:root {
+    --bg:           #202225;
+    --bg-card:      #2f3136;
+    --bg-input:     #40444b;
+    --bg-hover:     rgba(255,255,255,0.06);
+    --border:       #202225;
+    --radius:       8px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.35);
+    --shadow-card:  0 0 0 1px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.4);
+    --accent:         #5865f2;
+    --accent-hover:   #4752c4;
+    --accent-glow:    rgba(88,101,242,0.3);
+    --accent-danger:     #ed4245;
+    --accent-danger-bg:  rgba(237,66,69,0.15);
+    --accent-success:    #57f287;
+    --accent-success-bg: rgba(87,242,135,0.12);
+    --accent-warning:    #fee75c;
+    --accent-warning-bg: rgba(254,231,92,0.12);
+    --accent-info:       #5865f2;
+    --text:         #dcddde;
+    --text-muted:   #72767d;
+    --text-heading: #ffffff;
+    --font: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #202225;
+    --term-fg:     #dcddde;
+    --term-cursor: #5865f2;
+}

@@ -1,0 +1,30 @@
+/* High Contrast Theme — maximum readability, WCAG AAA compliant */
+:root {
+    --bg:           #000000;
+    --bg-card:      #0a0a0a;
+    --bg-input:     #000000;
+    --bg-hover:     rgba(255,255,255,0.1);
+    --border:       #ffffff;
+    --radius:       4px;
+    --shadow:       0 0 0 2px #ffffff;
+    --shadow-card:  0 0 0 2px #ffffff;
+    --accent:         #ffff00;
+    --accent-hover:   #ffffaa;
+    --accent-glow:    rgba(255,255,0,0.3);
+    --accent-danger:     #ff4444;
+    --accent-danger-bg:  rgba(255,68,68,0.2);
+    --accent-success:    #00ff88;
+    --accent-success-bg: rgba(0,255,136,0.15);
+    --accent-warning:    #ff9900;
+    --accent-warning-bg: rgba(255,153,0,0.15);
+    --accent-info:       #00cfff;
+    --text:         #ffffff;
+    --text-muted:   #cccccc;
+    --text-heading: #ffffff;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #000000;
+    --term-fg:     #ffffff;
+    --term-cursor: #ffff00;
+}

@@ -1,0 +1,30 @@
+/* Dracula Theme — https://draculatheme.com */
+:root {
+    --bg:           #282a36;
+    --bg-card:      #383a59;
+    --bg-input:     #21222c;
+    --bg-hover:     rgba(255,255,255,0.05);
+    --border:       #44475a;
+    --radius:       10px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.35);
+    --accent:         #bd93f9;
+    --accent-hover:   #caa4fa;
+    --accent-glow:    rgba(189,147,249,0.3);
+    --accent-danger:     #ff5555;
+    --accent-danger-bg:  rgba(255,85,85,0.15);
+    --accent-success:    #50fa7b;
+    --accent-success-bg: rgba(80,250,123,0.12);
+    --accent-warning:    #ffb86c;
+    --accent-warning-bg: rgba(255,184,108,0.12);
+    --accent-info:       #8be9fd;
+    --text:         #f8f8f2;
+    --text-muted:   #6272a4;
+    --text-heading: #f8f8f2;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #282a36;
+    --term-fg:     #f8f8f2;
+    --term-cursor: #bd93f9;
+}

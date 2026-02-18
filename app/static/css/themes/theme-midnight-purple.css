@@ -1,0 +1,30 @@
+/* Midnight Purple Theme — black base with vivid purple accents */
+:root {
+    --bg:           #08000f;
+    --bg-card:      #120020;
+    --bg-input:     #0d0018;
+    --bg-hover:     rgba(160,80,255,0.07);
+    --border:       #2e0050;
+    --radius:       10px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.7), 0 4px 16px rgba(100,0,200,0.2);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 12px rgba(100,0,180,0.25);
+    --accent:         #a855f7;
+    --accent-hover:   #c084fc;
+    --accent-glow:    rgba(168,85,247,0.35);
+    --accent-danger:     #f43f5e;
+    --accent-danger-bg:  rgba(244,63,94,0.15);
+    --accent-success:    #22d3a0;
+    --accent-success-bg: rgba(34,211,160,0.12);
+    --accent-warning:    #f59e0b;
+    --accent-warning-bg: rgba(245,158,11,0.12);
+    --accent-info:       #a855f7;
+    --text:         #e2d4f5;
+    --text-muted:   #7c5fa0;
+    --text-heading: #f3e8ff;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #08000f;
+    --term-fg:     #e2d4f5;
+    --term-cursor: #a855f7;
+}

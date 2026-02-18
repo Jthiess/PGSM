@@ -8,22 +8,32 @@
     'use strict';
 
     var THEMES = {
-        'default':           { label: 'PGSM Dark',  swatch: '#4f8ef7' },
-        'light':             { label: 'Light',       swatch: '#0969da' },
-        'nord':              { label: 'Nord',        swatch: '#88c0d0' },
-        'catppuccin-mocha':  { label: 'Catppuccin',  swatch: '#cba6f7' },
-        'gruvbox':           { label: 'Gruvbox',     swatch: '#d79921' }
+        'default':           { label: 'PGSM Dark',        swatch: '#4f8ef7' },
+        'light':             { label: 'Light',             swatch: '#0969da' },
+        'nord':              { label: 'Nord',              swatch: '#88c0d0' },
+        'catppuccin-mocha':  { label: 'Catppuccin',        swatch: '#cba6f7' },
+        'gruvbox':           { label: 'Gruvbox',           swatch: '#d79921' },
+        'discord':           { label: 'Discord',           swatch: '#5865f2' },
+        'midnight-purple':   { label: 'Midnight Purple',   swatch: '#a855f7' },
+        'high-contrast':     { label: 'High Contrast',     swatch: '#ffff00' },
+        'dracula':           { label: 'Dracula',           swatch: '#bd93f9' },
+        'tokyo-night':       { label: 'Tokyo Night',       swatch: '#7aa2f7' }
     };
 
     var STORAGE_KEY = 'pgsm-theme';
 
     // Terminal colour palettes per theme (read by console.js)
     var TERM_THEMES = {
-        'default':          { bg: '#0d1117', fg: '#c9d1d9', cursor: '#4f8ef7' },
-        'light':            { bg: '#1f2328', fg: '#f6f8fa', cursor: '#0969da' },
-        'nord':             { bg: '#2e3440', fg: '#d8dee9', cursor: '#88c0d0' },
-        'catppuccin-mocha': { bg: '#1e1e2e', fg: '#cdd6f4', cursor: '#cba6f7' },
-        'gruvbox':          { bg: '#282828', fg: '#ebdbb2', cursor: '#d79921' }
+        'default':           { bg: '#0d1117', fg: '#c9d1d9', cursor: '#4f8ef7' },
+        'light':             { bg: '#1f2328', fg: '#f6f8fa', cursor: '#0969da' },
+        'nord':              { bg: '#2e3440', fg: '#d8dee9', cursor: '#88c0d0' },
+        'catppuccin-mocha':  { bg: '#1e1e2e', fg: '#cdd6f4', cursor: '#cba6f7' },
+        'gruvbox':           { bg: '#282828', fg: '#ebdbb2', cursor: '#d79921' },
+        'discord':           { bg: '#202225', fg: '#dcddde', cursor: '#5865f2' },
+        'midnight-purple':   { bg: '#08000f', fg: '#e2d4f5', cursor: '#a855f7' },
+        'high-contrast':     { bg: '#000000', fg: '#ffffff', cursor: '#ffff00' },
+        'dracula':           { bg: '#282a36', fg: '#f8f8f2', cursor: '#bd93f9' },
+        'tokyo-night':       { bg: '#1a1b26', fg: '#a9b1d6', cursor: '#7aa2f7' }
     };
 
     /** Return base URL for static files (handles sub-path deployments) */

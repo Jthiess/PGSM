@@ -1,0 +1,30 @@
+/* Tokyo Night Theme — inspired by the popular VS Code theme */
+:root {
+    --bg:           #1a1b26;
+    --bg-card:      #24283b;
+    --bg-input:     #1a1b26;
+    --bg-hover:     rgba(255,255,255,0.04);
+    --border:       #292e42;
+    --radius:       10px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.3);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.35);
+    --accent:         #7aa2f7;
+    --accent-hover:   #89b4fa;
+    --accent-glow:    rgba(122,162,247,0.28);
+    --accent-danger:     #f7768e;
+    --accent-danger-bg:  rgba(247,118,142,0.14);
+    --accent-success:    #9ece6a;
+    --accent-success-bg: rgba(158,206,106,0.12);
+    --accent-warning:    #e0af68;
+    --accent-warning-bg: rgba(224,175,104,0.12);
+    --accent-info:       #2ac3de;
+    --text:         #a9b1d6;
+    --text-muted:   #565f89;
+    --text-heading: #c0caf5;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #1a1b26;
+    --term-fg:     #a9b1d6;
+    --term-cursor: #7aa2f7;
+}
