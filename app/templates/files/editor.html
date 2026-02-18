@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PGSM - Edit: {{ filename }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pgsm.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .editor-toolbar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+            height: 48px;
+        }
+
+        .editor-breadcrumb {
+            flex: 1;
+            color: var(--text-muted);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .editor-breadcrumb span { color: var(--text); }
+
+        .editor-wrap {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .CodeMirror {
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            height: 100%;
+            font-family: var(--mono);
+            font-size: 13px;
+        }
+
+        .editor-statusbar {
+            height: 26px;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            gap: 1.25rem;
+            flex-shrink: 0;
+            font-family: var(--mono);
+        }
+
+        #save-status { margin-left: auto; font-weight: 600; }
+        #save-status.saving { color: var(--accent-warning); }
+        #save-status.saved  { color: var(--accent-success); }
+        #save-status.error  { color: var(--accent-danger); }
+    </style>
+</head>
+<body>
+    <div class="editor-toolbar">
+        <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-secondary btn-sm">&larr; Server</a>
+        <a href="{{ url_for('files.browse', server_id=server.id, remote_path='/'.join(remote_path.split('/')[:-1]) or '/PGSM') }}"
+           class="btn btn-secondary btn-sm">Files</a>
+        <div class="editor-breadcrumb">
+            {{ server.name }} &rsaquo; <span>{{ remote_path }}</span>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-save">Save</button>
+    </div>
+
+    <div class="editor-wrap">
+        <textarea id="editor-content">{{ content | e }}</textarea>
+    </div>
+
+    <div class="editor-statusbar">
+        <span id="status-mode">Text</span>
+        <span id="status-lines">0 lines</span>
+        <span id="status-pos">Ln 1, Col 1</span>
+        <span id="save-status"></span>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/properties/properties.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/yaml/yaml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/toml/toml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.js"></script>
+    <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+    <script>
+        initEditor({{ server.id | tojson }}, {{ remote_path | tojson }});
+    </script>
+</body>
+</html>

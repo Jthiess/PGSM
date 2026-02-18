@@ -82,15 +82,18 @@ class MinecraftService:
 
     def generate_server_properties(self, server) -> str:
         """Generates the content of server.properties for a Minecraft Java server."""
-        return (
-            f"server-port={server.game_port}\n"
-            f"motd={server.motd or 'A PGSM Minecraft Server'}\n"
-            f"view-distance={server.render_distance}\n"
-            f"spawn-protection={server.spawn_protection}\n"
-            f"difficulty={server.difficulty}\n"
-            f"hardcore={'true' if server.hardcore else 'false'}\n"
-            f"online-mode=true\n"
-            f"max-players=20\n"
-            f"enable-rcon=false\n"
-            f"white-list=false\n"
-        )
+        lines = [
+            f"server-port={server.game_port}",
+            f"motd={server.motd or 'A PGSM Minecraft Server'}",
+            f"view-distance={server.render_distance}",
+            f"spawn-protection={server.spawn_protection}",
+            f"difficulty={server.difficulty}",
+            f"hardcore={'true' if server.hardcore else 'false'}",
+            "online-mode=true",
+            "max-players=20",
+            "enable-rcon=false",
+            "white-list=false",
+            "enable-query=true",
+            f"query.port={server.game_port}",
+        ]
+        return "\n".join(lines) + "\n"
