@@ -13,10 +13,20 @@ class ProxmoxService:
     def _get_api(self) -> ProxmoxAPI:
         if self._api is None:
             cfg = current_app.config
+            host = cfg.get('PROXMOX_HOST')
+            user = cfg.get('PROXMOX_USERNAME')
+            password = cfg.get('PROXMOX_PASSWORD')
+
+            missing = [k for k, v in [('Proxmox_Host', host), ('Proxmox_Username', user), ('Proxmox_Password', password)] if not v]
+            if missing:
+                raise RuntimeError(
+                    f"Proxmox connection not configured. Missing from .env: {', '.join(missing)}"
+                )
+
             self._api = ProxmoxAPI(
-                cfg['PROXMOX_HOST'],
-                user=cfg['PROXMOX_USERNAME'],
-                password=cfg['PROXMOX_PASSWORD'],
+                host,
+                user=user,
+                password=password,
                 port=cfg['PROXMOX_PORT'],
                 verify_ssl=False,
             )
@@ -71,21 +81,21 @@ class ProxmoxService:
         gateway = cfg['PGSM_VLAN_GATEWAY']
         template = cfg['PGSM_LXC_TEMPLATE']
 
-        api.nodes(node).lxc.post(
-            vmid=ct_id,
-            ostemplate=template,
-            hostname=hostname,
-            unprivileged=1,
-            cores=cores,
-            memory=memory_mb,
-            rootfs=f'kestrel:{disk_gb}',
-            net0=f'name=eth0,bridge=PGSM,ip={ip}/24,gw={gateway}',
-            nameserver='1.1.1.1',
-            searchdomain='PGSM.lan',
-            ssh_public_keys=pubkey,
-            start=1,
-            password='',
-        )
+        api.nodes(node).lxc.post(**{
+            'vmid': ct_id,
+            'ostemplate': template,
+            'hostname': hostname,
+            'unprivileged': 1,
+            'cores': cores,
+            'memory': memory_mb,
+            'rootfs': f'kestrel:{disk_gb}',
+            'net0': f'name=eth0,bridge=PGSM,ip={ip}/24,gw={gateway}',
+            'nameserver': '1.1.1.1',
+            'searchdomain': 'PGSM.lan',
+            'ssh-public-keys': pubkey,
+            'features': 'nesting=1',
+            'start': 1,
+        })
 
     def start_ct(self, node: str, ct_id: int) -> None:
         self._get_api().nodes(node).lxc(ct_id).status.start.post()

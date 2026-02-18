@@ -88,8 +88,11 @@ def create_server():
         return redirect(url_for('servers.detail', server_id=server.id))
 
     # Provision in background thread
+    # Must capture the app instance here — current_app proxy is invalid inside a new thread
+    app = current_app._get_current_object()
+
     def _provision():
-        with current_app.app_context():
+        with app.app_context():
             from app.services import server_lifecycle
             server_lifecycle.provision_server(server.id)
 

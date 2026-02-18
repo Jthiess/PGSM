@@ -36,7 +36,7 @@ SERVICE_NAME="pgsm"
 print_header() {
     echo ""
     echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}${BOLD}║   Proxmox Game Server Manager Setup     ║${NC}"
+    echo -e "${CYAN}${BOLD}║    Proxmox Game Server Manager Setup     ║${NC}"
     echo -e "${CYAN}${BOLD}║           Controller Node                ║${NC}"
     echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════╝${NC}"
     echo ""
@@ -65,21 +65,34 @@ prompt() {
     local prompt_text="$2"
     local default="$3"
     local secret="$4"
+    local required="$5"   # pass "required" to reject blank input
+    local input=""
 
     if [ -n "$default" ]; then
         prompt_text="$prompt_text [${default}]"
     fi
 
-    if [ "$secret" = "true" ]; then
-        read -rsp "  ${prompt_text}: " input
-        echo ""
-    else
-        read -rp "  ${prompt_text}: " input
-    fi
+    while true; do
+        if [ "$secret" = "true" ]; then
+            read -rsp "  ${prompt_text}: " input
+            echo ""
+        else
+            read -rp "  ${prompt_text}: " input
+        fi
 
-    if [ -z "$input" ] && [ -n "$default" ]; then
-        input="$default"
-    fi
+        # Apply default if blank
+        if [ -z "$input" ] && [ -n "$default" ]; then
+            input="$default"
+        fi
+
+        # Reject blank if required
+        if [ -z "$input" ] && [ "$required" = "required" ]; then
+            print_err "  This field is required — please enter a value."
+            continue
+        fi
+
+        break
+    done
 
     eval "$var_name='$input'"
 }
@@ -101,17 +114,24 @@ fi
 
 print_step "Step 1: Installing system packages"
 
+echo "  Updating package lists..."
 apt-get update -qq
-apt-get install -y -qq \
+
+echo "  Upgrading existing packages..."
+apt-get upgrade -y -qq
+
+echo "  Installing required packages..."
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
     nginx \
+    libnginx-mod-stream \
     git \
     curl \
     wget \
     openssh-client \
-    2>&1 | grep -E '(Setting up|already)' || true
+    rsync
 
 print_ok "System packages installed"
 
@@ -178,10 +198,10 @@ fi
 if [ "$SKIP_ENV" != "true" ]; then
     echo ""
     echo -e "  ${BOLD}Proxmox API connection${NC}"
-    prompt PROXMOX_HOST    "Proxmox host IP or hostname" "10.0.0.3"
-    prompt PROXMOX_PORT    "Proxmox API port" "8006"
-    prompt PROXMOX_USER    "Proxmox username (with realm)" "root@pam"
-    prompt PROXMOX_PASS    "Proxmox password" "" "true"
+    prompt PROXMOX_HOST    "Proxmox host IP or hostname" "10.0.0.3"  ""  "required"
+    prompt PROXMOX_PORT    "Proxmox API port"            "8006"
+    prompt PROXMOX_USER    "Proxmox username (with realm)" "root@pam" "" "required"
+    prompt PROXMOX_PASS    "Proxmox password"            ""           "true" "required"
 
     echo ""
     echo -e "  ${BOLD}PGSM VLAN network${NC}"
@@ -220,8 +240,8 @@ Minecraft_Manifest_Url=https://piston-meta.mojang.com/mc/game/version_manifest.j
 # SSH keypair (generated automatically by PGSM on first run)
 SSH_Key_Path=keys/pgsm_rsa
 
-# Nginx TCP stream config directory
-Nginx_Conf_Dir=/etc/nginx/conf.d
+# Nginx TCP stream config directory (separate dir to avoid mixing with http conf.d)
+Nginx_Conf_Dir=/etc/nginx/pgsm-stream
 
 # PGSM VLAN network
 PGSM_VLAN_Subnet=${VLAN_SUBNET}
@@ -256,6 +276,12 @@ NGINX_CONF="/etc/nginx/nginx.conf"
 PGSM_STREAM_DIR="/etc/nginx/pgsm-stream"
 mkdir -p "$PGSM_STREAM_DIR"
 
+# Verify the stream module is available (provided by libnginx-mod-stream)
+# On Debian/Ubuntu it auto-installs a conf in /etc/nginx/modules-enabled/
+if ! nginx -t 2>&1 | grep -q "unknown directive \"stream\""; then
+    :  # stream module is loaded, nothing to do
+fi
+
 # Check if stream block already exists
 if grep -q "^stream" "$NGINX_CONF" 2>/dev/null; then
     print_ok "nginx stream block already present in $NGINX_CONF"
@@ -279,11 +305,14 @@ if nginx -t 2>/dev/null; then
 else
     print_warn "nginx config test failed — check $NGINX_CONF manually"
     nginx -t
+    print_warn "Common cause: libnginx-mod-stream not installed (should have been installed above)."
+    print_warn "Try: apt-get install -y libnginx-mod-stream && nginx -t && systemctl reload nginx"
 fi
 
 # ── Step 7b: Grant pgsm-ctrl permission to manage nginx ──────────────────────
 
 SUDOERS_FILE="/etc/sudoers.d/pgsm-nginx"
+mkdir -p /etc/sudoers.d
 if [ ! -f "$SUDOERS_FILE" ]; then
     echo "${PGSM_USER} ALL=(root) NOPASSWD: /usr/sbin/nginx -s reload, /usr/sbin/nginx -t" > "$SUDOERS_FILE"
     chmod 440 "$SUDOERS_FILE"

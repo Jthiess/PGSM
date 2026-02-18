@@ -54,7 +54,7 @@ class GameServer(db.Model):
     # Minecraft settings
     motd = db.Column(db.String(256), nullable=True)
     render_distance = db.Column(db.Integer, default=10)
-    spawn_protection = db.Column(db.Integer, default=16)
+    spawn_protection = db.Column(db.Integer, default=0)
     difficulty = db.Column(db.String(16), default='normal')
     hardcore = db.Column(db.Boolean, default=False)
 
