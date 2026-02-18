@@ -108,7 +108,9 @@ def _stream_console(app, server_id: str, ip: str, room: str):
             client = ssh_mgr.get_client(ip)
             socketio.emit('console_output', {'data': '[PGSM] SSH connected. Attaching tmux...\r\n'}, room=room)
             channel = client.invoke_shell(width=220, height=50)
-            channel.send('tmux attach -t PGSM\n')
+            # The tmux session runs as the PGSM user, so root must attach via su.
+            # TMUX_TMPDIR=/tmp must match what the systemd service sets.
+            channel.send('su -s /bin/bash PGSM -c "TMUX_TMPDIR=/tmp tmux attach -t PGSM"\n')
             time.sleep(0.5)
             while True:
                 with _sessions_lock:

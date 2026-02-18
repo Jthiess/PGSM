@@ -120,7 +120,11 @@ def get_live_status(server: GameServer) -> str:
 def send_console_command(server: GameServer, command: str) -> None:
     """Sends a command string to the running tmux session."""
     escaped = command.replace("'", "'\\''")
-    ssh_mgr.exec(server.ip_address, f"tmux send-keys -t {TMUX_SESSION} '{escaped}' Enter")
+    # tmux session is owned by the PGSM user — must run as that user
+    ssh_mgr.exec(
+        server.ip_address,
+        f"su -s /bin/bash PGSM -c \"TMUX_TMPDIR=/tmp tmux send-keys -t {TMUX_SESSION} '{escaped}' Enter\""
+    )
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
