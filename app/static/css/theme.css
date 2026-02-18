@@ -1,37 +1,58 @@
 /*
- * PGSM Theme Configuration
+ * PGSM Theme Configuration — Default (PGSM Dark)
  * ─────────────────────────────────────────────────────────────────────────────
  * Edit the values below to customise the look of PGSM.
  * This file is loaded before pgsm.css so every variable here overrides the
  * built-in defaults automatically.
+ *
+ * To use a preset theme, switch to it via the palette button in the navbar.
+ * Preset themes live in css/themes/
  *
  * Colour format: standard CSS colour values (#hex, rgb(), hsl(), etc.)
  */
 
 :root {
     /* ── Backgrounds ───────────────────────────────────────────────────────── */
-    --bg:           #0f1117;    /* Page / outer background                      */
-    --bg-card:      #1a1d27;    /* Cards, panels, navbar                        */
-    --bg-input:     #12141e;    /* Form input fields                            */
+    --bg:           #0d1117;    /* Page / outer background                      */
+    --bg-card:      #161b22;    /* Cards, panels, navbar                        */
+    --bg-input:     #0d1117;    /* Form input fields                            */
+    --bg-hover:     rgba(255,255,255,0.04); /* Subtle hover tint               */
 
     /* ── Borders & Radius ──────────────────────────────────────────────────── */
-    --border:       #2a2d3e;    /* Borders, dividers                            */
-    --radius:       8px;        /* Global corner radius                         */
+    --border:       #30363d;    /* Borders, dividers                            */
+    --radius:       10px;       /* Global corner radius                         */
+
+    /* ── Shadows ────────────────────────────────────────────────────────────  */
+    --shadow:       0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.3);
 
     /* ── Accent / Brand Colours ────────────────────────────────────────────── */
-    --accent:         #5865f2;  /* Primary blue (buttons, links, active states) */
-    --accent-hover:   #4752c4;  /* Hover state of primary accent                */
-    --accent-danger:  #ed4245;  /* Red  – destructive / error actions           */
-    --accent-success: #57f287;  /* Green – success states                       */
-    --accent-warning: #fee75c;  /* Yellow – warnings                            */
-    --accent-info:    #5865f2;  /* Info messages (defaults to accent)           */
+    --accent:         #4f8ef7;  /* Primary blue (buttons, links, active states) */
+    --accent-hover:   #3b7de8;  /* Hover state of primary accent                */
+    --accent-glow:    rgba(79,142,247,0.25); /* Glow for badges/buttons         */
+
+    --accent-danger:     #f85149; /* Red  – destructive / error actions         */
+    --accent-danger-bg:  rgba(248,81,73,0.12);
+    --accent-success:    #3fb950; /* Green – success states                     */
+    --accent-success-bg: rgba(63,185,80,0.12);
+    --accent-warning:    #d29922; /* Yellow – warnings                          */
+    --accent-warning-bg: rgba(210,153,34,0.12);
+    --accent-info:       #4f8ef7; /* Info messages (defaults to accent)         */
 
     /* ── Text ──────────────────────────────────────────────────────────────── */
-    --text:         #dcddde;    /* Body / primary text                          */
-    --text-muted:   #72767d;    /* Secondary / hint text                        */
-    --text-heading: #ffffff;    /* Headings and card values                     */
+    --text:         #c9d1d9;    /* Body / primary text                          */
+    --text-muted:   #8b949e;    /* Secondary / hint text                        */
+    --text-heading: #f0f6fc;    /* Headings and card values                     */
 
     /* ── Typography ─────────────────────────────────────────────────────────  */
     --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
     --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+
+    /* ── Layout ──────────────────────────────────────────────────────────────  */
+    --nav-height: 58px;
+
+    /* ── Terminal (used by console.js) ───────────────────────────────────────  */
+    --term-bg:     #0d1117;
+    --term-fg:     #c9d1d9;
+    --term-cursor: #4f8ef7;
 }

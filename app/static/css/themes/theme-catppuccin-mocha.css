@@ -1,0 +1,30 @@
+/* Catppuccin Mocha Theme — https://catppuccin.com */
+:root {
+    --bg:           #1e1e2e;
+    --bg-card:      #313244;
+    --bg-input:     #1e1e2e;
+    --bg-hover:     rgba(255,255,255,0.05);
+    --border:       #45475a;
+    --radius:       10px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.3);
+    --accent:         #cba6f7;
+    --accent-hover:   #b4befe;
+    --accent-glow:    rgba(203,166,247,0.25);
+    --accent-danger:     #f38ba8;
+    --accent-danger-bg:  rgba(243,139,168,0.12);
+    --accent-success:    #a6e3a1;
+    --accent-success-bg: rgba(166,227,161,0.12);
+    --accent-warning:    #fab387;
+    --accent-warning-bg: rgba(250,179,135,0.12);
+    --accent-info:       #89dceb;
+    --text:         #cdd6f4;
+    --text-muted:   #9399b2;
+    --text-heading: #cdd6f4;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #1e1e2e;
+    --term-fg:     #cdd6f4;
+    --term-cursor: #cba6f7;
+}

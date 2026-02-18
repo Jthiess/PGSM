@@ -3,15 +3,17 @@
  * Connects to the server's tmux session via SSH → SocketIO bridge.
  */
 function initConsole(serverId, isRunning) {
+    // Use terminal colours from the active PGSM theme (set by theme.js), with fallbacks
+    var termTheme = window.PGSM_TERM_THEME || {};
     const term = new Terminal({
         cursorBlink: true,
         fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
         fontSize: 13,
         scrollback: 5000,
         theme: {
-            background: '#0d0d0d',
-            foreground: '#dcddde',
-            cursor: '#5865f2',
+            background: termTheme.bg     || '#0d1117',
+            foreground: termTheme.fg     || '#c9d1d9',
+            cursor:     termTheme.cursor || '#4f8ef7',
         },
     });
 

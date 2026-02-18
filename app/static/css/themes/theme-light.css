@@ -1,0 +1,30 @@
+/* PGSM Light Theme */
+:root {
+    --bg:           #f6f8fa;
+    --bg-card:      #ffffff;
+    --bg-input:     #f6f8fa;
+    --bg-hover:     rgba(0,0,0,0.04);
+    --border:       #d0d7de;
+    --radius:       10px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.06);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.06);
+    --accent:         #0969da;
+    --accent-hover:   #0550ae;
+    --accent-glow:    rgba(9,105,218,0.2);
+    --accent-danger:     #cf222e;
+    --accent-danger-bg:  rgba(207,34,46,0.08);
+    --accent-success:    #1a7f37;
+    --accent-success-bg: rgba(26,127,55,0.08);
+    --accent-warning:    #9a6700;
+    --accent-warning-bg: rgba(154,103,0,0.08);
+    --accent-info:       #0969da;
+    --text:         #24292f;
+    --text-muted:   #57606a;
+    --text-heading: #1f2328;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #1f2328;
+    --term-fg:     #f6f8fa;
+    --term-cursor: #0969da;
+}

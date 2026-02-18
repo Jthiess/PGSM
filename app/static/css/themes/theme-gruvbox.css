@@ -1,0 +1,30 @@
+/* Gruvbox Dark Theme — https://github.com/morhetz/gruvbox */
+:root {
+    --bg:           #282828;
+    --bg-card:      #3c3836;
+    --bg-input:     #282828;
+    --bg-hover:     rgba(255,255,255,0.05);
+    --border:       #504945;
+    --radius:       10px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.3);
+    --accent:         #d79921;
+    --accent-hover:   #b57614;
+    --accent-glow:    rgba(215,153,33,0.3);
+    --accent-danger:     #cc241d;
+    --accent-danger-bg:  rgba(204,36,29,0.15);
+    --accent-success:    #98971a;
+    --accent-success-bg: rgba(152,151,26,0.15);
+    --accent-warning:    #d65d0e;
+    --accent-warning-bg: rgba(214,93,14,0.15);
+    --accent-info:       #458588;
+    --text:         #ebdbb2;
+    --text-muted:   #a89984;
+    --text-heading: #fbf1c7;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #282828;
+    --term-fg:     #ebdbb2;
+    --term-cursor: #d79921;
+}

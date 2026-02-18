@@ -1,0 +1,30 @@
+/* PGSM Dark (Default) — matches the root theme.css values */
+:root {
+    --bg:           #0d1117;
+    --bg-card:      #161b22;
+    --bg-input:     #0d1117;
+    --bg-hover:     rgba(255,255,255,0.04);
+    --border:       #30363d;
+    --radius:       10px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.3);
+    --accent:         #4f8ef7;
+    --accent-hover:   #3b7de8;
+    --accent-glow:    rgba(79,142,247,0.25);
+    --accent-danger:     #f85149;
+    --accent-danger-bg:  rgba(248,81,73,0.12);
+    --accent-success:    #3fb950;
+    --accent-success-bg: rgba(63,185,80,0.12);
+    --accent-warning:    #d29922;
+    --accent-warning-bg: rgba(210,153,34,0.12);
+    --accent-info:       #4f8ef7;
+    --text:         #c9d1d9;
+    --text-muted:   #8b949e;
+    --text-heading: #f0f6fc;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #0d1117;
+    --term-fg:     #c9d1d9;
+    --term-cursor: #4f8ef7;
+}

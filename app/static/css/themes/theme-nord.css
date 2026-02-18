@@ -1,0 +1,30 @@
+/* Nord Theme — https://www.nordtheme.com */
+:root {
+    --bg:           #2e3440;
+    --bg-card:      #3b4252;
+    --bg-input:     #2e3440;
+    --bg-hover:     rgba(255,255,255,0.05);
+    --border:       #4c566a;
+    --radius:       10px;
+    --shadow:       0 1px 3px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2);
+    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.25);
+    --accent:         #88c0d0;
+    --accent-hover:   #81a1c1;
+    --accent-glow:    rgba(136,192,208,0.25);
+    --accent-danger:     #bf616a;
+    --accent-danger-bg:  rgba(191,97,106,0.15);
+    --accent-success:    #a3be8c;
+    --accent-success-bg: rgba(163,190,140,0.15);
+    --accent-warning:    #ebcb8b;
+    --accent-warning-bg: rgba(235,203,139,0.15);
+    --accent-info:       #88c0d0;
+    --text:         #d8dee9;
+    --text-muted:   #9099a3;
+    --text-heading: #eceff4;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --nav-height: 58px;
+    --term-bg:     #2e3440;
+    --term-fg:     #d8dee9;
+    --term-cursor: #88c0d0;
+}
