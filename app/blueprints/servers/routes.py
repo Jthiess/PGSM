@@ -178,25 +178,83 @@ def update_settings(server_id):
     server.spawn_protection = int(form.get('spawn_protection', server.spawn_protection))
     server.difficulty = form.get('difficulty', server.difficulty)
     server.hardcore = 'hardcore' in form
+
+    # Java/startup settings (Java servers only)
+    if server.game_code == 'MCJAV':
+        jv_raw = form.get('java_version_override', '').strip()
+        server.java_version_override = int(jv_raw) if jv_raw else None
+        server.custom_startup_command = form.get('custom_startup_command', '').strip() or None
+
     db.session.commit()
 
     # Write updated server.properties to the container
+    from app.services.minecraft import MinecraftService
+    from app.services.ssh import SSHManager
+    ssh_mgr = SSHManager()
+    mc_svc = MinecraftService()
+    warnings = []
+
     try:
-        from app.services.minecraft import MinecraftService
-        from app.services.ssh import SSHManager
-        props = MinecraftService().generate_server_properties(server)
-        client, sftp = SSHManager().get_sftp(server.ip_address)
+        props = mc_svc.generate_server_properties(server)
+        client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
             with sftp.file('/PGSM/server.properties', 'w') as f:
                 f.write(props)
         finally:
             sftp.close()
             client.close()
-        flash('Settings saved. Restart the server for changes to take effect.', 'success')
     except Exception as e:
-        flash(f'Settings saved to database but could not write server.properties: {e}', 'warning')
+        warnings.append(f'Could not write server.properties: {e}')
+
+    # Rewrite systemd unit if Java version or startup command changed
+    if server.game_code == 'MCJAV':
+        try:
+            _rewrite_systemd_unit(server, ssh_mgr)
+        except Exception as e:
+            warnings.append(f'Could not update systemd unit: {e}')
+
+    if warnings:
+        flash('Settings saved to database but: ' + '; '.join(warnings), 'warning')
+    else:
+        flash('Settings saved. Restart the server for changes to take effect.', 'success')
 
     return redirect(url_for('servers.detail', server_id=server_id, tab='game-settings'))
+
+
+def _rewrite_systemd_unit(server, ssh_mgr):
+    """Rewrites /etc/systemd/system/PGSM.service on the container to reflect
+    current java_version and custom_startup_command, then reloads systemd."""
+    if server.custom_startup_command:
+        startup_cmd = server.custom_startup_command
+    else:
+        java_dir = f'java{server.java_version}'
+        startup_cmd = f'/opt/java/{java_dir}/bin/java -jar server.jar'
+
+    service_content = (
+        '[Unit]\n'
+        'Description=Proxmox Game Server Manager\n'
+        'After=network.target\n\n'
+        '[Service]\n'
+        'Type=forking\n'
+        'User=PGSM\n'
+        'Group=PGSM\n'
+        'Environment=TERM=xterm-256color\n'
+        'Environment=TMUX_TMPDIR=/tmp\n'
+        f'ExecStart=/usr/bin/tmux new-session -d -c /PGSM -s PGSM "{startup_cmd}"\n'
+        'ExecStop=/usr/bin/tmux kill-session -t PGSM\n'
+        'Restart=on-failure\n'
+        'RemainAfterExit=yes\n\n'
+        '[Install]\n'
+        'WantedBy=multi-user.target\n'
+    )
+    client, sftp = ssh_mgr.get_sftp(server.ip_address)
+    try:
+        with sftp.file('/etc/systemd/system/PGSM.service', 'w') as f:
+            f.write(service_content)
+    finally:
+        sftp.close()
+        client.close()
+    ssh_mgr.exec(server.ip_address, 'systemctl daemon-reload')
 
 
 @bp.route('/<server_id>/delete', methods=['POST'])
@@ -221,9 +279,9 @@ def delete(server_id):
             pass  # HA entry may not exist
 
     try:
-        proxmox.stop_ct(server.proxmox_node, server.ct_id)
+        proxmox.stop_ct(server.proxmox_node, server.ct_id, wait=True)
     except Exception:
-        pass
+        pass  # CT may already be stopped or Proxmox unreachable
 
     try:
         proxmox.delete_ct(server.proxmox_node, server.ct_id)

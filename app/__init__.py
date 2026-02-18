@@ -46,6 +46,10 @@ def _apply_migrations(db):
         "ALTER TABLE game_servers ADD COLUMN extra_ports JSON",
         # v3: ha_enabled column for Proxmox HA registration
         "ALTER TABLE game_servers ADD COLUMN ha_enabled BOOLEAN DEFAULT 0",
+        # v4: java version override (NULL = auto)
+        "ALTER TABLE game_servers ADD COLUMN java_version_override INTEGER",
+        # v5: custom startup command override (NULL = use script default)
+        "ALTER TABLE game_servers ADD COLUMN custom_startup_command VARCHAR(512)",
     ]
 
     with db.engine.connect() as conn:

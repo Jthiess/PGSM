@@ -117,8 +117,25 @@ class ProxmoxService:
     def start_ct(self, node: str, ct_id: int) -> None:
         self._get_api().nodes(node).lxc(ct_id).status.start.post()
 
-    def stop_ct(self, node: str, ct_id: int) -> None:
+    def stop_ct(self, node: str, ct_id: int, wait: bool = False, timeout: int = 60) -> None:
+        """Sends a stop signal to an LXC container.
+
+        If wait=True, blocks until the container reports 'stopped' status or
+        timeout seconds elapse (raises RuntimeError on timeout).
+        """
+        import time
         self._get_api().nodes(node).lxc(ct_id).status.stop.post()
+        if wait:
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                time.sleep(2)
+                try:
+                    status = self._get_api().nodes(node).lxc(ct_id).status.current.get()
+                    if status.get('status') == 'stopped':
+                        return
+                except Exception:
+                    pass
+            raise RuntimeError(f'CT {ct_id} did not stop within {timeout}s')
 
     def delete_ct(self, node: str, ct_id: int) -> None:
         """Permanently deletes an LXC container from Proxmox. Container must be stopped first."""

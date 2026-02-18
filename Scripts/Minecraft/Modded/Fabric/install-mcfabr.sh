@@ -12,6 +12,8 @@ for arg in "$@"; do
     mc_version=*) MC_VERSION="${arg#*=}" ;;
     fabric_version=*) FABRIC_VERSION="${arg#*=}" ;;
     type=*) TYPE="${arg#*=}" ;;
+    java_version=*) JAVA_VERSION="${arg#*=}" ;;
+    startup_command=*) STARTUP_COMMAND="${arg#*=}" ;;
   esac
 done
 
@@ -20,11 +22,25 @@ if [ -z "$SERVERFILELINK" ]; then
     exit 1
 fi
 
+JAVA25_URL="https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jre_x64_linux_hotspot_25.0.2_10.tar.gz"
 JAVA21_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.9%2B10/OpenJDK21U-jre_x64_linux_hotspot_21.0.9_10.tar.gz"
 JAVA17_URL="https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.17%2B10/OpenJDK17U-jre_x64_linux_hotspot_17.0.17_10.tar.gz"
 JAVA16_URL="https://github.com/adoptium/temurin16-binaries/releases/download/jdk-16.0.2%2B7/OpenJDK16U-jdk_x64_linux_hotspot_16.0.2_7.tar.gz"
 JAVA8_URL="https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u472-b08/OpenJDK8U-jre_x64_linux_hotspot_8u472b08.tar.gz"
-STARTUP_COMMAND="/opt/java/java21/bin/java -Xms512M -Xmx2G -XX:+UseG1GC -jar fabric-server-launch.jar --nogui"
+
+# Resolve Java binary path based on version (default: 21)
+case "${JAVA_VERSION:-21}" in
+  8)  JAVA_BIN="/opt/java/java8/bin/java" ;;
+  16) JAVA_BIN="/opt/java/java16/bin/java" ;;
+  17) JAVA_BIN="/opt/java/java17/bin/java" ;;
+  25) JAVA_BIN="/opt/java/java25/bin/java" ;;
+  *)  JAVA_BIN="/opt/java/java21/bin/java" ;;
+esac
+
+# Use custom startup command if provided, else fall back to default
+if [ -z "$STARTUP_COMMAND" ]; then
+  STARTUP_COMMAND="$JAVA_BIN -Xms512M -Xmx2G -XX:+UseG1GC -jar fabric-server-launch.jar --nogui"
+fi
 
 # Step 1: Update and Upgrade
 echo "Running updates..."
@@ -35,6 +51,7 @@ apt upgrade -y
 echo "Installing Java..."
 mkdir -p /opt/java
 cd /opt/java
+wget $JAVA25_URL
 wget $JAVA21_URL
 wget $JAVA17_URL
 wget $JAVA16_URL
@@ -46,6 +63,7 @@ for f in *.tar.gz; do
     tar -xzf "$f"
 done
 rm *.tar.gz
+mv jdk-25* java25
 mv jdk-21* java21
 mv jdk-17* java17
 mv jdk-16* java16

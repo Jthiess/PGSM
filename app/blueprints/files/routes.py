@@ -131,6 +131,31 @@ def delete_file(server_id):
     return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
 
 
+@bp.route('/<server_id>/delete_dir', methods=['POST'])
+def delete_dir(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    remote_path = request.form.get('path', '')
+    parent = '/'.join(remote_path.split('/')[:-1]) or '/PGSM'
+
+    if not remote_path:
+        flash('No path specified.', 'error')
+        return redirect(url_for('files.browse', server_id=server_id))
+
+    # Safety: only allow deletion within /PGSM to prevent accidents
+    if not remote_path.startswith('/PGSM/'):
+        flash('Cannot delete directories outside of /PGSM.', 'error')
+        return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
+
+    try:
+        import shlex
+        ssh_mgr.exec(server.ip_address, f'rm -rf {shlex.quote(remote_path)}')
+        flash(f'Deleted directory {remote_path.split("/")[-1]}.', 'warning')
+    except Exception as e:
+        flash(f'Delete failed: {e}', 'error')
+
+    return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
+
+
 _EDIT_SIZE_LIMIT = 512 * 1024  # 512 KB
 
 

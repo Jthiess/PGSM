@@ -111,7 +111,13 @@
             {% if server.java_version %}
             <div class="detail-field">
                 <div class="detail-field-label">Java Version</div>
-                <div class="detail-field-value">{{ server.java_version }}</div>
+                <div class="detail-field-value">Java {{ server.java_version }}{% if server.java_version_override %} (override){% endif %}</div>
+            </div>
+            {% endif %}
+            {% if server.custom_startup_command %}
+            <div class="detail-field">
+                <div class="detail-field-label">Startup Command</div>
+                <div class="detail-field-value" style="font-family: monospace; font-size: 0.82rem; word-break: break-all;">{{ server.custom_startup_command }}</div>
             </div>
             {% endif %}
         </div>
@@ -156,6 +162,26 @@
                     <label for="hardcore">Hardcore mode</label>
                 </div>
             </div>
+            {% if server.game_code == 'MCJAV' %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="java_version_override">Java Version</label>
+                    <select id="java_version_override" name="java_version_override">
+                        <option value="" {% if not server.java_version_override %}selected{% endif %}>Auto (Java {{ server.java_version }})</option>
+                        {% for jv in [8, 16, 17, 21, 25] %}
+                        <option value="{{ jv }}" {% if server.java_version_override == jv %}selected{% endif %}>Java {{ jv }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="custom_startup_command">Custom Startup Command</label>
+                <input type="text" id="custom_startup_command" name="custom_startup_command"
+                       value="{{ server.custom_startup_command or '' }}"
+                       placeholder="Leave blank to use default (e.g. /opt/java/java21/bin/java -jar server.jar)">
+                <span class="text-muted" style="font-size: 0.78rem;">Overrides the server launch command in the systemd unit. Leave blank for default.</span>
+            </div>
+            {% endif %}
             <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem;">
                 <button type="submit" class="btn btn-primary btn-sm">Save Settings</button>
                 <span class="text-muted" style="font-size: 0.8rem;">

@@ -76,9 +76,16 @@ class MinecraftService:
         return os.path.join(project_root, relative)
 
     def build_install_args(self, server) -> str:
-        """Builds the argument string for install-mcjava.sh from a GameServer instance."""
+        """Builds the argument string for the install script from a GameServer instance."""
+        import shlex
         jar_url = self.get_vanilla_jar_url(server.game_version)
-        return f'serverfilelink={jar_url} type={server.server_type}'
+        args = [f'serverfilelink={jar_url}', f'type={server.server_type}']
+        if server.java_version_override:
+            args.append(f'java_version={server.java_version_override}')
+        if server.custom_startup_command:
+            # Use shlex.quote on the value portion only; the key= prefix has no spaces
+            args.append(f'startup_command={shlex.quote(server.custom_startup_command)}')
+        return ' '.join(args)
 
     def generate_server_properties(self, server) -> str:
         """Generates the content of server.properties for a Minecraft Java server."""

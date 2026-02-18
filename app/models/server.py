@@ -60,6 +60,10 @@ class GameServer(db.Model):
     spawn_protection = db.Column(db.Integer, default=0)
     difficulty = db.Column(db.String(16), default='normal')
     hardcore = db.Column(db.Boolean, default=False)
+    # Java version override (8, 16, 17, 21). NULL = auto-resolve from game_version.
+    java_version_override = db.Column(db.Integer, nullable=True)
+    # Custom startup command override. NULL = use script default.
+    custom_startup_command = db.Column(db.String(512), nullable=True)
 
     # Lifecycle
     status = db.Column(db.String(32), default='creating')  # creating, stopped, running, error
@@ -82,10 +86,16 @@ class GameServer(db.Model):
         return self.id[:8].upper()
 
     @property
-    def java_version(self):
-        """Required Java major version for Minecraft Java servers."""
+    def java_version(self) -> int | None:
+        """Effective Java major version for Minecraft Java servers.
+
+        Returns the user override if set, otherwise auto-resolves from game_version.
+        Returns None for Bedrock servers.
+        """
         if self.game_code != 'MCJAV':
             return None
+        if self.java_version_override:
+            return self.java_version_override
         return _resolve_java_version(self.game_version)
 
     @property

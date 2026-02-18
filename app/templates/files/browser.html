@@ -62,7 +62,15 @@
                     {% endif %}
                 {% endif %}
             </span>
-            {% if not entry.is_dir %}
+            {% if entry.is_dir %}
+            <div class="flex gap-1">
+                <form method="POST" action="{{ url_for('files.delete_dir', server_id=server.id) }}"
+                      onsubmit="return confirm('Delete directory {{ entry.name }} and ALL its contents? This cannot be undone.')" style="display:inline">
+                    <input type="hidden" name="path" value="{{ entry.path }}">
+                    <button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger)">Delete</button>
+                </form>
+            </div>
+            {% else %}
             <div class="flex gap-1">
                 <a href="{{ url_for('files.edit_file', server_id=server.id, path=entry.path) }}"
                    class="btn btn-ghost btn-sm">Edit</a>
