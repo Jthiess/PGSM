@@ -13,9 +13,8 @@ from app.services.ssh import SSHManager
 log = logging.getLogger(__name__)
 ssh_mgr = SSHManager()
 
-# Track active console sessions: server_id -> set of socket sid
-# No threading.Lock needed — eventlet is cooperative/single-threaded
-_active_sessions: dict[str, set] = {}
+# Active console sessions: server_id -> {'sids': set, 'channel': paramiko channel or None}
+_active_sessions: dict[str, dict] = {}
 
 
 @bp.route('/<server_id>')
@@ -30,6 +29,8 @@ def console(server_id):
 def handle_join_console(data):
     try:
         server_id = data.get('server_id')
+        cols = int(data.get('cols', 220))
+        rows = int(data.get('rows', 50))
         sid = flask_request.sid
         room = f'console_{server_id}'
         join_room(room)
@@ -43,39 +44,49 @@ def handle_join_console(data):
             return
 
         ip = server.ip_address
-        # Capture real app object now, while we have a request context.
-        # start_background_task greenlets don't inherit the app context.
         app = current_app._get_current_object()
 
-        already_streaming = server_id in _active_sessions and bool(_active_sessions[server_id])
+        already_streaming = server_id in _active_sessions and bool(_active_sessions[server_id]['sids'])
         if server_id not in _active_sessions:
-            _active_sessions[server_id] = set()
-        _active_sessions[server_id].add(sid)
+            _active_sessions[server_id] = {'sids': set(), 'channel': None}
+        _active_sessions[server_id]['sids'].add(sid)
 
         if not already_streaming:
-            # start_background_task runs as an eventlet greenlet, which is required
-            # for paramiko to work — plain threads deadlock with eventlet's monkey-patching
-            socketio.start_background_task(_stream_console, app, server_id, ip, room)
+            socketio.start_background_task(_stream_console, app, server_id, ip, room, cols, rows)
 
     except Exception as e:
         emit('console_output', {'data': f'\r\n[PGSM] join error: {e}\r\n{traceback.format_exc()}\r\n'})
+
+
+@socketio.on('console_resize')
+def handle_console_resize(data):
+    """Client window was resized — update the pty dimensions."""
+    server_id = data.get('server_id')
+    cols = int(data.get('cols', 220))
+    rows = int(data.get('rows', 50))
+    session = _active_sessions.get(server_id)
+    if session and session['channel']:
+        try:
+            session['channel'].resize_pty(width=cols, height=rows)
+        except Exception:
+            pass
 
 
 @socketio.on('leave_console')
 def handle_leave_console(data):
     server_id = data.get('server_id')
     sid = flask_request.sid
-    room = f'console_{server_id}'
-    leave_room(room)
-    if server_id in _active_sessions:
-        _active_sessions[server_id].discard(sid)
+    leave_room(f'console_{server_id}')
+    session = _active_sessions.get(server_id)
+    if session:
+        session['sids'].discard(sid)
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
     sid = flask_request.sid
-    for server_id in list(_active_sessions.keys()):
-        _active_sessions[server_id].discard(sid)
+    for session in _active_sessions.values():
+        session['sids'].discard(sid)
 
 
 @socketio.on('console_input')
@@ -91,7 +102,7 @@ def handle_console_input(data):
             emit('console_output', {'data': f'\r\n[PGSM] Error sending command: {e}\r\n'})
 
 
-def _stream_console(app, server_id: str, ip: str, room: str):
+def _stream_console(app, server_id: str, ip: str, room: str, cols: int, rows: int):
     """Eventlet greenlet: SSH invoke_shell → attach tmux → stream to SocketIO room."""
     client = None
     try:
@@ -99,13 +110,21 @@ def _stream_console(app, server_id: str, ip: str, room: str):
             socketio.emit('console_output', {'data': f'\r\n[PGSM] Connecting to {ip}...\r\n'}, room=room)
             client = ssh_mgr.get_client(ip)
             socketio.emit('console_output', {'data': '[PGSM] SSH connected. Attaching tmux...\r\n'}, room=room)
-            channel = client.invoke_shell(width=220, height=50)
-            # The tmux session runs as the PGSM user — root must attach via su
-            # TMUX_TMPDIR=/tmp must match what the systemd service sets
+
+            # Open a pty-backed shell sized to match xterm.js exactly
+            channel = client.invoke_shell(term='xterm-256color', width=cols, height=rows)
+            # Store channel so resize events can update it
+            if server_id in _active_sessions:
+                _active_sessions[server_id]['channel'] = channel
+
+            # Attach to the tmux session as the PGSM user
+            # TMUX_TMPDIR=/tmp matches what the systemd service sets
             channel.send('su -s /bin/bash PGSM -c "TMUX_TMPDIR=/tmp tmux attach -t PGSM"\n')
             socketio.sleep(0.5)
+
             while True:
-                if not _active_sessions.get(server_id):
+                session = _active_sessions.get(server_id)
+                if not session or not session['sids']:
                     break
                 if channel.recv_ready():
                     output = channel.recv(4096).decode('utf-8', errors='replace')
@@ -114,6 +133,7 @@ def _stream_console(app, server_id: str, ip: str, room: str):
                     socketio.emit('console_output', {'data': '\r\n[PGSM] SSH channel closed.\r\n'}, room=room)
                     break
                 socketio.sleep(0.05)
+
     except Exception as e:
         log.error('Console stream error for %s: %s', server_id, traceback.format_exc())
         socketio.emit(

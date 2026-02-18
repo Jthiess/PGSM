@@ -5,12 +5,11 @@
 function initConsole(serverId, isRunning) {
     const term = new Terminal({
         cursorBlink: true,
-        rows: 30,
-        cols: 200,
         fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
         fontSize: 13,
+        scrollback: 5000,
         theme: {
-            background: '#000000',
+            background: '#0d0d0d',
             foreground: '#dcddde',
             cursor: '#5865f2',
         },
@@ -21,8 +20,6 @@ function initConsole(serverId, isRunning) {
     term.open(document.getElementById('terminal-container'));
     fitAddon.fit();
 
-    window.addEventListener('resize', () => fitAddon.fit());
-
     if (!isRunning) {
         term.write('\r\n[PGSM] Server is not running. Start the server to use the console.\r\n');
         return;
@@ -30,9 +27,14 @@ function initConsole(serverId, isRunning) {
 
     const socket = io();
 
+    // Get dimensions after fit so we can tell the server the exact pty size
+    function getDimensions() {
+        return { cols: term.cols, rows: term.rows };
+    }
+
     socket.on('connect', function () {
         term.write('\r\n[PGSM] Connecting to server console...\r\n');
-        socket.emit('join_console', { server_id: serverId });
+        socket.emit('join_console', { server_id: serverId, ...getDimensions() });
     });
 
     socket.on('disconnect', function () {
@@ -41,6 +43,12 @@ function initConsole(serverId, isRunning) {
 
     socket.on('console_output', function (data) {
         term.write(data.data);
+    });
+
+    // Sync terminal size to server when browser is resized
+    window.addEventListener('resize', function () {
+        fitAddon.fit();
+        socket.emit('console_resize', { server_id: serverId, ...getDimensions() });
     });
 
     // Send command via input field
