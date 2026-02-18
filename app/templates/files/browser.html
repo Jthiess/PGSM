@@ -63,6 +63,8 @@
             </span>
             {% if not entry.is_dir %}
             <div class="flex gap-1">
+                <a href="{{ url_for('files.edit_file', server_id=server.id, path=entry.path) }}"
+                   class="btn btn-ghost btn-sm">Edit</a>
                 <a href="{{ url_for('files.download', server_id=server.id, path=entry.path) }}"
                    class="btn btn-ghost btn-sm">Download</a>
                 <form method="POST" action="{{ url_for('files.delete_file', server_id=server.id) }}"

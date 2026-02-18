@@ -1,7 +1,7 @@
 import io
 import stat
 
-from flask import render_template, request, redirect, url_for, send_file, flash
+from flask import render_template, request, redirect, url_for, send_file, flash, jsonify
 
 from app.blueprints.files import bp
 from app.models.server import GameServer
@@ -123,3 +123,81 @@ def delete_file(server_id):
         flash(f'Delete failed: {e}', 'error')
 
     return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
+
+
+_EDIT_SIZE_LIMIT = 512 * 1024  # 512 KB
+
+
+@bp.route('/<server_id>/edit')
+def edit_file(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    remote_path = request.args.get('path', '')
+    if not remote_path:
+        flash('No file path specified.', 'error')
+        return redirect(url_for('files.browse', server_id=server_id))
+
+    parent = '/'.join(remote_path.split('/')[:-1]) or '/PGSM'
+
+    try:
+        client, sftp = ssh_mgr.get_sftp(server.ip_address)
+        try:
+            file_stat = sftp.stat(remote_path)
+            if file_stat.st_size > _EDIT_SIZE_LIMIT:
+                flash(
+                    f'File is too large to edit in browser ({file_stat.st_size // 1024} KB). '
+                    'Download it instead.',
+                    'error',
+                )
+                return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
+
+            with sftp.open(remote_path, 'r') as f:
+                raw = f.read()
+        finally:
+            sftp.close()
+            client.close()
+    except Exception as e:
+        flash(f'Could not open file: {e}', 'error')
+        return redirect(url_for('files.browse', server_id=server_id))
+
+    # Reject binary files (null bytes in first 8 KB)
+    if b'\x00' in raw[:8192]:
+        flash('This file appears to be binary and cannot be edited here.', 'error')
+        return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
+
+    try:
+        content = raw.decode('utf-8')
+    except UnicodeDecodeError:
+        flash('File is not valid UTF-8 and cannot be edited here.', 'error')
+        return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
+
+    filename = remote_path.split('/')[-1]
+    return render_template(
+        'files/editor.html',
+        server=server,
+        remote_path=remote_path,
+        filename=filename,
+        content=content,
+    )
+
+
+@bp.route('/<server_id>/save', methods=['POST'])
+def save_file(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    remote_path = request.form.get('path', '')
+    content = request.form.get('content', '')
+
+    if not remote_path:
+        return jsonify({'error': 'No path specified'}), 400
+
+    try:
+        client, sftp = ssh_mgr.get_sftp(server.ip_address)
+        try:
+            with sftp.file(remote_path, 'w') as f:
+                f.write(content)
+        finally:
+            sftp.close()
+            client.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    return jsonify({'ok': True})

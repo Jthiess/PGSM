@@ -517,3 +517,63 @@ input[type="checkbox"] {
 
 .danger-zone h3 { color: var(--accent-danger); margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .danger-zone p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+
+/* ── Monitoring gauges ──────────────────────────────────────────────────── */
+
+.monitor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.monitor-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.monitor-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.monitor-bar-wrap {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+}
+
+.monitor-bar {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent);
+    transition: width 0.6s ease, background 0.4s ease;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.monitor-bar.warn { background: var(--accent-warning); }
+.monitor-bar.crit { background: var(--accent-danger); }
+
+.monitor-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    font-family: var(--mono);
+}
+
+.monitor-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.badge-players {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: var(--mono);
+}

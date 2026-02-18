@@ -11,8 +11,13 @@
             CT {{ server.ct_id }} on {{ server.proxmox_node }}
         </div>
     </div>
-    <div style="display: flex; align-items: center; gap: 1rem;">
+    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
         <span class="badge badge-{{ server.status }}" id="status-badge">{{ server.status }}</span>
+        {% if server.status == 'running' %}
+        <span class="badge-players" id="player-count">
+            <span id="players-online">--</span>/<span id="players-max">--</span> players
+        </span>
+        {% endif %}
         <div class="detail-actions">
             {% if server.status == 'running' %}
                 <form method="POST" action="{{ url_for('servers.stop', server_id=server.id) }}" style="display:inline">
@@ -72,6 +77,7 @@
 <div class="tabs">
     <a class="tab active" data-tab="info" href="#">Info</a>
     <a class="tab" data-tab="game-settings" href="#">Game Settings</a>
+    <a class="tab" data-tab="monitoring" href="#">Monitoring</a>
 </div>
 
 <div id="tab-info" class="tab-panel">
@@ -117,6 +123,41 @@
     </div>
 </div>
 
+<div id="tab-monitoring" class="tab-panel" style="display:none">
+    <div class="card">
+        {% if server.status == 'running' %}
+        <div class="monitor-grid">
+            <div class="monitor-metric">
+                <div class="monitor-label">CPU Usage</div>
+                <div class="monitor-bar-wrap">
+                    <div class="monitor-bar" id="cpu-bar" style="width:0%"></div>
+                </div>
+                <div class="monitor-value" id="cpu-value">--</div>
+            </div>
+            <div class="monitor-metric">
+                <div class="monitor-label">Memory</div>
+                <div class="monitor-bar-wrap">
+                    <div class="monitor-bar" id="mem-bar" style="width:0%"></div>
+                </div>
+                <div class="monitor-value" id="mem-value">-- / -- MB</div>
+            </div>
+            <div class="monitor-metric">
+                <div class="monitor-label">Network I/O</div>
+                <div class="monitor-value" id="net-value">--</div>
+                <div class="monitor-hint">Receive / Transmit rate</div>
+            </div>
+        </div>
+        <div style="margin-top: 0.75rem; font-size: 0.75rem; color: var(--text-muted);" id="metrics-last-updated">
+            Waiting for first update...
+        </div>
+        {% else %}
+        <p class="text-muted" style="font-size: 0.875rem;">
+            Start the server to view live metrics.
+        </p>
+        {% endif %}
+    </div>
+</div>
+
 <div class="danger-zone">
     <h3>Danger Zone</h3>
     <p>Permanently delete this server and its Proxmox container. This cannot be undone.</p>
@@ -158,5 +199,82 @@ if (badge && badge.textContent.trim() === 'creating') {
             .catch(() => {});
     }, 5000);
 }
+
+{% if server.status == 'running' %}
+// Live metrics polling
+(function() {
+    var prevNetRx = null, prevNetTx = null, prevNetTime = null;
+
+    function fmtBytes(b) {
+        if (b === null || b === undefined || isNaN(b)) return '--';
+        if (b < 1024) return b.toFixed(0) + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+        return (b / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function updateBar(barEl, pct) {
+        barEl.style.width = Math.min(pct, 100) + '%';
+        barEl.classList.remove('warn', 'crit');
+        if (pct >= 90) barEl.classList.add('crit');
+        else if (pct >= 70) barEl.classList.add('warn');
+    }
+
+    function pollMetrics() {
+        fetch('/api/servers/{{ server.id }}/metrics')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                // CPU
+                if (data.cpu_percent !== null) {
+                    updateBar(document.getElementById('cpu-bar'), data.cpu_percent);
+                    document.getElementById('cpu-value').textContent = data.cpu_percent.toFixed(1) + '%';
+                }
+
+                // Memory
+                if (data.memory_used_mb !== null && data.memory_total_mb !== null) {
+                    var pct = Math.round(data.memory_used_mb / data.memory_total_mb * 100);
+                    updateBar(document.getElementById('mem-bar'), pct);
+                    document.getElementById('mem-value').textContent =
+                        data.memory_used_mb + ' / ' + data.memory_total_mb + ' MB';
+                }
+
+                // Network rate (delta from previous reading)
+                var now = Date.now();
+                var netEl = document.getElementById('net-value');
+                if (data.net_rx_bytes !== null) {
+                    if (prevNetRx !== null && prevNetTime !== null) {
+                        var dt = (now - prevNetTime) / 1000;
+                        if (dt > 0) {
+                            var rxRate = (data.net_rx_bytes - prevNetRx) / dt;
+                            var txRate = (data.net_tx_bytes - prevNetTx) / dt;
+                            netEl.innerHTML = fmtBytes(rxRate) + '/s &darr;&nbsp;&nbsp;' + fmtBytes(txRate) + '/s &uarr;';
+                        }
+                    } else {
+                        netEl.textContent = 'Measuring...';
+                    }
+                    prevNetRx = data.net_rx_bytes;
+                    prevNetTx = data.net_tx_bytes;
+                    prevNetTime = now;
+                }
+
+                // Player count in header
+                var onlineEl = document.getElementById('players-online');
+                var maxEl = document.getElementById('players-max');
+                if (onlineEl && data.players_online !== null) {
+                    onlineEl.textContent = data.players_online;
+                    maxEl.textContent = data.players_max;
+                }
+
+                // Last updated
+                var lu = document.getElementById('metrics-last-updated');
+                if (lu) lu.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+            })
+            .catch(function() {});
+    }
+
+    pollMetrics();
+    setInterval(pollMetrics, 5000);
+})();
+{% endif %}
 </script>
 {% endblock %}

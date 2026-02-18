@@ -17,3 +17,6 @@ cryptography
 
 # Environment
 python-dotenv
+
+# Minecraft server status
+mcstatus

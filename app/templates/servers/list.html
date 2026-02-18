@@ -19,6 +19,7 @@
                 <th>IP</th>
                 <th>Port</th>
                 <th>Status</th>
+                <th>Players</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -38,6 +39,13 @@
                 <td class="text-mono">{{ server.game_port }}</td>
                 <td>
                     <span class="badge badge-{{ server.status }}" id="status-{{ server.id }}">{{ server.status }}</span>
+                </td>
+                <td class="text-mono text-muted">
+                    {% if server.status == 'running' %}
+                    <span id="players-{{ server.id }}">--</span>
+                    {% else %}
+                    <span style="color: var(--border);">&mdash;</span>
+                    {% endif %}
                 </td>
                 <td>
                     <div class="flex gap-1">
@@ -80,6 +88,25 @@ creating.forEach(function(el) {
                 .catch(() => {});
         }, 5000);
     }
+});
+
+// Poll player counts for running servers (every 30s)
+document.querySelectorAll('[id^="players-"]').forEach(function(el) {
+    var serverId = el.id.replace('players-', '');
+    function fetchPlayers() {
+        fetch('/api/servers/' + serverId + '/metrics')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.players_online !== null) {
+                    el.textContent = data.players_online + '/' + data.players_max;
+                } else {
+                    el.textContent = '--';
+                }
+            })
+            .catch(function() {});
+    }
+    fetchPlayers();
+    setInterval(fetchPlayers, 30000);
 });
 </script>
 {% endblock %}
