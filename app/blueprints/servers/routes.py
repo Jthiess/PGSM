@@ -105,7 +105,8 @@ def create_server():
 @bp.route('/<server_id>')
 def detail(server_id):
     server = GameServer.query.get_or_404(server_id)
-    return render_template('servers/detail.html', server=server)
+    active_tab = request.args.get('tab', 'info')
+    return render_template('servers/detail.html', server=server, active_tab=active_tab)
 
 
 @bp.route('/<server_id>/start', methods=['POST'])
@@ -142,6 +143,38 @@ def restart(server_id):
     except Exception as e:
         flash(f'Restart failed: {e}', 'error')
     return redirect(url_for('servers.detail', server_id=server_id))
+
+
+@bp.route('/<server_id>/settings', methods=['POST'])
+def update_settings(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    form = request.form
+
+    # Update DB fields
+    server.motd = form.get('motd') or None
+    server.render_distance = int(form.get('render_distance', server.render_distance))
+    server.spawn_protection = int(form.get('spawn_protection', server.spawn_protection))
+    server.difficulty = form.get('difficulty', server.difficulty)
+    server.hardcore = 'hardcore' in form
+    db.session.commit()
+
+    # Write updated server.properties to the container
+    try:
+        from app.services.minecraft import MinecraftService
+        from app.services.ssh import SSHManager
+        props = MinecraftService().generate_server_properties(server)
+        client, sftp = SSHManager().get_sftp(server.ip_address)
+        try:
+            with sftp.file('/PGSM/server.properties', 'w') as f:
+                f.write(props)
+        finally:
+            sftp.close()
+            client.close()
+        flash('Settings saved. Restart the server for changes to take effect.', 'success')
+    except Exception as e:
+        flash(f'Settings saved to database but could not write server.properties: {e}', 'warning')
+
+    return redirect(url_for('servers.detail', server_id=server_id, tab='game-settings'))
 
 
 @bp.route('/<server_id>/delete', methods=['POST'])

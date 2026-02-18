@@ -75,12 +75,12 @@
 </div>
 
 <div class="tabs">
-    <a class="tab active" data-tab="info" href="#">Info</a>
-    <a class="tab" data-tab="game-settings" href="#">Game Settings</a>
-    <a class="tab" data-tab="monitoring" href="#">Monitoring</a>
+    <a class="tab {% if active_tab == 'info' %}active{% endif %}" data-tab="info" href="#">Info</a>
+    <a class="tab {% if active_tab == 'game-settings' %}active{% endif %}" data-tab="game-settings" href="#">Game Settings</a>
+    <a class="tab {% if active_tab == 'monitoring' %}active{% endif %}" data-tab="monitoring" href="#">Monitoring</a>
 </div>
 
-<div id="tab-info" class="tab-panel">
+<div id="tab-info" class="tab-panel" {% if active_tab != 'info' %}style="display:none"{% endif %}>
     <div class="card">
         <div class="detail-grid">
             <div class="detail-field">
@@ -113,17 +113,55 @@
     </div>
 </div>
 
-<div id="tab-game-settings" class="tab-panel" style="display:none">
+<div id="tab-game-settings" class="tab-panel" {% if active_tab != 'game-settings' %}style="display:none"{% endif %}>
     <div class="card">
-        <p class="text-muted" style="font-size: 0.875rem;">
-            To change game settings, edit <code>/PGSM/server.properties</code> via the
-            <a href="{{ url_for('files.browse', server_id=server.id) }}">file manager</a>
-            and restart the server.
-        </p>
+        <form method="POST" action="{{ url_for('servers.update_settings', server_id=server.id) }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="motd">MOTD</label>
+                    <input type="text" id="motd" name="motd"
+                           value="{{ server.motd or '' }}"
+                           placeholder="A PGSM Minecraft Server">
+                </div>
+                <div class="form-group">
+                    <label for="difficulty">Difficulty</label>
+                    <select id="difficulty" name="difficulty">
+                        {% for d in ['peaceful', 'easy', 'normal', 'hard'] %}
+                        <option value="{{ d }}" {% if server.difficulty == d %}selected{% endif %}>
+                            {{ d | capitalize }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="render_distance">Render Distance</label>
+                    <input type="number" id="render_distance" name="render_distance"
+                           value="{{ server.render_distance }}" min="2" max="32">
+                </div>
+                <div class="form-group">
+                    <label for="spawn_protection">Spawn Protection</label>
+                    <input type="number" id="spawn_protection" name="spawn_protection"
+                           value="{{ server.spawn_protection }}" min="0" max="100">
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-row">
+                    <input type="checkbox" id="hardcore" name="hardcore"
+                           {% if server.hardcore %}checked{% endif %}>
+                    <label for="hardcore">Hardcore mode</label>
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem;">
+                <button type="submit" class="btn btn-primary btn-sm">Save Settings</button>
+                <span class="text-muted" style="font-size: 0.8rem;">
+                    A server restart is required for changes to take effect.
+                </span>
+            </div>
+        </form>
     </div>
 </div>
 
-<div id="tab-monitoring" class="tab-panel" style="display:none">
+<div id="tab-monitoring" class="tab-panel" {% if active_tab != 'monitoring' %}style="display:none"{% endif %}>
     <div class="card">
         {% if server.status == 'running' %}
         <div class="monitor-grid">
