@@ -90,17 +90,16 @@
 <script>
 // Poll metrics for running servers (2s interval for live updates)
 (function() {
-    var servers = {
-        {% for server in servers %}
-            {% if server.status == 'running' %}
-            '{{ server.id }}': {
-                cpuEl: document.getElementById('cpu-{{ server.id }}'),
-                memEl: document.getElementById('mem-{{ server.id }}'),
-                playersEl: document.getElementById('players-{{ server.id }}')
-            }{% if not loop.last %},{% endif %}
-            {% endif %}
-        {% endfor %}
-    };
+    var servers = {};
+    {% for server in servers %}
+        {% if server.status == 'running' %}
+        servers['{{ server.id }}'] = {
+            cpuEl: document.getElementById('cpu-{{ server.id }}'),
+            memEl: document.getElementById('mem-{{ server.id }}'),
+            playersEl: document.getElementById('players-{{ server.id }}')
+        };
+        {% endif %}
+    {% endfor %}
 
     function fmtBytes(b) {
         if (b === null || b === undefined || isNaN(b)) return '--';

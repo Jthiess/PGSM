@@ -1,23 +1,5 @@
 /* PGSM - Proxmox Game Server Manager Stylesheet */
-
-:root {
-    --bg: #0f1117;
-    --bg-card: #1a1d27;
-    --bg-input: #12141e;
-    --border: #2a2d3e;
-    --accent: #5865f2;
-    --accent-hover: #4752c4;
-    --accent-danger: #ed4245;
-    --accent-success: #57f287;
-    --accent-warning: #fee75c;
-    --accent-info: #5865f2;
-    --text: #dcddde;
-    --text-muted: #72767d;
-    --text-heading: #ffffff;
-    --radius: 8px;
-    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-}
+/* Theme variables (colours, fonts, radius) are defined in theme.css */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 

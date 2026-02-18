@@ -12,7 +12,9 @@ class NginxService:
         return os.path.join(conf_dir, f'pgsm-{server.ct_id}.conf')
 
     def _generate_stream_block(self, server) -> str:
-        """Generates an nginx stream block to TCP-proxy a game server port.
+        """Generates nginx stream blocks to TCP-proxy all of a server's ports.
+
+        One upstream + server block is emitted per port (primary + extra).
 
         NOTE: Requires the controller's nginx.conf to have:
             stream {
@@ -20,16 +22,18 @@ class NginxService:
             }
         This is a one-time manual setup prerequisite.
         """
-        return (
-            f"# PGSM Auto-generated: {server.name} (CT {server.ct_id})\n"
-            f"upstream pgsm_{server.ct_id} {{\n"
-            f"    server {server.ip_address}:{server.game_port};\n"
-            f"}}\n"
-            f"server {{\n"
-            f"    listen {server.game_port};\n"
-            f"    proxy_pass pgsm_{server.ct_id};\n"
-            f"}}\n"
-        )
+        lines = [f"# PGSM Auto-generated: {server.name} (CT {server.ct_id})\n"]
+        for port in server.all_ports:
+            lines.append(
+                f"upstream pgsm_{server.ct_id}_{port} {{\n"
+                f"    server {server.ip_address}:{port};\n"
+                f"}}\n"
+                f"server {{\n"
+                f"    listen {port};\n"
+                f"    proxy_pass pgsm_{server.ct_id}_{port};\n"
+                f"}}\n"
+            )
+        return '\n'.join(lines)
 
     def add_server(self, server) -> None:
         """Writes an nginx conf file for the server and reloads nginx."""

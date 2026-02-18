@@ -1,0 +1,37 @@
+/*
+ * PGSM Theme Configuration
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Edit the values below to customise the look of PGSM.
+ * This file is loaded before pgsm.css so every variable here overrides the
+ * built-in defaults automatically.
+ *
+ * Colour format: standard CSS colour values (#hex, rgb(), hsl(), etc.)
+ */
+
+:root {
+    /* ── Backgrounds ───────────────────────────────────────────────────────── */
+    --bg:           #0f1117;    /* Page / outer background                      */
+    --bg-card:      #1a1d27;    /* Cards, panels, navbar                        */
+    --bg-input:     #12141e;    /* Form input fields                            */
+
+    /* ── Borders & Radius ──────────────────────────────────────────────────── */
+    --border:       #2a2d3e;    /* Borders, dividers                            */
+    --radius:       8px;        /* Global corner radius                         */
+
+    /* ── Accent / Brand Colours ────────────────────────────────────────────── */
+    --accent:         #5865f2;  /* Primary blue (buttons, links, active states) */
+    --accent-hover:   #4752c4;  /* Hover state of primary accent                */
+    --accent-danger:  #ed4245;  /* Red  – destructive / error actions           */
+    --accent-success: #57f287;  /* Green – success states                       */
+    --accent-warning: #fee75c;  /* Yellow – warnings                            */
+    --accent-info:    #5865f2;  /* Info messages (defaults to accent)           */
+
+    /* ── Text ──────────────────────────────────────────────────────────────── */
+    --text:         #dcddde;    /* Body / primary text                          */
+    --text-muted:   #72767d;    /* Secondary / hint text                        */
+    --text-heading: #ffffff;    /* Headings and card values                     */
+
+    /* ── Typography ─────────────────────────────────────────────────────────  */
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}

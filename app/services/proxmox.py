@@ -103,5 +103,9 @@ class ProxmoxService:
     def stop_ct(self, node: str, ct_id: int) -> None:
         self._get_api().nodes(node).lxc(ct_id).status.stop.post()
 
+    def delete_ct(self, node: str, ct_id: int) -> None:
+        """Permanently deletes an LXC container from Proxmox. Container must be stopped first."""
+        self._get_api().nodes(node).lxc(ct_id).delete()
+
     def get_ct_status(self, node: str, ct_id: int) -> dict:
         return self._get_api().nodes(node).lxc(ct_id).status.current.get()

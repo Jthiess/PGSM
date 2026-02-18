@@ -14,6 +14,12 @@ ssh_mgr = SSHManager()
 @bp.route('/<server_id>/<path:remote_path>')
 def browse(server_id, remote_path='/PGSM'):
     server = GameServer.query.get_or_404(server_id)
+
+    # Ensure remote_path always starts with '/' (Flask strips the leading slash
+    # from <path:...> captures, so "/PGSM/logs" becomes "PGSM/logs").
+    if not remote_path.startswith('/'):
+        remote_path = '/' + remote_path
+
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:

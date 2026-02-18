@@ -42,3 +42,15 @@ class Config:
         'PGSM_LXC_Template',
         'kestrel:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst'
     )
+
+    # ── Server Creation Defaults ───────────────────────────────────────────
+    # These values are pre-filled in the create server wizard.
+    # Override any of them in your .env file.
+    SERVER_DEFAULT_DISK_GB       = int(os.getenv('Server_Default_Disk_GB', 20))
+    SERVER_DEFAULT_CORES         = int(os.getenv('Server_Default_Cores', 2))
+    SERVER_DEFAULT_MEMORY_MB     = int(os.getenv('Server_Default_Memory_MB', 2048))
+    SERVER_DEFAULT_GAME_PORT     = int(os.getenv('Server_Default_Game_Port', 25565))
+    SERVER_DEFAULT_RENDER_DIST   = int(os.getenv('Server_Default_Render_Distance', 10))
+    SERVER_DEFAULT_SPAWN_PROT    = int(os.getenv('Server_Default_Spawn_Protection', 16))
+    SERVER_DEFAULT_DIFFICULTY    = os.getenv('Server_Default_Difficulty', 'normal')
+    SERVER_DEFAULT_SERVER_TYPE   = os.getenv('Server_Default_Server_Type', 'vanilla')

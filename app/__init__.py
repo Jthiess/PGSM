@@ -30,5 +30,27 @@ def create_app(config_class=Config):
 
     with app.app_context():
         db.create_all()
+        _apply_migrations(db)
 
     return app
+
+
+def _apply_migrations(db):
+    """Applies lightweight schema migrations for columns added after initial release.
+
+    Uses SQLite's ALTER TABLE ADD COLUMN. Safe to run on every startup — the
+    INSERT OR IGNORE pattern means already-applied changes are skipped.
+    """
+    migrations = [
+        # v2: extra_ports column for multi-port support
+        "ALTER TABLE game_servers ADD COLUMN extra_ports JSON",
+    ]
+
+    with db.engine.connect() as conn:
+        for stmt in migrations:
+            try:
+                conn.execute(db.text(stmt))
+                conn.commit()
+            except Exception:
+                # Column likely already exists; ignore and continue
+                pass

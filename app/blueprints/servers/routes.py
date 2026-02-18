@@ -32,7 +32,18 @@ def create_server():
         except Exception as e:
             flash(f'Could not fetch Minecraft versions: {e}', 'error')
             versions = []
-        return render_template('servers/create.html', nodes=nodes, versions=versions)
+        cfg = current_app.config
+        defaults = {
+            'disk_gb':       cfg['SERVER_DEFAULT_DISK_GB'],
+            'cores':         cfg['SERVER_DEFAULT_CORES'],
+            'memory_mb':     cfg['SERVER_DEFAULT_MEMORY_MB'],
+            'game_port':     cfg['SERVER_DEFAULT_GAME_PORT'],
+            'render_distance': cfg['SERVER_DEFAULT_RENDER_DIST'],
+            'spawn_protection': cfg['SERVER_DEFAULT_SPAWN_PROT'],
+            'difficulty':    cfg['SERVER_DEFAULT_DIFFICULTY'],
+            'server_type':   cfg['SERVER_DEFAULT_SERVER_TYPE'],
+        }
+        return render_template('servers/create.html', nodes=nodes, versions=versions, defaults=defaults)
 
     # POST: validate and kick off provisioning
     form = request.form
@@ -51,6 +62,7 @@ def create_server():
         flash(f'Setup error: {e}', 'error')
         return redirect(url_for('servers.create_server'))
 
+    cfg = current_app.config
     server = GameServer(
         id=server_id,
         name=form.get('name', hostname),
@@ -61,14 +73,14 @@ def create_server():
         proxmox_node=form.get('node'),
         hostname=hostname,
         ip_address=ip,
-        disk_gb=int(form.get('disk_gb', 20)),
-        cores=int(form.get('cores', 2)),
-        memory_mb=int(form.get('memory_mb', 2048)),
-        game_port=int(form.get('game_port', 25565)),
+        disk_gb=int(form.get('disk_gb', cfg['SERVER_DEFAULT_DISK_GB'])),
+        cores=int(form.get('cores', cfg['SERVER_DEFAULT_CORES'])),
+        memory_mb=int(form.get('memory_mb', cfg['SERVER_DEFAULT_MEMORY_MB'])),
+        game_port=int(form.get('game_port', cfg['SERVER_DEFAULT_GAME_PORT'])),
         motd=form.get('motd') or None,
-        render_distance=int(form.get('render_distance', 10)),
-        spawn_protection=int(form.get('spawn_protection', 16)),
-        difficulty=form.get('difficulty', 'normal'),
+        render_distance=int(form.get('render_distance', cfg['SERVER_DEFAULT_RENDER_DIST'])),
+        spawn_protection=int(form.get('spawn_protection', cfg['SERVER_DEFAULT_SPAWN_PROT'])),
+        difficulty=form.get('difficulty', cfg['SERVER_DEFAULT_DIFFICULTY']),
         hardcore='hardcore' in form,
         status='creating',
     )
@@ -189,10 +201,16 @@ def delete(server_id):
     except Exception:
         pass  # Server may already be stopped
 
+    proxmox = ProxmoxService()
     try:
-        ProxmoxService().stop_ct(server.proxmox_node, server.ct_id)
+        proxmox.stop_ct(server.proxmox_node, server.ct_id)
     except Exception:
         pass
+
+    try:
+        proxmox.delete_ct(server.proxmox_node, server.ct_id)
+    except Exception:
+        pass  # CT may not exist or Proxmox unreachable
 
     try:
         NginxService().remove_server(server)

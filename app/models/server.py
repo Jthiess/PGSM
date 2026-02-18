@@ -50,6 +50,8 @@ class GameServer(db.Model):
 
     # Networking
     game_port = db.Column(db.Integer, nullable=False, default=25565)
+    # Additional ports proxied through nginx (stored as JSON array, e.g. [25575, 19132])
+    extra_ports = db.Column(db.JSON, nullable=True, default=list)
 
     # Minecraft settings
     motd = db.Column(db.String(256), nullable=True)
@@ -65,6 +67,14 @@ class GameServer(db.Model):
 
     def __repr__(self):
         return f'<GameServer {self.name} (CT {self.ct_id})>'
+
+    @property
+    def all_ports(self) -> list[int]:
+        """Returns [game_port] + extra_ports (deduped, sorted)."""
+        ports = {self.game_port}
+        if self.extra_ports:
+            ports.update(self.extra_ports)
+        return sorted(ports)
 
     @property
     def partial_uuid(self):

@@ -45,8 +45,8 @@
         <div class="detail-field-value">{{ server.ip_address }}</div>
     </div>
     <div class="detail-field">
-        <div class="detail-field-label">Port</div>
-        <div class="detail-field-value">{{ server.game_port }}</div>
+        <div class="detail-field-label">Ports</div>
+        <div class="detail-field-value">{{ server.all_ports | join(', ') }}</div>
     </div>
     <div class="detail-field">
         <div class="detail-field-label">Cores</div>
@@ -77,6 +77,7 @@
 <div class="tabs">
     <a class="tab {% if active_tab == 'info' %}active{% endif %}" data-tab="info" href="#">Info</a>
     <a class="tab {% if active_tab == 'game-settings' %}active{% endif %}" data-tab="game-settings" href="#">Game Settings</a>
+    <a class="tab {% if active_tab == 'ports' %}active{% endif %}" data-tab="ports" href="#">Ports</a>
     <a class="tab {% if active_tab == 'monitoring' %}active{% endif %}" data-tab="monitoring" href="#">Monitoring</a>
 </div>
 
@@ -158,6 +159,51 @@
                 </span>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="tab-ports" class="tab-panel" {% if active_tab != 'ports' %}style="display:none"{% endif %}>
+    <div class="card">
+        <h3 class="section-title" style="margin-bottom: 0.5rem;">Port Management</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            All ports are proxied via nginx on the controller. The primary port is also used for Minecraft status pings.
+        </p>
+
+        <!-- Port list -->
+        <table style="margin-bottom: 1.25rem;">
+            <thead>
+                <tr>
+                    <th>Port</th>
+                    <th>Type</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="ports-table-body">
+                <tr>
+                    <td class="text-mono">{{ server.game_port }}</td>
+                    <td><span class="badge badge-running" style="font-size: 0.7rem;">Primary</span></td>
+                    <td><span class="text-muted" style="font-size: 0.8rem;">Cannot remove</span></td>
+                </tr>
+                {% for port in server.extra_ports or [] %}
+                <tr id="port-row-{{ port }}">
+                    <td class="text-mono">{{ port }}</td>
+                    <td><span class="badge badge-stopped" style="font-size: 0.7rem;">Extra</span></td>
+                    <td>
+                        <button class="btn btn-ghost btn-sm" style="color: var(--accent-danger);"
+                                onclick="removePort({{ port }})">Remove</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Add port -->
+        <div class="flex gap-1 items-center" style="flex-wrap: wrap;">
+            <input type="number" id="new-port-input" placeholder="Port (1024–65535)"
+                   min="1024" max="65535" style="width: 200px;">
+            <button class="btn btn-primary btn-sm" onclick="addPort()">Add Port</button>
+            <span id="ports-feedback" style="font-size: 0.82rem; color: var(--accent-danger); display:none;"></span>
+        </div>
     </div>
 </div>
 
@@ -323,5 +369,73 @@ if (badge && badge.textContent.trim() === 'creating') {
     setInterval(pollMetrics, 2000);  // Poll every 2 seconds for responsiveness
 })();
 {% endif %}
+
+// Port management
+var SERVER_ID = '{{ server.id }}';
+var PRIMARY_PORT = {{ server.game_port }};
+
+function showPortFeedback(msg, isError) {
+    var el = document.getElementById('ports-feedback');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--accent-danger)' : 'var(--accent-success)';
+    el.style.display = '';
+    setTimeout(function() { el.style.display = 'none'; }, 4000);
+}
+
+function addPort() {
+    var input = document.getElementById('new-port-input');
+    var port = parseInt(input.value, 10);
+    if (!port || port < 1024 || port > 65535) {
+        showPortFeedback('Port must be between 1024 and 65535.', true);
+        return;
+    }
+    fetch('/api/servers/' + SERVER_ID + '/ports/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({port: port}),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { showPortFeedback(data.error, true); return; }
+        input.value = '';
+        // Add row to table
+        var tbody = document.getElementById('ports-table-body');
+        var tr = document.createElement('tr');
+        tr.id = 'port-row-' + port;
+        tr.innerHTML =
+            '<td class="text-mono">' + port + '</td>' +
+            '<td><span class="badge badge-stopped" style="font-size:0.7rem;">Extra</span></td>' +
+            '<td><button class="btn btn-ghost btn-sm" style="color:var(--accent-danger);" ' +
+            'onclick="removePort(' + port + ')">Remove</button></td>';
+        tbody.appendChild(tr);
+        if (data.nginx_warning) {
+            showPortFeedback('Port added, but nginx reload failed: ' + data.nginx_warning, true);
+        } else {
+            showPortFeedback('Port ' + port + ' added.', false);
+        }
+    })
+    .catch(function() { showPortFeedback('Request failed.', true); });
+}
+
+function removePort(port) {
+    if (!confirm('Remove port ' + port + '?')) return;
+    fetch('/api/servers/' + SERVER_ID + '/ports/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({port: port}),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { showPortFeedback(data.error, true); return; }
+        var row = document.getElementById('port-row-' + port);
+        if (row) row.remove();
+        if (data.nginx_warning) {
+            showPortFeedback('Port removed, but nginx reload failed: ' + data.nginx_warning, true);
+        } else {
+            showPortFeedback('Port ' + port + ' removed.', false);
+        }
+    })
+    .catch(function() { showPortFeedback('Request failed.', true); });
+}
 </script>
 {% endblock %}

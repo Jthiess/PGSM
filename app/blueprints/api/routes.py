@@ -1,6 +1,7 @@
 from flask import jsonify, request
 
 from app.blueprints.api import bp
+from app.extensions import db
 from app.models.server import GameServer
 from app.services.ssh import SSHManager
 
@@ -109,3 +110,73 @@ def server_metrics(server_id):
             pass  # Server not yet accepting connections or ping timed out
 
     return jsonify(result)
+
+
+@bp.route('/servers/<server_id>/ports', methods=['GET'])
+def get_ports(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    return jsonify({
+        'game_port': server.game_port,
+        'extra_ports': server.extra_ports or [],
+        'all_ports': server.all_ports,
+    })
+
+
+@bp.route('/servers/<server_id>/ports/add', methods=['POST'])
+def add_port(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    data = request.get_json(silent=True) or {}
+    port = data.get('port')
+
+    if not port or not isinstance(port, int) or not (1024 <= port <= 65535):
+        return jsonify({'error': 'Invalid port number (must be 1024–65535)'}), 400
+
+    if port == server.game_port:
+        return jsonify({'error': 'Port is already the primary game port'}), 400
+
+    extra = list(server.extra_ports or [])
+    if port in extra:
+        return jsonify({'error': 'Port already added'}), 400
+
+    extra.append(port)
+    server.extra_ports = extra
+    db.session.commit()
+
+    # Update nginx config
+    try:
+        from app.services.nginx import NginxService
+        NginxService().add_server(server)
+    except Exception as e:
+        return jsonify({'ok': True, 'nginx_warning': str(e), 'all_ports': server.all_ports})
+
+    return jsonify({'ok': True, 'all_ports': server.all_ports})
+
+
+@bp.route('/servers/<server_id>/ports/remove', methods=['POST'])
+def remove_port(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    data = request.get_json(silent=True) or {}
+    port = data.get('port')
+
+    if not port or not isinstance(port, int):
+        return jsonify({'error': 'Invalid port'}), 400
+
+    if port == server.game_port:
+        return jsonify({'error': 'Cannot remove the primary game port'}), 400
+
+    extra = list(server.extra_ports or [])
+    if port not in extra:
+        return jsonify({'error': 'Port not found'}), 404
+
+    extra.remove(port)
+    server.extra_ports = extra
+    db.session.commit()
+
+    # Update nginx config
+    try:
+        from app.services.nginx import NginxService
+        NginxService().add_server(server)
+    except Exception as e:
+        return jsonify({'ok': True, 'nginx_warning': str(e), 'all_ports': server.all_ports})
+
+    return jsonify({'ok': True, 'all_ports': server.all_ports})
