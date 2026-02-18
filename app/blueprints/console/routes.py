@@ -1,18 +1,21 @@
 import threading
 import time
 
-from flask import render_template
+from flask import render_template, current_app
+from flask import request as flask_request
 from flask_socketio import emit, join_room, leave_room
 
 from app.blueprints.console import bp
-from app.extensions import socketio
+from app.extensions import db, socketio
 from app.models.server import GameServer
 from app.services.ssh import SSHManager
 
 ssh_mgr = SSHManager()
 
-# Track active console sessions: server_id -> set of sid
+# Track active console sessions: server_id -> set of socket sid
 _active_sessions: dict[str, set] = {}
+# Lock to protect _active_sessions from race conditions
+_sessions_lock = threading.Lock()
 
 
 @bp.route('/<server_id>')
@@ -24,6 +27,7 @@ def console(server_id):
 @socketio.on('join_console')
 def handle_join_console(data):
     server_id = data.get('server_id')
+    sid = flask_request.sid
     room = f'console_{server_id}'
     join_room(room)
 
@@ -32,29 +36,42 @@ def handle_join_console(data):
         emit('console_output', {'data': '\r\n[PGSM] Server is not running.\r\n'})
         return
 
-    if server_id not in _active_sessions:
-        _active_sessions[server_id] = set()
+    # Capture app instance for the background thread before adding sid
+    app = current_app._get_current_object()
+
+    with _sessions_lock:
+        already_streaming = server_id in _active_sessions and bool(_active_sessions[server_id])
+        if server_id not in _active_sessions:
+            _active_sessions[server_id] = set()
+        _active_sessions[server_id].add(sid)
 
     # Only start one streaming thread per server
-    if not _active_sessions[server_id]:
+    if not already_streaming:
         threading.Thread(
             target=_stream_console,
-            args=(server_id, server.ip_address, room),
+            args=(app, server_id, server.ip_address, room),
             daemon=True
         ).start()
-
-    from flask import request as flask_request
-    _active_sessions[server_id].add(flask_request.sid)
 
 
 @socketio.on('leave_console')
 def handle_leave_console(data):
     server_id = data.get('server_id')
+    sid = flask_request.sid
     room = f'console_{server_id}'
     leave_room(room)
-    from flask import request as flask_request
-    if server_id in _active_sessions:
-        _active_sessions[server_id].discard(flask_request.sid)
+    with _sessions_lock:
+        if server_id in _active_sessions:
+            _active_sessions[server_id].discard(sid)
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Clean up any console sessions when a client disconnects."""
+    sid = flask_request.sid
+    with _sessions_lock:
+        for server_id in list(_active_sessions.keys()):
+            _active_sessions[server_id].discard(sid)
 
 
 @socketio.on('console_input')
@@ -70,27 +87,37 @@ def handle_console_input(data):
             emit('console_output', {'data': f'\r\n[PGSM] Error sending command: {e}\r\n'})
 
 
-def _stream_console(server_id: str, ip: str, room: str):
+def _stream_console(app, server_id: str, ip: str, room: str):
     """Background thread: SSH invoke_shell → attach tmux → stream to SocketIO room."""
+    client = None
     try:
-        client = ssh_mgr.get_client(ip)
-        channel = client.invoke_shell(width=220, height=50)
-        channel.send('tmux attach -t PGSM\n')
-        time.sleep(0.5)
-        while True:
-            if not _active_sessions.get(server_id):
-                break  # All viewers left
-            if channel.recv_ready():
-                output = channel.recv(4096).decode('utf-8', errors='replace')
-                socketio.emit('console_output', {'data': output}, room=room)
-            if channel.closed:
-                break
-            time.sleep(0.05)
+        with app.app_context():
+            client = ssh_mgr.get_client(ip)
+            channel = client.invoke_shell(width=220, height=50)
+            channel.send('tmux attach -t PGSM\n')
+            time.sleep(0.5)
+            while True:
+                with _sessions_lock:
+                    has_viewers = bool(_active_sessions.get(server_id))
+                if not has_viewers:
+                    break  # All viewers left
+                if channel.recv_ready():
+                    output = channel.recv(4096).decode('utf-8', errors='replace')
+                    socketio.emit('console_output', {'data': output}, room=room)
+                if channel.closed:
+                    break
+                time.sleep(0.05)
     except Exception as e:
-        socketio.emit('console_output', {'data': f'\r\n[PGSM] Connection lost: {e}\r\n'}, room=room)
+        socketio.emit(
+            'console_output',
+            {'data': f'\r\n[PGSM] Connection lost: {e}\r\n'},
+            room=room
+        )
     finally:
-        try:
-            client.close()
-        except Exception:
-            pass
-        _active_sessions.pop(server_id, None)
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
+        with _sessions_lock:
+            _active_sessions.pop(server_id, None)
