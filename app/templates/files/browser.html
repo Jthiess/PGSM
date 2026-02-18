@@ -4,9 +4,14 @@
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">Files &mdash; {{ server.name }}</h1>
-    <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-secondary btn-sm">
-        &larr; Back to Server
-    </a>
+    <div class="flex gap-1">
+        <a href="sftp://root@{{ server.ip_address }}/PGSM" class="btn btn-secondary btn-sm" title="Open in SFTP client (WinSCP, FileZilla, etc.)">
+            Open in SFTP Client
+        </a>
+        <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-secondary btn-sm">
+            &larr; Back to Server
+        </a>
+    </div>
 </div>
 
 <!-- Breadcrumb -->
@@ -48,7 +53,7 @@
                 {% if entry.is_dir %}
                     <a href="{{ url_for('files.browse', server_id=server.id, remote_path=entry.path.lstrip('/')) }}">{{ entry.name }}/</a>
                 {% else %}
-                    {{ entry.name }}
+                    <a href="{{ url_for('files.edit_file', server_id=server.id, path=entry.path) }}">{{ entry.name }}</a>
                 {% endif %}
             </span>
             <span class="file-size">
