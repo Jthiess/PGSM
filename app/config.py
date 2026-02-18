@@ -54,4 +54,4 @@ class Config:
     SERVER_DEFAULT_SPAWN_PROT    = int(os.getenv('Server_Default_Spawn_Protection', 0))
     SERVER_DEFAULT_DIFFICULTY    = os.getenv('Server_Default_Difficulty', 'normal')
     SERVER_DEFAULT_SERVER_TYPE   = os.getenv('Server_Default_Server_Type', 'vanilla')
-    SERVER_DEFAULT_HA_ENABLED    = os.getenv('Server_Default_HA_Enabled', 'false').lower() == 'true'
+    SERVER_DEFAULT_HA_ENABLED    = os.getenv('Server_Default_HA_Enabled', 'true').lower() == 'true'
