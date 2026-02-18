@@ -131,6 +131,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
     curl \
     wget \
     openssh-client \
+    sudo \
     rsync
 
 print_ok "System packages installed"
