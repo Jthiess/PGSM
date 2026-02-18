@@ -239,9 +239,10 @@ if (badge && badge.textContent.trim() === 'creating') {
 }
 
 {% if server.status == 'running' %}
-// Live metrics polling
+// Live metrics polling - 2s interval for responsiveness
 (function() {
-    var prevNetRx = null, prevNetTx = null, prevNetTime = null;
+    var netSamples = [];
+    var MAX_SAMPLES = 5;  // Average last 5 samples (10 seconds at 2s polling)
 
     function fmtBytes(b) {
         if (b === null || b === undefined || isNaN(b)) return '--';
@@ -276,23 +277,31 @@ if (badge && badge.textContent.trim() === 'creating') {
                         data.memory_used_mb + ' / ' + data.memory_total_mb + ' MB';
                 }
 
-                // Network rate (delta from previous reading)
-                var now = Date.now();
+                // Network - average over last N samples for smoother display
                 var netEl = document.getElementById('net-value');
                 if (data.net_rx_bytes !== null) {
-                    if (prevNetRx !== null && prevNetTime !== null) {
-                        var dt = (now - prevNetTime) / 1000;
+                    netSamples.push({
+                        rx: data.net_rx_bytes,
+                        tx: data.net_tx_bytes,
+                        time: Date.now()
+                    });
+
+                    if (netSamples.length > MAX_SAMPLES) {
+                        netSamples.shift();
+                    }
+
+                    if (netSamples.length >= 2) {
+                        var oldest = netSamples[0];
+                        var newest = netSamples[netSamples.length - 1];
+                        var dt = (newest.time - oldest.time) / 1000;
                         if (dt > 0) {
-                            var rxRate = (data.net_rx_bytes - prevNetRx) / dt;
-                            var txRate = (data.net_tx_bytes - prevNetTx) / dt;
-                            netEl.innerHTML = fmtBytes(rxRate) + '/s &darr;&nbsp;&nbsp;' + fmtBytes(txRate) + '/s &uarr;';
+                            var avgRxRate = (newest.rx - oldest.rx) / dt;
+                            var avgTxRate = (newest.tx - oldest.tx) / dt;
+                            netEl.innerHTML = fmtBytes(avgRxRate) + '/s &darr;&nbsp;&nbsp;' + fmtBytes(avgTxRate) + '/s &uarr;';
                         }
                     } else {
                         netEl.textContent = 'Measuring...';
                     }
-                    prevNetRx = data.net_rx_bytes;
-                    prevNetTx = data.net_tx_bytes;
-                    prevNetTime = now;
                 }
 
                 // Player count in header
@@ -305,13 +314,13 @@ if (badge && badge.textContent.trim() === 'creating') {
 
                 // Last updated
                 var lu = document.getElementById('metrics-last-updated');
-                if (lu) lu.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+                if (lu) lu.textContent = 'Updated: ' + new Date().toLocaleTimeString();
             })
             .catch(function() {});
     }
 
     pollMetrics();
-    setInterval(pollMetrics, 5000);
+    setInterval(pollMetrics, 2000);  // Poll every 2 seconds for responsiveness
 })();
 {% endif %}
 </script>

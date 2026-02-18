@@ -27,18 +27,49 @@
 </div>
 
 {% if servers %}
-    <h2 class="section-title">Your Servers</h2>
+    <h2 class="section-title">Running Servers</h2>
+    <div class="server-list-recent">
+        {% for server in servers %}
+            {% if server.status == 'running' %}
+            <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="server-card">
+                <div class="server-card-name">{{ server.name }}</div>
+                <div class="server-card-meta">
+                    {{ server.game_version }} &bull; {{ server.server_type }} &bull; {{ server.ip_address }}
+                </div>
+                <div style="margin-top: 0.5rem; display: flex; gap: 1rem; font-size: 0.8rem;">
+                    <div>
+                        <span style="color: var(--text-muted);">CPU:</span>
+                        <span id="cpu-{{ server.id }}" style="font-weight: 600;">--</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted);">Mem:</span>
+                        <span id="mem-{{ server.id }}" style="font-weight: 600;">--</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted);">Players:</span>
+                        <span id="players-{{ server.id }}" style="font-weight: 600;">--</span>
+                    </div>
+                </div>
+                <span class="badge badge-{{ server.status }}" style="margin-top: 0.5rem; display: inline-block;">{{ server.status }}</span>
+            </a>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    {% if servers|length > 0 %}
+    <h2 class="section-title" style="margin-top: 2rem;">All Servers</h2>
     <div class="server-list-recent">
         {% for server in servers[:12] %}
         <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="server-card">
             <div class="server-card-name">{{ server.name }}</div>
             <div class="server-card-meta">
-                {{ server.game_version }} &bull; {{ server.server_type }} &bull; {{ server.ip_address }}
+                {{ server.game_version }} &bull; {{ server.server_type }}
             </div>
             <span class="badge badge-{{ server.status }}">{{ server.status }}</span>
         </a>
         {% endfor %}
     </div>
+    {% endif %}
     {% if servers|length > 12 %}
     <div class="mt-2">
         <a href="{{ url_for('servers.list_servers') }}" class="btn btn-secondary">View all {{ servers|length }} servers</a>
@@ -53,4 +84,55 @@
         </div>
     </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Poll metrics for running servers (2s interval for live updates)
+(function() {
+    var servers = {
+        {% for server in servers %}
+            {% if server.status == 'running' %}
+            '{{ server.id }}': {
+                cpuEl: document.getElementById('cpu-{{ server.id }}'),
+                memEl: document.getElementById('mem-{{ server.id }}'),
+                playersEl: document.getElementById('players-{{ server.id }}')
+            }{% if not loop.last %},{% endif %}
+            {% endif %}
+        {% endfor %}
+    };
+
+    function fmtBytes(b) {
+        if (b === null || b === undefined || isNaN(b)) return '--';
+        if (b < 1024) return b.toFixed(0) + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+        return (b / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function pollAllMetrics() {
+        Object.keys(servers).forEach(function(serverId) {
+            fetch('/api/servers/' + serverId + '/metrics')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var s = servers[serverId];
+                    if (s.cpuEl && data.cpu_percent !== null) {
+                        s.cpuEl.textContent = data.cpu_percent.toFixed(0) + '%';
+                    }
+                    if (s.memEl && data.memory_used_mb !== null && data.memory_total_mb !== null) {
+                        var pct = Math.round(data.memory_used_mb / data.memory_total_mb * 100);
+                        s.memEl.textContent = pct + '%';
+                    }
+                    if (s.playersEl && data.players_online !== null) {
+                        s.playersEl.textContent = data.players_online + '/' + data.players_max;
+                    }
+                })
+                .catch(function() {});
+        });
+    }
+
+    pollAllMetrics();
+    setInterval(pollAllMetrics, 2000);  // Update every 2 seconds
+})();
+</script>
 {% endblock %}
