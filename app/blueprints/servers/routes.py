@@ -42,6 +42,7 @@ def create_server():
             'spawn_protection': cfg['SERVER_DEFAULT_SPAWN_PROT'],
             'difficulty':    cfg['SERVER_DEFAULT_DIFFICULTY'],
             'server_type':   cfg['SERVER_DEFAULT_SERVER_TYPE'],
+            'ha_enabled':    cfg['SERVER_DEFAULT_HA_ENABLED'],
         }
         return render_template('servers/create.html', nodes=nodes, versions=versions, defaults=defaults)
 
@@ -52,6 +53,7 @@ def create_server():
     server_id = str(uuid.uuid4())
     partial_uuid = server_id[:8].upper()
     hostname = f'PGSM-{game_code}-{partial_uuid}'
+    ha_enabled = 'ha_enabled' in form
 
     try:
         ct_id = proxmox.get_next_ct_id()
@@ -82,6 +84,7 @@ def create_server():
         spawn_protection=int(form.get('spawn_protection', cfg['SERVER_DEFAULT_SPAWN_PROT'])),
         difficulty=form.get('difficulty', cfg['SERVER_DEFAULT_DIFFICULTY']),
         hardcore='hardcore' in form,
+        ha_enabled=ha_enabled,
         status='creating',
     )
     db.session.add(server)
@@ -98,6 +101,13 @@ def create_server():
         db.session.commit()
         flash(f'LXC creation failed: {e}', 'error')
         return redirect(url_for('servers.detail', server_id=server.id))
+
+    # Register with Proxmox HA if requested
+    if ha_enabled:
+        try:
+            proxmox.enable_ha(ct_id)
+        except Exception as e:
+            flash(f'HA registration failed (server still created): {e}', 'warning')
 
     # Provision in background thread
     # Must capture the app instance here — current_app proxy is invalid inside a new thread
@@ -202,6 +212,14 @@ def delete(server_id):
         pass  # Server may already be stopped
 
     proxmox = ProxmoxService()
+
+    # Remove from Proxmox HA before stopping/deleting the CT
+    if server.ha_enabled:
+        try:
+            proxmox.disable_ha(server.ct_id)
+        except Exception:
+            pass  # HA entry may not exist
+
     try:
         proxmox.stop_ct(server.proxmox_node, server.ct_id)
     except Exception:

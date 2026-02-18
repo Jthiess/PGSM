@@ -104,6 +104,10 @@
                 <div class="detail-field-label">Hardcore</div>
                 <div class="detail-field-value">{{ 'Yes' if server.hardcore else 'No' }}</div>
             </div>
+            <div class="detail-field">
+                <div class="detail-field-label">High Availability</div>
+                <div class="detail-field-value">{{ 'Enabled' if server.ha_enabled else 'Disabled' }}</div>
+            </div>
             {% if server.java_version %}
             <div class="detail-field">
                 <div class="detail-field-label">Java Version</div>

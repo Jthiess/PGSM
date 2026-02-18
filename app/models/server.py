@@ -42,6 +42,7 @@ class GameServer(db.Model):
     proxmox_node = db.Column(db.String(64), nullable=False)
     hostname = db.Column(db.String(128), nullable=False)    # PGSM-MCJAV-<PARTIAL_UUID>
     ip_address = db.Column(db.String(45), nullable=False)   # IPv4
+    ha_enabled = db.Column(db.Boolean, default=False)       # Proxmox HA registration
 
     # Resources
     disk_gb = db.Column(db.Integer, nullable=False)

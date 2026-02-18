@@ -44,6 +44,8 @@ def _apply_migrations(db):
     migrations = [
         # v2: extra_ports column for multi-port support
         "ALTER TABLE game_servers ADD COLUMN extra_ports JSON",
+        # v3: ha_enabled column for Proxmox HA registration
+        "ALTER TABLE game_servers ADD COLUMN ha_enabled BOOLEAN DEFAULT 0",
     ]
 
     with db.engine.connect() as conn:

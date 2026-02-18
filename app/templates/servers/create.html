@@ -85,6 +85,17 @@
                 <div class="form-hint">Recommended: 2048 MB minimum</div>
             </div>
         </div>
+        <div class="form-group">
+            <div class="checkbox-row">
+                <input type="checkbox" name="ha_enabled" id="ha_enabled"
+                       {% if defaults.ha_enabled %}checked{% endif %}>
+                <label for="ha_enabled">Enable High Availability</label>
+            </div>
+            <div class="form-hint">
+                Proxmox HA will automatically restart this container on another node if the current node fails.
+                Requires a Proxmox cluster with HA configured.
+            </div>
+        </div>
         <div class="wizard-nav">
             <button type="button" class="btn btn-secondary" onclick="wizardGo(1)">&larr; Back</button>
             <button type="button" class="btn btn-primary" onclick="wizardGo(3)">Next &rarr;</button>

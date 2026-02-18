@@ -94,8 +94,25 @@ class ProxmoxService:
             'searchdomain': 'PGSM.lan',
             'ssh-public-keys': pubkey,
             'features': 'nesting=1',
+            'tags': 'pgsm',
             'start': 1,
         })
+
+    def enable_ha(self, ct_id: int) -> None:
+        """Registers an LXC container with Proxmox HA (no group, state=started).
+
+        Requires the Proxmox cluster to have HA configured. If the cluster has
+        no HA manager running, this will raise an exception.
+        """
+        self._get_api().cluster.ha.resources.post(sid=f'lxc:{ct_id}', state='started')
+
+    def disable_ha(self, ct_id: int) -> None:
+        """Removes an LXC container from Proxmox HA management.
+
+        Safe to call even if HA was never enabled — Proxmox returns 404 which
+        callers should catch and ignore.
+        """
+        self._get_api().cluster.ha.resources(f'lxc:{ct_id}').delete()
 
     def start_ct(self, node: str, ct_id: int) -> None:
         self._get_api().nodes(node).lxc(ct_id).status.start.post()
