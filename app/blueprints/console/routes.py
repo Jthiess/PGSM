@@ -43,17 +43,19 @@ def handle_join_console(data):
             return
 
         ip = server.ip_address
-        already_streaming = server_id in _active_sessions and bool(_active_sessions[server_id])
+        # Capture real app object now, while we have a request context.
+        # start_background_task greenlets don't inherit the app context.
+        app = current_app._get_current_object()
 
+        already_streaming = server_id in _active_sessions and bool(_active_sessions[server_id])
         if server_id not in _active_sessions:
             _active_sessions[server_id] = set()
         _active_sessions[server_id].add(sid)
 
         if not already_streaming:
-            # Use socketio.start_background_task so the greenlet runs inside
-            # eventlet's hub — plain threading.Thread causes paramiko to hang
-            # because eventlet monkey-patches the socket layer.
-            socketio.start_background_task(_stream_console, server_id, ip, room)
+            # start_background_task runs as an eventlet greenlet, which is required
+            # for paramiko to work — plain threads deadlock with eventlet's monkey-patching
+            socketio.start_background_task(_stream_console, app, server_id, ip, room)
 
     except Exception as e:
         emit('console_output', {'data': f'\r\n[PGSM] join error: {e}\r\n{traceback.format_exc()}\r\n'})
@@ -89,28 +91,29 @@ def handle_console_input(data):
             emit('console_output', {'data': f'\r\n[PGSM] Error sending command: {e}\r\n'})
 
 
-def _stream_console(server_id: str, ip: str, room: str):
+def _stream_console(app, server_id: str, ip: str, room: str):
     """Eventlet greenlet: SSH invoke_shell → attach tmux → stream to SocketIO room."""
     client = None
     try:
-        socketio.emit('console_output', {'data': f'\r\n[PGSM] Connecting to {ip}...\r\n'}, room=room)
-        client = ssh_mgr.get_client(ip)
-        socketio.emit('console_output', {'data': '[PGSM] SSH connected. Attaching tmux...\r\n'}, room=room)
-        channel = client.invoke_shell(width=220, height=50)
-        # The tmux session runs as the PGSM user — root must attach via su
-        # TMUX_TMPDIR=/tmp must match what the systemd service sets
-        channel.send('su -s /bin/bash PGSM -c "TMUX_TMPDIR=/tmp tmux attach -t PGSM"\n')
-        socketio.sleep(0.5)
-        while True:
-            if not _active_sessions.get(server_id):
-                break
-            if channel.recv_ready():
-                output = channel.recv(4096).decode('utf-8', errors='replace')
-                socketio.emit('console_output', {'data': output}, room=room)
-            if channel.closed:
-                socketio.emit('console_output', {'data': '\r\n[PGSM] SSH channel closed.\r\n'}, room=room)
-                break
-            socketio.sleep(0.05)
+        with app.app_context():
+            socketio.emit('console_output', {'data': f'\r\n[PGSM] Connecting to {ip}...\r\n'}, room=room)
+            client = ssh_mgr.get_client(ip)
+            socketio.emit('console_output', {'data': '[PGSM] SSH connected. Attaching tmux...\r\n'}, room=room)
+            channel = client.invoke_shell(width=220, height=50)
+            # The tmux session runs as the PGSM user — root must attach via su
+            # TMUX_TMPDIR=/tmp must match what the systemd service sets
+            channel.send('su -s /bin/bash PGSM -c "TMUX_TMPDIR=/tmp tmux attach -t PGSM"\n')
+            socketio.sleep(0.5)
+            while True:
+                if not _active_sessions.get(server_id):
+                    break
+                if channel.recv_ready():
+                    output = channel.recv(4096).decode('utf-8', errors='replace')
+                    socketio.emit('console_output', {'data': output}, room=room)
+                if channel.closed:
+                    socketio.emit('console_output', {'data': '\r\n[PGSM] SSH channel closed.\r\n'}, room=room)
+                    break
+                socketio.sleep(0.05)
     except Exception as e:
         log.error('Console stream error for %s: %s', server_id, traceback.format_exc())
         socketio.emit(
