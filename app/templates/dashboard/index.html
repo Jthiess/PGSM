@@ -39,7 +39,7 @@
                 <div style="margin-top: 0.5rem; display: flex; gap: 1rem; font-size: 0.8rem;">
                     <div>
                         <span style="color: var(--text-muted);">CPU:</span>
-                        <span id="cpu-{{ server.id }}" style="font-weight: 600;">--</span>
+                        <span id="cpu-{{ server.id }}" style="color: var(--accent); font-weight: 600;">--</span>
                     </div>
                     <div>
                         <span style="color: var(--text-muted);">Mem:</span>
@@ -47,7 +47,7 @@
                     </div>
                     <div>
                         <span style="color: var(--text-muted);">Players:</span>
-                        <span id="players-{{ server.id }}" style="font-weight: 600;">--</span>
+                        <span id="players-{{ server.id }}" style="color: var(--accent); font-weight: 600;">--</span>
                     </div>
                 </div>
                 <span class="badge badge-{{ server.status }}" style="margin-top: 0.5rem; display: inline-block;">{{ server.status }}</span>
