@@ -5,9 +5,11 @@
 <div class="page-header">
     <h1 class="page-title">Files &mdash; {{ server.name }}</h1>
     <div class="flex gap-1">
-        <a href="sftp://root@{{ server.ip_address }}/PGSM" class="btn btn-secondary btn-sm" title="Open in SFTP client (WinSCP, FileZilla, etc.)">
-            Open in SFTP Client
-        </a>
+        {% if controller_ssh_host %}
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('sftp-info-{{ server.id }}').showModal()">
+            SFTP Connection Info
+        </button>
+        {% endif %}
         <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-secondary btn-sm">
             &larr; Back to Server
         </a>
@@ -98,4 +100,23 @@
     </div>
     {% endif %}
 </div>
+
+{% if controller_ssh_host %}
+<dialog id="sftp-info-{{ server.id }}" style="border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); color: var(--text); padding: 1.5rem; max-width: 560px; width: 100%;">
+    <h3 style="margin-top:0">SFTP Connection Info &mdash; {{ server.name }}</h3>
+    <p>Add the following to <code>~/.ssh/config</code> on your machine, then connect with any SFTP client:</p>
+    <pre style="background: var(--bg-input, #111); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; overflow-x: auto; font-size: 0.85rem;">Host pgsm-{{ server.id }}
+    HostName {{ server.ip_address }}
+    User root
+    ProxyJump root@{{ controller_ssh_host }}{% if controller_ssh_port != 22 %}:{{ controller_ssh_port }}{% endif %}
+    IdentityFile ~/.ssh/pgsm_rsa</pre>
+    <p>Copy the key from <code>keys/pgsm_rsa</code> on the controller to <code>~/.ssh/pgsm_rsa</code> on your machine (chmod 600).</p>
+    <p>Then connect:</p>
+    <pre style="background: var(--bg-input, #111); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; overflow-x: auto; font-size: 0.85rem;">sftp pgsm-{{ server.id }}:/PGSM</pre>
+    <p style="color: var(--text-muted); font-size: 0.85rem;">WinSCP / FileZilla: set Host = <code>{{ server.ip_address }}</code>, SSH tunnel gateway = <code>{{ controller_ssh_host }}</code> port <code>{{ controller_ssh_port }}</code>.</p>
+    <div style="text-align:right; margin-top:1rem">
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('sftp-info-{{ server.id }}').close()">Close</button>
+    </div>
+</dialog>
+{% endif %}
 {% endblock %}
