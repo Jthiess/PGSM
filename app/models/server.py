@@ -87,6 +87,21 @@ class GameServer(db.Model):
             ports.update(self.extra_ports)
         return sorted(ports)
 
+    @classmethod
+    def port_in_use_by(cls, port: int, exclude_id: str = None) -> 'GameServer | None':
+        """Returns the first server using *port* (as game_port or extra port), or None if free.
+
+        Pass exclude_id to skip a specific server (e.g. the server being edited).
+        """
+        for s in cls.query.all():
+            if exclude_id and s.id == exclude_id:
+                continue
+            if s.game_port == port:
+                return s
+            if s.extra_ports and port in s.extra_ports:
+                return s
+        return None
+
     @property
     def partial_uuid(self):
         return self.id[:8].upper()

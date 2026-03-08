@@ -1,4 +1,5 @@
 from flask import jsonify, request
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.blueprints.api import bp
 from app.extensions import db
@@ -177,8 +178,13 @@ def add_port(server_id):
     if port in extra:
         return jsonify({'error': 'Port already added'}), 400
 
+    conflict = GameServer.port_in_use_by(port, exclude_id=server_id)
+    if conflict:
+        return jsonify({'error': f'Port {port} is already in use by server "{conflict.name}"'}), 400
+
     extra.append(port)
     server.extra_ports = extra
+    flag_modified(server, 'extra_ports')
     db.session.commit()
 
     # Update nginx config
@@ -209,6 +215,7 @@ def remove_port(server_id):
 
     extra.remove(port)
     server.extra_ports = extra
+    flag_modified(server, 'extra_ports')
     db.session.commit()
 
     # Update nginx config

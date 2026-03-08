@@ -18,8 +18,10 @@ class NginxService:
 
         NOTE: Requires the controller's nginx.conf to have:
             stream {
-                include /etc/nginx/conf.d/*.conf;
+                include /etc/nginx/stream.d/*.conf;
             }
+        Use a dedicated stream.d directory (not conf.d) to avoid conflicts
+        with the http {} block that typically includes conf.d.
         This is a one-time manual setup prerequisite.
         """
         lines = [f"# PGSM Auto-generated: {server.name} (CT {server.ct_id})\n"]
@@ -51,8 +53,18 @@ class NginxService:
             self._reload_nginx()
 
     def _reload_nginx(self) -> None:
-        # Try direct reload first (works when running as root).
-        # Fall back to sudo, which the setup script grants via /etc/sudoers.d/pgsm-nginx.
+        # Test config first so errors are descriptive rather than silent.
+        for cmd in (['nginx', '-t'], ['sudo', 'nginx', '-t']):
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                break
+        else:
+            raise RuntimeError(
+                f'nginx config test failed: {result.stderr.strip() or result.stdout.strip()}'
+            )
+
+        # Reload — try direct first (works when running as root),
+        # fall back to sudo granted via /etc/sudoers.d/pgsm-nginx.
         for cmd in (['nginx', '-s', 'reload'], ['sudo', 'nginx', '-s', 'reload']):
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode == 0:

@@ -27,8 +27,9 @@ class Config:
     # SSH keypair
     SSH_KEY_PATH = os.getenv('SSH_Key_Path', 'keys/pgsm_rsa')
 
-    # Nginx
-    NGINX_CONF_DIR = os.getenv('Nginx_Conf_Dir', '/etc/nginx/conf.d')
+    # Nginx — must be included inside the stream {} block in nginx.conf:
+    #   stream { include /etc/nginx/stream.d/*.conf; }
+    NGINX_CONF_DIR = os.getenv('Nginx_Conf_Dir', '/etc/nginx/stream.d')
 
     # PGSM VLAN network
     PGSM_VLAN_SUBNET = os.getenv('PGSM_VLAN_Subnet', '172.16.0.0/24')

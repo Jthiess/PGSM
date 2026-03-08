@@ -81,6 +81,14 @@ def create_server():
         flash(f'Setup error: {e}', 'error')
         return redirect(url_for('servers.create_server'))
 
+    game_port = int(form.get('game_port', cfg['SERVER_DEFAULT_GAME_PORT']))
+    port_conflict = GameServer.port_in_use_by(game_port)
+    if port_conflict:
+        if import_archive_path and os.path.exists(import_archive_path):
+            os.remove(import_archive_path)
+        flash(f'Port {game_port} is already in use by server "{port_conflict.name}".', 'error')
+        return redirect(url_for('servers.create_server'))
+
     cfg = current_app.config
     # Import servers don't have a meaningful MC version; use 'import' as sentinel
     game_version = 'import' if server_type == 'import' else form.get('game_version', 'latest')
@@ -98,7 +106,7 @@ def create_server():
         disk_gb=int(form.get('disk_gb', cfg['SERVER_DEFAULT_DISK_GB'])),
         cores=int(form.get('cores', cfg['SERVER_DEFAULT_CORES'])),
         memory_mb=int(form.get('memory_mb', cfg['SERVER_DEFAULT_MEMORY_MB'])),
-        game_port=int(form.get('game_port', cfg['SERVER_DEFAULT_GAME_PORT'])),
+        game_port=game_port,
         motd=form.get('motd') or None,
         render_distance=int(form.get('render_distance', cfg['SERVER_DEFAULT_RENDER_DIST'])),
         spawn_protection=int(form.get('spawn_protection', cfg['SERVER_DEFAULT_SPAWN_PROT'])),
