@@ -115,11 +115,18 @@ def start_server(server: GameServer) -> None:
 
 
 def stop_server(server: GameServer) -> None:
+    """Stops the Minecraft server process via systemd. The container keeps running."""
+    ssh_mgr.exec(server.ip_address, f'systemctl stop {SYSTEMD_UNIT}')
+    _set_status(server, 'stopped')
+
+
+def power_off_server(server: GameServer) -> None:
+    """Stops the Minecraft process (best-effort) then powers off the LXC container."""
     from app.services.proxmox import ProxmoxService
     try:
         ssh_mgr.exec(server.ip_address, f'systemctl stop {SYSTEMD_UNIT}')
     except Exception:
-        pass  # CT may be unreachable; stop it anyway
+        pass  # CT may be unreachable
     ProxmoxService().stop_ct(server.proxmox_node, server.ct_id)
     _set_status(server, 'stopped')
 

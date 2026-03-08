@@ -186,16 +186,8 @@ def stop(server_id):
 def power_off(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
-    from app.services.proxmox import ProxmoxService
-
     try:
-        server_lifecycle.stop_server(server)
-    except Exception:
-        pass  # Server process may already be stopped
-
-    proxmox = ProxmoxService()
-    try:
-        proxmox.stop_ct(server.proxmox_node, server.ct_id)
+        server_lifecycle.power_off_server(server)
         flash('Container powered off.', 'success')
     except Exception as e:
         flash(f'Power off failed: {e}', 'error')
