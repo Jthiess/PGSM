@@ -12,7 +12,7 @@
     <div class="wizard-step-indicator" id="step-ind-3"><span class="step-num">3</span> Settings</div>
 </div>
 
-<form method="POST" action="{{ url_for('servers.create_server') }}" id="create-form">
+<form method="POST" action="{{ url_for('servers.create_server') }}" id="create-form" enctype="multipart/form-data">
 
     <!-- Step 1: Game type + version -->
     <div class="wizard-panel active card" id="panel-1">
@@ -65,14 +65,13 @@
             </div>
         </div>
 
-        <!-- Import: archive URL -->
+        <!-- Import: archive upload -->
         <div class="form-group" id="import-options" style="display:none">
-            <label for="import_archive_url">Server Archive URL</label>
-            <input type="url" name="import_archive_url" id="import_archive_url"
-                   placeholder="https://example.com/my-server.tar.gz">
+            <label for="import_archive">Server Archive (.zip)</label>
+            <input type="file" name="import_archive" id="import_archive" accept=".zip">
             <div class="form-hint">
-                Direct download URL to a <strong>.zip</strong> or <strong>.tar.gz</strong> archive containing your server folder.
-                The archive will be downloaded and extracted to <code>/PGSM/</code> inside the container.
+                Upload a <strong>.zip</strong> archive containing your server folder.
+                If the zip contains a single top-level subfolder, its contents will automatically be moved up to <code>/PGSM/</code>.
             </div>
         </div>
 

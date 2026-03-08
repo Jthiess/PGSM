@@ -1,3 +1,5 @@
+import os
+
 from flask import render_template, request, redirect, url_for, flash, current_app
 from app.blueprints.servers import bp
 from app.models.server import GameServer
@@ -42,15 +44,31 @@ def create_server():
     server_type = form.get('server_type', 'vanilla')
     game_code = 'MCBED' if server_type == 'bedrock' else 'MCJAV'
 
-    # Import type requires a startup command
-    if server_type == 'import' and not form.get('custom_startup_command', '').strip():
-        flash('A startup command is required for imported servers.', 'error')
-        return redirect(url_for('servers.create_server'))
+    # Import type requires a startup command and a zip file
+    if server_type == 'import':
+        if not form.get('custom_startup_command', '').strip():
+            flash('A startup command is required for imported servers.', 'error')
+            return redirect(url_for('servers.create_server'))
+        import_file = request.files.get('import_archive')
+        if not import_file or not import_file.filename:
+            flash('A .zip archive is required for imported servers.', 'error')
+            return redirect(url_for('servers.create_server'))
+        if not import_file.filename.lower().endswith('.zip'):
+            flash('Only .zip archives are supported for import.', 'error')
+            return redirect(url_for('servers.create_server'))
 
     server_id = str(uuid.uuid4())
     partial_uuid = server_id[:8].upper()
     hostname = f'PGSM-{game_code}-{partial_uuid}'
     ha_enabled = 'ha_enabled' in form
+
+    # Save uploaded zip before any error that would redirect, so we have the path ready
+    import_archive_path = None
+    if server_type == 'import':
+        uploads_dir = os.path.join(current_app.instance_path, 'uploads')
+        os.makedirs(uploads_dir, exist_ok=True)
+        import_archive_path = os.path.join(uploads_dir, f'{server_id}.zip')
+        import_file.save(import_archive_path)
 
     try:
         ct_id = proxmox.get_next_ct_id()
@@ -58,6 +76,8 @@ def create_server():
         used_ips = [s.ip_address for s in GameServer.query.all()]
         ip = proxmox.get_next_ip(used_ips)
     except Exception as e:
+        if import_archive_path and os.path.exists(import_archive_path):
+            os.remove(import_archive_path)
         flash(f'Setup error: {e}', 'error')
         return redirect(url_for('servers.create_server'))
 
@@ -89,7 +109,7 @@ def create_server():
         # Modded / import fields
         fabric_loader_version=form.get('fabric_loader_version', '').strip() or None,
         forge_version=form.get('forge_version', '').strip() or None,
-        import_archive_url=form.get('import_archive_url', '').strip() or None,
+        import_archive_url=import_archive_path,  # local path to uploaded zip
         custom_startup_command=form.get('custom_startup_command', '').strip() or None,
     )
     db.session.add(server)
@@ -104,6 +124,8 @@ def create_server():
     except Exception as e:
         server.status = 'error'
         db.session.commit()
+        if import_archive_path and os.path.exists(import_archive_path):
+            os.remove(import_archive_path)
         flash(f'LXC creation failed: {e}', 'error')
         return redirect(url_for('servers.detail', server_id=server.id))
 

@@ -5,6 +5,7 @@ All operations that control game server state: provisioning, start, stop,
 restart, console command sending, and status queries.
 """
 import io
+import os
 import time
 
 from app.extensions import db
@@ -54,6 +55,21 @@ def provision_server(server_id: str) -> None:
     except Exception as e:
         _set_status(server, 'error')
         raise RuntimeError(f'Script upload failed: {e}') from e
+
+    # Step 2b: For import servers, upload the zip archive to the container
+    if server.server_type == 'import' and server.import_archive_url:
+        local_zip = server.import_archive_url  # stored as local host path
+        try:
+            ssh_mgr.upload_script(ip, local_zip, '/tmp/server-archive.zip')
+        except Exception as e:
+            _set_status(server, 'error')
+            raise RuntimeError(f'Archive upload failed: {e}') from e
+        finally:
+            # Clean up local zip regardless of upload success
+            try:
+                os.remove(local_zip)
+            except OSError:
+                pass
 
     # Step 3: Execute install script
     try:

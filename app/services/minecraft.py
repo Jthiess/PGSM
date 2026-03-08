@@ -120,7 +120,9 @@ class MinecraftService:
         if server.server_type == 'import':
             if not server.import_archive_url:
                 raise ValueError('import_archive_url is required for import server type')
-            args.append(f'archive_url={shlex.quote(server.import_archive_url)}')
+            # import_archive_url holds the local host path; the file will be
+            # uploaded to /tmp/server-archive.zip on the container by provision_server()
+            args.append('archive_path=/tmp/server-archive.zip')
 
         elif server.server_type == 'forge':
             forge_url = self.get_forge_installer_url(server.game_version, server.forge_version)

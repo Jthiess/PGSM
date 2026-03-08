@@ -8,14 +8,14 @@
 # Variables
 for arg in "$@"; do
   case $arg in
-    archive_url=*) ARCHIVE_URL="${arg#*=}" ;;
+    archive_path=*) ARCHIVE_PATH="${arg#*=}" ;;
     java_version=*) JAVA_VERSION="${arg#*=}" ;;
     startup_command=*) STARTUP_COMMAND="${arg#*=}" ;;
   esac
 done
 
-if [ -z "$ARCHIVE_URL" ]; then
-    echo "ERROR: archive_url argument is required."
+if [ -z "$ARCHIVE_PATH" ]; then
+    echo "ERROR: archive_path argument is required."
     exit 1
 fi
 
@@ -66,15 +66,15 @@ mv jdk-17* java17
 mv jdk-16* java16
 mv jdk8* java8
 
-# Step 4: Download server archive
-echo "Downloading server archive..."
-apt install -y wget curl file unzip
+# Step 4: Prepare server archive
+echo "Preparing server archive..."
+apt install -y file unzip
 mkdir -p /PGSM
-cd /PGSM
-wget "$ARCHIVE_URL" -O server-archive
+cp "$ARCHIVE_PATH" /PGSM/server-archive
 
 # Step 5: Detect format and extract
 echo "Extracting server archive..."
+cd /PGSM
 FILETYPE=$(file server-archive)
 if echo "$FILETYPE" | grep -qi "Zip"; then
     unzip -o server-archive
