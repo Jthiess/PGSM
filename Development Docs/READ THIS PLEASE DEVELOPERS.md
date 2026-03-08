@@ -14,8 +14,9 @@ This document is the definitive technical reference for the PGSM codebase. Read 
 - [LXC Container Configuration](#lxc-container-configuration)
 - [High Availability Integration](#high-availability-integration)
 - [Proxmox Tagging](#proxmox-tagging)
-- [Game Codes](#game-codes)
+- [Game Codes and Server Types](#game-codes-and-server-types)
 - [Java Version Matrix](#java-version-matrix)
+- [Install Script Arguments](#install-script-arguments)
 - [Nginx TCP Proxying](#nginx-tcp-proxying)
 - [Console Connection Model](#console-connection-model)
 - [API Endpoints](#api-endpoints)
@@ -58,8 +59,8 @@ app/
 ├── config.py             # Config class — all .env vars loaded here, nowhere else
 ├── extensions.py         # db, socketio singletons (avoids circular imports)
 ├── models/
-│   ├── server.py         # GameServer — the primary DB model
-│   └── node.py           # ProxmoxNode — cached node info (rarely used)
+│   ├── __init__.py       # Exports GameServer
+│   └── server.py         # GameServer — the primary DB model
 ├── blueprints/
 │   ├── dashboard/        # GET / → dashboard with stats and server list
 │   ├── servers/          # /servers/ — CRUD, start/stop/restart/delete, settings
@@ -70,7 +71,7 @@ app/
 │   ├── proxmox.py        # ProxmoxService — create/delete/start/stop LXC, HA registration
 │   ├── ssh.py            # SSHManager — keypair management, exec, SFTP
 │   ├── nginx.py          # NginxService — write/reload/remove nginx stream conf files
-│   ├── minecraft.py      # MinecraftService — Mojang version API + install script args
+│   ├── minecraft.py      # MinecraftService — Mojang/Forge/Fabric APIs + install script args
 │   └── server_lifecycle.py  # provision/start/stop/restart/status — orchestrates all services
 ├── templates/            # Jinja2 templates, all extend base.html
 │   ├── base.html         # Navbar, flash messages, script loading
@@ -81,28 +82,33 @@ app/
 └── static/
     ├── css/
     │   ├── theme.css     # CSS custom properties (colors, spacing) — loaded first
-    │   └── pgsm.css      # All component styles — dark theme, card layout
+    │   ├── pgsm.css      # All component styles — dark theme, card layout
+    │   └── themes/       # Per-theme overrides (default, light, nord, catppuccin-mocha, gruvbox, …)
     └── js/
+        ├── theme.js      # Theme switcher — swaps <link id="theme-link"> href via localStorage
         ├── console.js    # xterm.js init + SocketIO event wiring
-        └── wizard.js     # Create server 3-step wizard navigation logic
+        ├── wizard.js     # Create server 3-step wizard navigation logic
+        └── editor.js     # CodeMirror editor integration
 
 Scripts/                  # Install scripts uploaded to containers during provisioning
 ├── Minecraft/
 │   ├── Vanilla/
 │   │   ├── Java/         # install-mcjava.sh
 │   │   └── Bedrock/      # install-mcbedr.sh
-│   └── Modded/
-│       ├── Paper/        # install-paper.sh
-│       ├── Fabric/       # install-fabric.sh
-│       └── Forge/        # install-forge.sh
+│   ├── Modded/
+│   │   ├── Paper/        # install-mcpape.sh, run-mcpape.sh
+│   │   ├── Fabric/       # install-mcfabr.sh
+│   │   └── Forge/        # install-mcforg.sh
+│   └── Import/           # install-import.sh (import existing server archive)
 └── Counter Strike/       # (placeholder, not yet implemented)
 
-Development Docs/         # Developer documentation (this file + FUTURE_CLAUDE.md)
+Development Docs/         # Developer documentation
 keys/                     # SSH keypair (auto-generated, gitignored)
 instance/                 # SQLite database (auto-generated, gitignored)
 main.py                   # Entry point: calls create_app() and runs socketio
 requirements.txt
 .env                      # Local config (gitignored)
+.env.example              # Template for .env
 ```
 
 ---
@@ -116,7 +122,7 @@ The `GameServer` model in `app/models/server.py` is the core of the application.
 | `id` | String(36) | UUID primary key |
 | `name` | String(128) | Human-readable display name |
 | `game_code` | String(16) | `MCJAV` or `MCBED` — identifies the game family |
-| `server_type` | String(32) | `vanilla`, `paper`, `fabric`, `forge`, `bedrock` |
+| `server_type` | String(32) | `vanilla`, `paper`, `fabric`, `forge`, `bedrock`, `import` |
 | `game_version` | String(32) | Minecraft version string, e.g. `1.21.4` |
 | `ct_id` | Integer (unique) | Proxmox CT ID (500+) |
 | `proxmox_node` | String(64) | Name of the Proxmox node the CT lives on |
@@ -133,6 +139,11 @@ The `GameServer` model in `app/models/server.py` is the core of the application.
 | `spawn_protection` | Integer | Spawn protection radius |
 | `difficulty` | String(16) | `peaceful`, `easy`, `normal`, `hard` |
 | `hardcore` | Boolean | Hardcore mode on/off |
+| `java_version_override` | Integer (nullable) | Override Java major version (8/16/17/21/25). NULL = auto-resolve from `game_version`. |
+| `custom_startup_command` | String(512) (nullable) | Override the server startup command. NULL = use script default. |
+| `fabric_loader_version` | String(32) (nullable) | Specific Fabric loader version. NULL = latest stable. |
+| `forge_version` | String(32) (nullable) | Specific Forge version, e.g. `47.3.12`. NULL = recommended for MC version. |
+| `import_archive_url` | String(512) (nullable) | URL to a `.zip` or `.tar.gz` server archive (import type only). |
 | `status` | String(32) | `creating`, `running`, `stopped`, `error` |
 | `created_at` | DateTime | Creation timestamp |
 | `updated_at` | DateTime | Last update timestamp |
@@ -140,7 +151,7 @@ The `GameServer` model in `app/models/server.py` is the core of the application.
 **Computed properties** (not DB columns):
 - `all_ports` — `[game_port] + extra_ports`, deduped and sorted
 - `partial_uuid` — first 8 chars of UUID, uppercased; used in hostname
-- `java_version` — required Java version for MCJAV servers (from `_resolve_java_version()`)
+- `java_version` — effective Java version for MCJAV servers: returns `java_version_override` if set, otherwise auto-resolves via `_resolve_java_version()`; returns `None` for MCBED
 - `status_badge_class` — CSS class string for status badge rendering
 
 ---
@@ -186,6 +197,7 @@ Each container has a `PGSM` user created via `useradd -M` (no home directory). T
 ```ini
 [Service]
 User=PGSM
+Group=PGSM
 WorkingDirectory=/PGSM
 ```
 
@@ -341,31 +353,28 @@ This allows operators to easily identify PGSM-managed containers in the Proxmox 
 
 ---
 
-## Game Codes
+## Game Codes and Server Types
 
-Game codes are short identifiers for the game family a server runs.
+Game codes are short identifiers for the game family. The mapping lives in `GAME_CODES` in `app/services/minecraft.py`. The `server_type` column distinguishes variants within a game family.
 
-| Code | Meaning |
-|------|---------|
-| `MCJAV` | Minecraft Java Edition (Vanilla, Paper, Fabric, Forge) |
-| `MCBED` | Minecraft Bedrock Edition |
+| `server_type` | `game_code` | Install Script | Display Name |
+|---------------|-------------|----------------|--------------|
+| `vanilla` | `MCJAV` | `Scripts/Minecraft/Vanilla/Java/install-mcjava.sh` | Minecraft Java - Vanilla |
+| `paper` | `MCJAV` | `Scripts/Minecraft/Modded/Paper/install-mcpape.sh` | Minecraft Java - Paper |
+| `fabric` | `MCJAV` | `Scripts/Minecraft/Modded/Fabric/install-mcfabr.sh` | Minecraft Java - Fabric |
+| `forge` | `MCJAV` | `Scripts/Minecraft/Modded/Forge/install-mcforg.sh` | Minecraft Java - Forge |
+| `bedrock` | `MCBED` | `Scripts/Minecraft/Vanilla/Bedrock/install-mcbedr.sh` | Minecraft Bedrock |
+| `import` | `MCJAV` | `Scripts/Minecraft/Import/install-import.sh` | Minecraft - Import |
 
-The `game_code` is derived from `server_type` in the create route:
-
-```python
-game_code = 'MCBED' if server_type == 'bedrock' else 'MCJAV'
-```
-
-The `server_type` column distinguishes variants within MCJAV (vanilla/paper/fabric/forge). Game codes appear in:
+Game codes appear in:
 - Container hostname: `PGSM-MCJAV-A1B2C3D4`
-- Install script selection (`minecraft.py` → `INSTALL_SCRIPTS` dict)
-- Java version resolution
+- Java version resolution (`java_version` returns `None` for all non-`MCJAV` game codes)
 
 ---
 
 ## Java Version Matrix
 
-Minecraft Java Edition requires specific Java versions. PGSM automatically selects the right one:
+Minecraft Java Edition requires specific Java versions. PGSM auto-selects the correct one based on `game_version` via `_resolve_java_version()` in `app/models/server.py`:
 
 | Minecraft Version | Java Required |
 |-------------------|---------------|
@@ -374,7 +383,65 @@ Minecraft Java Edition requires specific Java versions. PGSM automatically selec
 | 1.17.1 – 1.20.5 | Java 17 |
 | ≥ 1.20.6 | Java 21 |
 
-Logic lives in `app/models/server.py` → `_resolve_java_version()`. Install scripts download all four Java versions to `/opt/java/` regardless of the Minecraft version; the correct one is selected by the `STARTUP_COMMAND` variable within each script.
+All install scripts download **five** Java versions at provisioning time (Eclipse Temurin binaries):
+
+| Version | Installed Path |
+|---------|---------------|
+| Java 8 | `/opt/java/java8/bin/java` |
+| Java 16 | `/opt/java/java16/bin/java` |
+| Java 17 | `/opt/java/java17/bin/java` |
+| Java 21 | `/opt/java/java21/bin/java` |
+| Java 25 | `/opt/java/java25/bin/java` |
+
+The selected Java binary is also symlinked to `/usr/local/bin/java`.
+
+Java 25 is available for manual override via `java_version_override=25` on the `GameServer` model. It is not auto-selected by `_resolve_java_version()` but is supported by all Java install scripts.
+
+---
+
+## Install Script Arguments
+
+All scripts accept `key=value` arguments on the command line. `MinecraftService.build_install_args()` constructs this string from the `GameServer` instance before uploading and running the script.
+
+### Common Arguments (all Java scripts)
+
+| Argument | Description |
+|----------|-------------|
+| `type` | Server type string (`vanilla`, `paper`, `fabric`, `forge`) |
+| `serverfilelink` | URL to download the Minecraft server JAR |
+| `java_version` | Java major version to use (8/16/17/21/25). Defaults to 21 if omitted. |
+| `startup_command` | Override the entire startup command. Defaults to `$JAVA_BIN -jar server.jar`. |
+
+### Fabric-Specific Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `mc_version` | Minecraft version to pass to the Fabric installer |
+| `fabric_version` | Specific Fabric loader version (omit for latest stable) |
+
+The Fabric script downloads the Fabric installer from `https://maven.fabricmc.net/net/fabricmc/fabric-installer/latest/fabric-installer-latest.jar` and runs it server-side to produce `fabric-server-launch.jar`.
+
+### Forge-Specific Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `forge_url` | Direct URL to the Forge installer JAR |
+
+The Forge installer is run with `--installServer`. The startup command is then built from the `unix_args.txt` file created by the Forge installer at `libraries/net/minecraftforge/forge/*/unix_args.txt`.
+
+### Bedrock-Specific Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `serverfilelink` | URL to the Bedrock server `.zip` archive (from Microsoft API) |
+
+Bedrock has no Java dependency. The binary `bedrock_server` is run directly inside the tmux session.
+
+### Import-Specific Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `archive_url` | URL to a `.zip` or `.tar.gz` server archive to extract into `/PGSM/` |
 
 ---
 
@@ -395,7 +462,7 @@ server {
 
 After writing or removing a conf file, PGSM calls `systemctl reload nginx` via `subprocess.run()` on the controller node (no SSH needed since Flask runs there).
 
-**Adding ports**: Extra ports from `server.extra_ports` each get their own upstream/server block in the same conf file.
+**Adding ports**: Extra ports from `server.extra_ports` each get their own upstream/server block appended to the same conf file.
 
 ---
 
@@ -446,6 +513,16 @@ migrations = [
     "ALTER TABLE game_servers ADD COLUMN extra_ports JSON",
     # v3: ha_enabled column for Proxmox HA registration
     "ALTER TABLE game_servers ADD COLUMN ha_enabled BOOLEAN DEFAULT 0",
+    # v4: java version override (NULL = auto)
+    "ALTER TABLE game_servers ADD COLUMN java_version_override INTEGER",
+    # v5: custom startup command override (NULL = use script default)
+    "ALTER TABLE game_servers ADD COLUMN custom_startup_command VARCHAR(512)",
+    # v6: Fabric loader version (NULL = latest)
+    "ALTER TABLE game_servers ADD COLUMN fabric_loader_version VARCHAR(32)",
+    # v7: Forge version (NULL = recommended for MC version)
+    "ALTER TABLE game_servers ADD COLUMN forge_version VARCHAR(32)",
+    # v8: Import archive URL (for import server type)
+    "ALTER TABLE game_servers ADD COLUMN import_archive_url VARCHAR(512)",
 ]
 ```
 
@@ -465,16 +542,18 @@ migrations = [
    - Must create a systemd unit named `PGSM`
    - Must put all files in `/PGSM/`
    - Must create a `PGSM` user via `useradd -M` that owns `/PGSM/`
-   - Accept version, port, and game-specific settings as script arguments
+   - Accept settings as `key=value` script arguments (follow existing scripts as templates)
 
 2. **Register in `app/services/minecraft.py`**:
-   - Add an entry to `INSTALL_SCRIPTS` dict mapping `server_type` → script path
-   - Add a game code mapping if this is a new game (not just a new Minecraft variant)
+   - Add an entry to `GAME_CODES` dict: `server_type` → game code
+   - Add an entry to `INSTALL_SCRIPTS` dict: `server_type` → script path
+   - Add an entry to `SERVER_TYPE_NAMES` dict: `server_type` → display name
+   - Add argument-building logic in `build_install_args()` if needed
 
 3. **Add to the wizard** in `app/templates/servers/create.html`:
    - Add an `<option>` to `<select name="server_type">`
 
-4. **Update the route** in `app/blueprints/servers/routes.py` if the new type needs special handling (e.g., a different `game_code`)
+4. **Update the route** in `app/blueprints/servers/routes.py` if the new type needs special handling
 
 5. **Update this document** with any new invariants, game codes, or version matrices
 
@@ -486,16 +565,10 @@ migrations = [
 `create_lxc()` hardcodes the Proxmox storage name `kestrel` in the `rootfs` parameter: `f'kestrel:{disk_gb}'`. This should be a config variable like `PGSM_LXC_Storage`.
 
 ### Bedrock download URL
-Bedrock server downloads require a URL from the Microsoft API that requires accepting Terms of Service. `MinecraftService` passes a `serverfilelink` argument to `install-mcbedr.sh`, but the URL resolution is not yet implemented. Needs a Bedrock URL resolver similar to `get_vanilla_jar_url()`.
-
-### Paper/Fabric/Forge resolution
-Currently falls back to the vanilla JAR URL for Paper/Fabric. Production use needs integration with:
-- Paper API: `https://api.papermc.io/v2/projects/paper/`
-- Fabric meta API: `https://meta.fabricmc.net/`
-- Forge promotions API: `https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json`
+Bedrock server downloads require a URL from the Microsoft API that requires accepting Terms of Service. `MinecraftService.build_install_args()` passes a `serverfilelink` argument to `install-mcbedr.sh`, but the URL resolution is not yet implemented. Needs a Bedrock URL resolver similar to `get_vanilla_jar_url()`.
 
 ### Port conflict detection
-`get_next_ip()` finds the next free IP, but game port conflicts (two servers both using port 25565) are not detected at creation time. Add port conflict checking in the create route by querying existing `game_port` and `extra_ports` values.
+Game port conflicts (two servers both using port 25565) are not detected at creation time. Add port conflict checking in the create route by querying existing `game_port` and `extra_ports` values before committing the new server.
 
 ### No authentication
 The web UI has no login system. Any user with network access to port 5000 has full control. Add Flask-Login before exposing to anything other than a localhost or trusted LAN connection.
@@ -509,8 +582,8 @@ xterm.js is fixed at 220×50. A proper resize requires:
 ### High Availability — no group support
 HA is currently registered without a specific HA group. If your cluster uses HA groups to control failover priorities, you'll need to add a `PROXMOX_HA_GROUP` config variable and pass it to `enable_ha()`.
 
-### Minecraft.py at project root
-The original `Minecraft.py` at the project root is superseded by `app/services/minecraft.py`. It can be removed once confirmed nothing imports from it.
-
 ### Single-threaded provisioning
 Provisioning runs in a daemon thread. If PGSM restarts while a server is provisioning, the thread dies and the server stays stuck in `creating` status. A task queue (Celery/RQ) would make this more robust.
+
+### Java 25 not auto-selected
+`_resolve_java_version()` tops out at Java 21. Java 25 is available in all install scripts and can be set via `java_version_override=25`, but no Minecraft version currently requires it. Update `_resolve_java_version()` when a future Minecraft version requires Java 25+.
