@@ -25,16 +25,30 @@ class NginxService:
         This is a one-time manual setup prerequisite.
         """
         lines = [f"# PGSM Auto-generated: {server.name} (CT {server.ct_id})\n"]
-        for port in server.all_ports:
-            lines.append(
-                f"upstream pgsm_{server.ct_id}_{port} {{\n"
+        for entry in server.all_ports_with_protocols:
+            port = entry['port']
+            protocol = entry.get('protocol', 'tcp')
+            name = f"pgsm_{server.ct_id}_{port}"
+            block = (
+                f"upstream {name} {{\n"
                 f"    server {server.ip_address}:{port};\n"
                 f"}}\n"
-                f"server {{\n"
-                f"    listen {port};\n"
-                f"    proxy_pass pgsm_{server.ct_id}_{port};\n"
-                f"}}\n"
             )
+            if protocol in ('tcp', 'both'):
+                block += (
+                    f"server {{\n"
+                    f"    listen {port};\n"
+                    f"    proxy_pass {name};\n"
+                    f"}}\n"
+                )
+            if protocol in ('udp', 'both'):
+                block += (
+                    f"server {{\n"
+                    f"    listen {port} udp;\n"
+                    f"    proxy_pass {name};\n"
+                    f"}}\n"
+                )
+            lines.append(block)
         return '\n'.join(lines)
 
     def add_server(self, server) -> None:

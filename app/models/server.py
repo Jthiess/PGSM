@@ -81,11 +81,26 @@ class GameServer(db.Model):
 
     @property
     def all_ports(self) -> list[int]:
-        """Returns [game_port] + extra_ports (deduped, sorted)."""
+        """Returns sorted, deduped list of all port numbers (game_port + extra_ports)."""
         ports = {self.game_port}
-        if self.extra_ports:
-            ports.update(self.extra_ports)
+        for entry in (self.extra_ports or []):
+            ports.add(entry['port'] if isinstance(entry, dict) else entry)
         return sorted(ports)
+
+    @property
+    def all_ports_with_protocols(self) -> list[dict]:
+        """Returns [{port, protocol}, ...] for all ports, sorted by port.
+
+        game_port is always 'tcp'.  extra_ports entries carry their stored protocol.
+        Handles legacy integer entries (treated as tcp).
+        """
+        seen: dict[int, dict] = {self.game_port: {'port': self.game_port, 'protocol': 'tcp'}}
+        for entry in (self.extra_ports or []):
+            if isinstance(entry, dict):
+                seen[entry['port']] = entry
+            else:
+                seen[entry] = {'port': entry, 'protocol': 'tcp'}
+        return sorted(seen.values(), key=lambda x: x['port'])
 
     @classmethod
     def port_in_use_by(cls, port: int, exclude_id: str = None) -> 'GameServer | None':
@@ -98,8 +113,10 @@ class GameServer(db.Model):
                 continue
             if s.game_port == port:
                 return s
-            if s.extra_ports and port in s.extra_ports:
-                return s
+            for entry in (s.extra_ports or []):
+                p = entry['port'] if isinstance(entry, dict) else entry
+                if p == port:
+                    return s
         return None
 
     @property

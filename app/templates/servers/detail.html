@@ -210,6 +210,7 @@
             <thead>
                 <tr>
                     <th>Port</th>
+                    <th>Protocol</th>
                     <th>Type</th>
                     <th>Action</th>
                 </tr>
@@ -217,18 +218,22 @@
             <tbody id="ports-table-body">
                 <tr>
                     <td class="text-mono">{{ server.game_port }}</td>
+                    <td><span class="text-mono" style="font-size: 0.82rem;">TCP</span></td>
                     <td><span class="badge badge-running" style="font-size: 0.7rem;">Primary</span></td>
                     <td><span class="text-muted" style="font-size: 0.8rem;">Cannot remove</span></td>
                 </tr>
-                {% for port in server.extra_ports or [] %}
-                <tr id="port-row-{{ port }}">
-                    <td class="text-mono">{{ port }}</td>
+                {% for entry in server.all_ports_with_protocols %}
+                {% if entry.port != server.game_port %}
+                <tr id="port-row-{{ entry.port }}">
+                    <td class="text-mono">{{ entry.port }}</td>
+                    <td><span class="text-mono" style="font-size: 0.82rem;">{{ entry.protocol | upper }}</span></td>
                     <td><span class="badge badge-stopped" style="font-size: 0.7rem;">Extra</span></td>
                     <td>
                         <button class="btn btn-ghost btn-sm" style="color: var(--accent-danger);"
-                                onclick="removePort({{ port }})">Remove</button>
+                                onclick="removePort({{ entry.port }})">Remove</button>
                     </td>
                 </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
@@ -237,6 +242,11 @@
         <div class="flex gap-1 items-center" style="flex-wrap: wrap;">
             <input type="number" id="new-port-input" placeholder="Port (1024–65535)"
                    min="1024" max="65535" style="width: 200px;">
+            <select id="new-port-protocol" style="width: 110px;">
+                <option value="tcp">TCP</option>
+                <option value="udp">UDP</option>
+                <option value="both">Both</option>
+            </select>
             <button class="btn btn-primary btn-sm" onclick="addPort()">Add Port</button>
             <span id="ports-feedback" style="font-size: 0.82rem; color: var(--accent-danger); display:none;"></span>
         </div>
@@ -433,6 +443,7 @@ function showPortFeedback(msg, isError) {
 
 function addPort() {
     var input = document.getElementById('new-port-input');
+    var protocol = document.getElementById('new-port-protocol').value;
     var port = parseInt(input.value, 10);
     if (!port || port < 1024 || port > 65535) {
         showPortFeedback('Port must be between 1024 and 65535.', true);
@@ -441,7 +452,7 @@ function addPort() {
     fetch('/api/servers/' + SERVER_ID + '/ports/add', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({port: port}),
+        body: JSON.stringify({port: port, protocol: protocol}),
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -453,6 +464,7 @@ function addPort() {
         tr.id = 'port-row-' + port;
         tr.innerHTML =
             '<td class="text-mono">' + port + '</td>' +
+            '<td><span class="text-mono" style="font-size:0.82rem;">' + protocol.toUpperCase() + '</span></td>' +
             '<td><span class="badge badge-stopped" style="font-size:0.7rem;">Extra</span></td>' +
             '<td><button class="btn btn-ghost btn-sm" style="color:var(--accent-danger);" ' +
             'onclick="removePort(' + port + ')">Remove</button></td>';
@@ -460,7 +472,7 @@ function addPort() {
         if (data.nginx_warning) {
             showPortFeedback('Port added, but nginx reload failed: ' + data.nginx_warning, true);
         } else {
-            showPortFeedback('Port ' + port + ' added.', false);
+            showPortFeedback('Port ' + port + ' (' + protocol.toUpperCase() + ') added.', false);
         }
     })
     .catch(function() { showPortFeedback('Request failed.', true); });

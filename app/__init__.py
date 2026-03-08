@@ -31,8 +31,38 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
         _apply_migrations(db)
+        _migrate_extra_ports_format()
 
     return app
+
+
+def _migrate_extra_ports_format():
+    """One-time data migration: convert extra_ports from [int, ...] to
+    [{"port": int, "protocol": "tcp"}, ...] format.
+
+    Safe to run every startup — already-migrated entries (dicts) are left alone.
+    """
+    from app.models.server import GameServer
+    from sqlalchemy.orm.attributes import flag_modified
+
+    changed = False
+    for server in GameServer.query.all():
+        if not server.extra_ports:
+            continue
+        new_ports = []
+        needs_update = False
+        for entry in server.extra_ports:
+            if isinstance(entry, int):
+                new_ports.append({'port': entry, 'protocol': 'tcp'})
+                needs_update = True
+            else:
+                new_ports.append(entry)
+        if needs_update:
+            server.extra_ports = new_ports
+            flag_modified(server, 'extra_ports')
+            changed = True
+    if changed:
+        db.session.commit()
 
 
 def _apply_migrations(db):

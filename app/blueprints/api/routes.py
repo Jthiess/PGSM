@@ -159,6 +159,7 @@ def get_ports(server_id):
         'game_port': server.game_port,
         'extra_ports': server.extra_ports or [],
         'all_ports': server.all_ports,
+        'all_ports_with_protocols': server.all_ports_with_protocols,
     })
 
 
@@ -167,22 +168,27 @@ def add_port(server_id):
     server = GameServer.query.get_or_404(server_id)
     data = request.get_json(silent=True) or {}
     port = data.get('port')
+    protocol = data.get('protocol', 'tcp')
 
     if not port or not isinstance(port, int) or not (1024 <= port <= 65535):
         return jsonify({'error': 'Invalid port number (must be 1024–65535)'}), 400
+
+    if protocol not in ('tcp', 'udp', 'both'):
+        return jsonify({'error': 'Invalid protocol (must be tcp, udp, or both)'}), 400
 
     if port == server.game_port:
         return jsonify({'error': 'Port is already the primary game port'}), 400
 
     extra = list(server.extra_ports or [])
-    if port in extra:
+    existing_ports = [e['port'] if isinstance(e, dict) else e for e in extra]
+    if port in existing_ports:
         return jsonify({'error': 'Port already added'}), 400
 
     conflict = GameServer.port_in_use_by(port, exclude_id=server_id)
     if conflict:
         return jsonify({'error': f'Port {port} is already in use by server "{conflict.name}"'}), 400
 
-    extra.append(port)
+    extra.append({'port': port, 'protocol': protocol})
     server.extra_ports = extra
     flag_modified(server, 'extra_ports')
     db.session.commit()
@@ -210,10 +216,11 @@ def remove_port(server_id):
         return jsonify({'error': 'Cannot remove the primary game port'}), 400
 
     extra = list(server.extra_ports or [])
-    if port not in extra:
+    port_nums = [e['port'] if isinstance(e, dict) else e for e in extra]
+    if port not in port_nums:
         return jsonify({'error': 'Port not found'}), 404
 
-    extra.remove(port)
+    extra = [e for e in extra if (e['port'] if isinstance(e, dict) else e) != port]
     server.extra_ports = extra
     flag_modified(server, 'extra_ports')
     db.session.commit()
