@@ -21,14 +21,20 @@
         <div class="detail-actions">
             {% if server.status == 'running' %}
                 <form method="POST" action="{{ url_for('servers.stop', server_id=server.id) }}" style="display:inline">
-                    <button class="btn btn-warning btn-sm">&#9646; Stop</button>
+                    <button class="btn btn-warning btn-sm">&#9646; Shutdown</button>
                 </form>
                 <form method="POST" action="{{ url_for('servers.restart', server_id=server.id) }}" style="display:inline">
                     <button class="btn btn-secondary btn-sm">&#8635; Restart</button>
                 </form>
+                <form method="POST" action="{{ url_for('servers.power_off', server_id=server.id) }}" style="display:inline">
+                    <button class="btn btn-danger btn-sm">&#9866; Power Off</button>
+                </form>
             {% elif server.status in ['stopped', 'error'] %}
                 <form method="POST" action="{{ url_for('servers.start', server_id=server.id) }}" style="display:inline">
                     <button class="btn btn-success btn-sm">&#9654; Start</button>
+                </form>
+                <form method="POST" action="{{ url_for('servers.power_off', server_id=server.id) }}" style="display:inline">
+                    <button class="btn btn-danger btn-sm">&#9866; Power Off</button>
                 </form>
             {% else %}
                 <button class="btn btn-secondary btn-sm" disabled>Provisioning...</button>

@@ -176,9 +176,29 @@ def stop(server_id):
     from app.services import server_lifecycle
     try:
         server_lifecycle.stop_server(server)
-        flash('Server stopped.', 'success')
+        flash('Server shut down.', 'success')
     except Exception as e:
-        flash(f'Stop failed: {e}', 'error')
+        flash(f'Shutdown failed: {e}', 'error')
+    return redirect(url_for('servers.detail', server_id=server_id))
+
+
+@bp.route('/<server_id>/power_off', methods=['POST'])
+def power_off(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    from app.services import server_lifecycle
+    from app.services.proxmox import ProxmoxService
+
+    try:
+        server_lifecycle.stop_server(server)
+    except Exception:
+        pass  # Server process may already be stopped
+
+    proxmox = ProxmoxService()
+    try:
+        proxmox.stop_ct(server.proxmox_node, server.ct_id)
+        flash('Container powered off.', 'success')
+    except Exception as e:
+        flash(f'Power off failed: {e}', 'error')
     return redirect(url_for('servers.detail', server_id=server_id))
 
 
