@@ -1,7 +1,7 @@
 import io
 import stat
 
-from flask import render_template, request, redirect, url_for, send_file, flash, jsonify, current_app
+from flask import render_template, request, redirect, url_for, send_file, flash, jsonify
 
 from app.blueprints.files import bp
 from app.models.server import GameServer
@@ -54,8 +54,6 @@ def browse(server_id, remote_path='/PGSM'):
         entries=entries,
         current_path=remote_path,
         breadcrumbs=breadcrumbs,
-        controller_ssh_host=current_app.config.get('CONTROLLER_SSH_HOST', ''),
-        controller_ssh_port=current_app.config.get('CONTROLLER_SSH_PORT', 22),
     )
 
 

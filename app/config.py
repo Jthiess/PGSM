@@ -27,13 +27,6 @@ class Config:
     # SSH keypair
     SSH_KEY_PATH = os.getenv('SSH_Key_Path', 'keys/pgsm_rsa')
 
-    # Controller SSH gateway — the external hostname/IP of the PGSM controller.
-    # When set, all container SSH/SFTP connections are tunnelled through the
-    # controller so isolated container IPs are reachable. Leave empty if the
-    # process already runs on the controller and can reach containers directly.
-    CONTROLLER_SSH_HOST = os.getenv('Controller_SSH_Host', '10.0.0.13')
-    CONTROLLER_SSH_PORT = int(os.getenv('Controller_SSH_Port', 22))
-
     # Nginx
     NGINX_CONF_DIR = os.getenv('Nginx_Conf_Dir', '/etc/nginx/conf.d')
 

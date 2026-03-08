@@ -128,13 +128,6 @@ All configuration is done via environment variables in a `.env` file at the proj
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SSH_Key_Path` | `keys/pgsm_rsa` | Path to the RSA private key used to SSH into containers. PGSM generates this automatically if it doesn't exist. |
-| `Controller_SSH_Host` | *(empty)* | Hostname or IP of the PGSM controller as reachable via SSH. When set, all container SSH/SFTP connections are tunnelled through the controller (required when containers are on an isolated VLAN). Leave empty if the PGSM process runs directly on the controller and can reach containers natively. |
-| `Controller_SSH_Port` | `22` | SSH port on the controller used for the tunnel. |
-
-> **Controller SSH key setup:** When `Controller_SSH_Host` is set, the PGSM private key (`keys/pgsm_rsa`) must be authorised on the controller itself. On the controller, run once after the keypair is generated:
-> ```
-> cat keys/pgsm_rsa.pub >> ~/.ssh/authorized_keys
-> ```
 
 **nginx**
 

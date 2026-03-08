@@ -38,64 +38,21 @@ class SSHManager:
         with open(pub_path, 'r') as f:
             return f.read().strip()
 
-    def _resolve_key_path(self) -> str:
+    def get_client(self, ip: str, username: str = 'root') -> paramiko.SSHClient:
+        """Returns a connected, authenticated Paramiko SSH client."""
         key_path = current_app.config['SSH_KEY_PATH']
+        # Resolve relative paths against the Flask app root so this works
+        # correctly from background threads regardless of working directory
         if not os.path.isabs(key_path):
             key_path = os.path.join(current_app.root_path, '..', key_path)
         key_path = os.path.normpath(key_path)
+
         if not os.path.exists(key_path):
             raise FileNotFoundError(
                 f'SSH private key not found at {key_path}. '
                 f'Has the keypair been generated? (SSH_Key_Path in .env)'
             )
-        return key_path
 
-    def get_client(self, ip: str, username: str = 'root') -> paramiko.SSHClient:
-        """Returns a connected, authenticated Paramiko SSH client.
-
-        When Controller_SSH_Host is configured, connections are tunnelled
-        through the controller so isolated container IPs are reachable.
-        """
-        key_path = self._resolve_key_path()
-        cfg = current_app.config
-        jump_host = cfg.get('CONTROLLER_SSH_HOST', '')
-
-        if jump_host:
-            jump = paramiko.SSHClient()
-            jump.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            jump.connect(
-                jump_host,
-                port=cfg.get('CONTROLLER_SSH_PORT', 22),
-                username='root',
-                key_filename=key_path,
-                timeout=15,
-                banner_timeout=30,
-            )
-            channel = jump.get_transport().open_channel(
-                'direct-tcpip', (ip, 22), ('', 0)
-            )
-            client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            client.connect(
-                ip,
-                username=username,
-                key_filename=key_path,
-                sock=channel,
-                timeout=15,
-                banner_timeout=30,
-            )
-            _orig_close = client.close
-
-            def _close_both():
-                try:
-                    _orig_close()
-                finally:
-                    jump.close()
-
-            client.close = _close_both
-            return client
-
-        # Direct connection — controller process can reach containers natively
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(
