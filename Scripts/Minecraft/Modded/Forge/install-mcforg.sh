@@ -36,11 +36,6 @@ case "${JAVA_VERSION:-21}" in
   *)  JAVA_BIN="/opt/java/java21/bin/java" ;;
 esac
 
-# Use custom startup command if provided, else fall back to default
-if [ -z "$STARTUP_COMMAND" ]; then
-  STARTUP_COMMAND="$JAVA_BIN -Xms512M -Xmx2G -XX:+UseG1GC @libraries/net/minecraftforge/forge/*/unix_args.txt nogui"
-fi
-
 # Step 1: Update and Upgrade
 echo "Running updates..."
 apt update
@@ -84,11 +79,22 @@ echo "Running Forge installer..."
 /opt/java/java21/bin/java -jar forge-installer.jar --installServer
 rm forge-installer.jar
 
+# Resolve unix_args.txt path (glob not supported by Java or systemd)
+if [ -z "$STARTUP_COMMAND" ]; then
+  UNIX_ARGS_FILE=$(ls /PGSM/libraries/net/minecraftforge/forge/*/unix_args.txt 2>/dev/null | head -1)
+  if [ -z "$UNIX_ARGS_FILE" ]; then
+    echo "ERROR: Could not find unix_args.txt after Forge installation"
+    exit 1
+  fi
+  STARTUP_COMMAND="$JAVA_BIN -Xms512M -Xmx2G -XX:+UseG1GC @$UNIX_ARGS_FILE nogui"
+fi
+
 # Step 6: Create PGSM user
 echo "Creating PGSM user..."
 useradd -M -s /bin/bash PGSM
 chown -R PGSM:PGSM /PGSM
 chmod -R 755 /opt/java
+ln -sf "$JAVA_BIN" /usr/local/bin/java
 
 # Step 7: Accept EULA
 echo "Accepting EULA..."

@@ -79,6 +79,7 @@ echo "Creating PGSM user..."
 useradd -M -s /bin/bash PGSM
 chown -R PGSM:PGSM /PGSM
 chmod -R 755 /opt/java
+ln -sf "$JAVA_BIN" /usr/local/bin/java
 
 # Step 6: Accept EULA
 echo "Accepting EULA..."
