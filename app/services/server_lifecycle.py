@@ -63,10 +63,12 @@ def provision_server(server_id: str) -> None:
         _set_status(server, 'error')
         raise RuntimeError(f'Install script failed: {e}') from e
 
-    # Step 4: Write server.properties
+    # Step 4: Write server.properties and fix ownership
     try:
         props = mc_svc.generate_server_properties(server)
         _write_remote_file(ip, '/PGSM/server.properties', props)
+        # SFTP writes as root; restore PGSM ownership so the server can read/write the file
+        ssh_mgr.exec(ip, 'chown PGSM:PGSM /PGSM/server.properties')
     except Exception as e:
         _set_status(server, 'error')
         raise RuntimeError(f'Could not write server.properties: {e}') from e
@@ -115,6 +117,37 @@ def get_live_status(server: GameServer) -> str:
         return raw
     except Exception:
         return 'unknown'
+
+
+def sync_server_status(server: GameServer) -> str:
+    """Syncs server status by checking Proxmox CT state, then systemd if CT is running.
+
+    Updates the DB if the status changed. Returns the new status string.
+    """
+    from app.services.proxmox import ProxmoxService
+    try:
+        ct_status = ProxmoxService().get_ct_status(server.proxmox_node, server.ct_id)
+        proxmox_state = ct_status.get('status', 'unknown')
+    except Exception:
+        # Proxmox unreachable — leave DB as-is, return current value
+        return server.status
+
+    if proxmox_state == 'stopped':
+        # Container is off — can't reach systemd
+        new_status = 'stopped'
+    elif proxmox_state == 'running':
+        # Container is up — check if the game server systemd unit is actually running
+        new_status = get_live_status(server)
+        if new_status == 'unknown':
+            # SSH not yet accessible (e.g. still booting) — don't change DB
+            return server.status
+    else:
+        return server.status
+
+    if new_status != server.status and new_status in ('running', 'stopped', 'error'):
+        _set_status(server, new_status)
+
+    return new_status
 
 
 def send_console_command(server: GameServer, command: str) -> None:

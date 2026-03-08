@@ -22,29 +22,20 @@ def create_server():
     mc_svc = MinecraftService()
 
     if request.method == 'GET':
-        try:
-            nodes = proxmox.get_nodes()
-        except Exception as e:
-            flash(f'Could not reach Proxmox: {e}', 'error')
-            nodes = []
-        try:
-            versions = mc_svc.get_available_versions()
-        except Exception as e:
-            flash(f'Could not fetch Minecraft versions: {e}', 'error')
-            versions = []
         cfg = current_app.config
         defaults = {
-            'disk_gb':       cfg['SERVER_DEFAULT_DISK_GB'],
-            'cores':         cfg['SERVER_DEFAULT_CORES'],
-            'memory_mb':     cfg['SERVER_DEFAULT_MEMORY_MB'],
-            'game_port':     cfg['SERVER_DEFAULT_GAME_PORT'],
+            'disk_gb':        cfg['SERVER_DEFAULT_DISK_GB'],
+            'cores':          cfg['SERVER_DEFAULT_CORES'],
+            'memory_mb':      cfg['SERVER_DEFAULT_MEMORY_MB'],
+            'game_port':      cfg['SERVER_DEFAULT_GAME_PORT'],
             'render_distance': cfg['SERVER_DEFAULT_RENDER_DIST'],
             'spawn_protection': cfg['SERVER_DEFAULT_SPAWN_PROT'],
-            'difficulty':    cfg['SERVER_DEFAULT_DIFFICULTY'],
-            'server_type':   cfg['SERVER_DEFAULT_SERVER_TYPE'],
-            'ha_enabled':    cfg['SERVER_DEFAULT_HA_ENABLED'],
+            'difficulty':     cfg['SERVER_DEFAULT_DIFFICULTY'],
+            'server_type':    cfg['SERVER_DEFAULT_SERVER_TYPE'],
+            'ha_enabled':     cfg['SERVER_DEFAULT_HA_ENABLED'],
         }
-        return render_template('servers/create.html', nodes=nodes, versions=versions, defaults=defaults)
+        # Nodes and versions are loaded asynchronously by JS to avoid blocking the page render
+        return render_template('servers/create.html', defaults=defaults)
 
     # POST: validate and kick off provisioning
     form = request.form
@@ -217,6 +208,8 @@ def update_settings(server_id):
         finally:
             sftp.close()
             client.close()
+        # SFTP writes as root; restore PGSM ownership so the server can read/write the file
+        ssh_mgr.exec(server.ip_address, 'chown PGSM:PGSM /PGSM/server.properties')
     except Exception as e:
         warnings.append(f'Could not write server.properties: {e}')
 

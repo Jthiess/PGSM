@@ -71,22 +71,36 @@
 
 {% block scripts %}
 <script>
-// Poll status for servers currently creating
-const creating = document.querySelectorAll('[id^="status-"]');
-creating.forEach(function(el) {
-    if (el.textContent.trim() === 'creating') {
-        const serverId = el.id.replace('status-', '');
-        const interval = setInterval(function() {
+// Poll/sync status for all servers
+document.querySelectorAll('[id^="status-"]').forEach(function(el) {
+    var serverId = el.id.replace('status-', '');
+    var status = el.textContent.trim();
+
+    if (status === 'creating') {
+        // Frequent poll while provisioning
+        var interval = setInterval(function() {
             fetch('/api/servers/' + serverId + '/status')
                 .then(r => r.json())
                 .then(data => {
-                    const status = data.db_status;
-                    el.textContent = status;
-                    el.className = 'badge badge-' + status;
-                    if (status !== 'creating') clearInterval(interval);
+                    el.textContent = data.db_status;
+                    el.className = 'badge badge-' + data.db_status;
+                    if (data.db_status !== 'creating') clearInterval(interval);
                 })
                 .catch(() => {});
         }, 5000);
+    } else {
+        // Sync with Proxmox every 30s for running/stopped servers
+        setInterval(function() {
+            fetch('/api/servers/' + serverId + '/sync', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.changed) {
+                        el.textContent = data.status;
+                        el.className = 'badge badge-' + data.status;
+                    }
+                })
+                .catch(() => {});
+        }, 30000);
     }
 });
 

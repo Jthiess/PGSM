@@ -66,6 +66,21 @@ def server_status(server_id):
     })
 
 
+@bp.route('/servers/<server_id>/sync', methods=['POST'])
+def sync_server(server_id):
+    """Syncs DB status with actual Proxmox CT + systemd state."""
+    server = GameServer.query.get_or_404(server_id)
+    if server.status == 'creating':
+        return jsonify({'status': server.status, 'changed': False})
+    old_status = server.status
+    try:
+        from app.services.server_lifecycle import sync_server_status
+        new_status = sync_server_status(server)
+        return jsonify({'status': new_status, 'changed': new_status != old_status})
+    except Exception as e:
+        return jsonify({'error': str(e), 'status': server.status}), 500
+
+
 @bp.route('/servers/<server_id>/metrics')
 def server_metrics(server_id):
     server = GameServer.query.get_or_404(server_id)

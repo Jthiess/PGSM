@@ -295,9 +295,12 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     });
 });
 
-// Poll status while creating
+// Sync status with Proxmox periodically; reload page if status changes
 const badge = document.getElementById('status-badge');
-if (badge && badge.textContent.trim() === 'creating') {
+const currentStatus = badge ? badge.textContent.trim() : '';
+
+if (currentStatus === 'creating') {
+    // Poll DB status frequently while provisioning
     const interval = setInterval(function() {
         fetch('/api/servers/{{ server.id }}/status')
             .then(r => r.json())
@@ -312,6 +315,16 @@ if (badge && badge.textContent.trim() === 'creating') {
             })
             .catch(() => {});
     }, 5000);
+} else {
+    // Sync with Proxmox every 30s; reload if status changed externally
+    setInterval(function() {
+        fetch('/api/servers/{{ server.id }}/sync', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.changed) location.reload();
+            })
+            .catch(() => {});
+    }, 30000);
 }
 
 {% if server.status == 'running' %}

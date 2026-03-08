@@ -33,13 +33,8 @@
         <div id="version-section">
             <div class="form-group">
                 <label for="game_version">Game Version</label>
-                <select name="game_version" id="game_version">
-                    {% for v in versions %}
-                        <option value="{{ v.id }}" data-type="{{ v.type }}">{{ v.id }}</option>
-                    {% endfor %}
-                    {% if not versions %}
-                        <option value="latest">latest</option>
-                    {% endif %}
+                <select name="game_version" id="game_version" disabled>
+                    <option value="latest">Loading versions...</option>
                 </select>
                 <div class="checkbox-row" style="margin-top: 0.5rem;">
                     <input type="checkbox" id="show_snapshots">
@@ -90,21 +85,15 @@
     <!-- Step 2: Resources + node -->
     <div class="wizard-panel card" id="panel-2">
         <h2 class="section-title">Resources &amp; Node</h2>
-        {% if nodes %}
         <div class="form-group">
             <label for="node">Proxmox Node</label>
-            <select name="node" id="node">
-                {% for node in nodes %}
-                    <option value="{{ node.node }}">{{ node.node }} ({{ node.status }})</option>
-                {% endfor %}
+            <select name="node" id="node" disabled>
+                <option value="">Loading nodes...</option>
             </select>
+            <div class="form-hint" id="nodes-hint" style="display:none; color: var(--accent-warning);">
+                Could not load Proxmox nodes. Check your connection settings.
+            </div>
         </div>
-        {% else %}
-        <div class="alert alert-warning" style="margin-bottom:1rem">
-            <span>Could not retrieve Proxmox nodes. Check your connection settings.</span>
-        </div>
-        <input type="hidden" name="node" value="">
-        {% endif %}
         <div class="form-row">
             <div class="form-group">
                 <label for="disk_gb">Disk (GB)</label>
@@ -181,7 +170,7 @@
             </div>
         </div>
 
-        <!-- Import: startup command (required) -->
+        <!-- Import: startup command (required for import type) -->
         <div class="form-group" id="startup-cmd-group" style="display:none">
             <label for="custom_startup_command">
                 Startup Command
@@ -211,8 +200,6 @@
     var snapshotToggle   = document.getElementById('show_snapshots');
     var versionSelect    = document.getElementById('game_version');
     var snapshotHint     = document.getElementById('snapshot-hint');
-
-    // Section visibility refs
     var versionSection   = document.getElementById('version-section');
     var fabricOptions    = document.getElementById('fabric-options');
     var forgeOptions     = document.getElementById('forge-options');
@@ -221,31 +208,78 @@
     var startupCmdReq    = document.getElementById('startup-cmd-required');
     var startupCmdHint   = document.getElementById('startup-cmd-hint');
     var startupCmdInput  = document.getElementById('custom_startup_command');
-    var importArchiveUrl = document.getElementById('import_archive_url');
 
+    // ── Load versions asynchronously ──────────────────────────────────────────
+    function loadVersions(includeSnapshots, keepCurrent) {
+        var current = keepCurrent ? versionSelect.value : null;
+        var url = '/api/minecraft/versions' + (includeSnapshots ? '?snapshots=true' : '');
+        versionSelect.disabled = true;
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(versions) {
+                versionSelect.innerHTML = '';
+                versions.forEach(function(v) {
+                    var opt = document.createElement('option');
+                    opt.value = v.id;
+                    opt.dataset.type = v.type;
+                    opt.textContent = v.type !== 'release' ? v.id + ' (' + v.type + ')' : v.id;
+                    if (current && v.id === current) opt.selected = true;
+                    versionSelect.appendChild(opt);
+                });
+                if (!versionSelect.options.length) {
+                    versionSelect.innerHTML = '<option value="latest">latest</option>';
+                }
+                versionSelect.disabled = false;
+            })
+            .catch(function() {
+                versionSelect.innerHTML = '<option value="latest">latest</option>';
+                versionSelect.disabled = false;
+            });
+    }
+
+    // ── Load nodes asynchronously ──────────────────────────────────────────────
+    var nodeSelect  = document.getElementById('node');
+    var nodesHint   = document.getElementById('nodes-hint');
+    fetch('/api/nodes')
+        .then(function(r) { return r.json(); })
+        .then(function(nodes) {
+            nodeSelect.innerHTML = '';
+            if (!nodes.length) throw new Error('no nodes');
+            nodes.forEach(function(n) {
+                var opt = document.createElement('option');
+                opt.value = n.node;
+                opt.textContent = n.node + ' (' + n.status + ')';
+                nodeSelect.appendChild(opt);
+            });
+            nodeSelect.disabled = false;
+        })
+        .catch(function() {
+            nodeSelect.innerHTML = '<option value="">Unavailable</option>';
+            nodesHint.style.display = '';
+        });
+
+    // Load release versions immediately on page load
+    loadVersions(false, false);
+
+    // ── Type-specific UI ───────────────────────────────────────────────────────
     function updateTypeUI() {
         var type = serverTypeSelect.value;
         var isImport = type === 'import';
         var isFabric = type === 'fabric';
         var isForge  = type === 'forge';
 
-        // Version section visibility
-        versionSection.style.display  = isImport ? 'none' : '';
-        fabricOptions.style.display   = isFabric ? '' : 'none';
-        forgeOptions.style.display    = isForge  ? '' : 'none';
-        importOptions.style.display   = isImport ? '' : 'none';
+        versionSection.style.display = isImport ? 'none' : '';
+        fabricOptions.style.display  = isFabric ? '' : 'none';
+        forgeOptions.style.display   = isForge  ? '' : 'none';
+        importOptions.style.display  = isImport ? '' : 'none';
 
-        // Startup command: always visible for import, hidden otherwise
-        startupCmdGroup.style.display  = isImport ? '' : 'none';
-        startupCmdReq.style.display    = isImport ? '' : 'none';
-        startupCmdInput.required       = isImport;
-        if (isImport) {
-            startupCmdHint.textContent = 'Required. The command used to start your server (e.g. /opt/java/java21/bin/java -jar server.jar).';
-        } else {
-            startupCmdHint.textContent = 'Override the default startup command. Leave blank to use the server type default.';
-        }
+        startupCmdGroup.style.display = isImport ? '' : 'none';
+        startupCmdReq.style.display   = isImport ? '' : 'none';
+        startupCmdInput.required      = isImport;
+        startupCmdHint.textContent    = isImport
+            ? 'Required. The command used to start your server (e.g. /opt/java/java21/bin/java -jar server.jar).'
+            : 'Override the default startup command. Leave blank to use the server type default.';
 
-        // Forge: try to auto-fetch version when MC version changes
         if (isForge) {
             versionSelect.addEventListener('change', onMcVersionChangeForForge);
         } else {
@@ -254,73 +288,45 @@
     }
 
     function onMcVersionChangeForForge() {
-        // Only auto-fetch if the forge_version field is empty
         var forgeInput = document.getElementById('forge_version');
-        if (!forgeInput.value.trim()) {
-            fetchForgeVersion();
-        }
+        if (!forgeInput.value.trim()) fetchForgeVersion();
     }
 
     serverTypeSelect.addEventListener('change', updateTypeUI);
-    updateTypeUI(); // run on page load to reflect default
+    updateTypeUI();
 
-    // Snapshot toggle
+    // ── Snapshot toggle ────────────────────────────────────────────────────────
     snapshotToggle.addEventListener('change', function() {
-        var includeSnapshots = snapshotToggle.checked;
-        snapshotHint.style.display = includeSnapshots ? '' : 'none';
-
-        var url = '/api/minecraft/versions' + (includeSnapshots ? '?snapshots=true' : '');
-        versionSelect.disabled = true;
-
-        fetch(url)
-            .then(function(r) { return r.json(); })
-            .then(function(versions) {
-                var current = versionSelect.value;
-                versionSelect.innerHTML = '';
-                versions.forEach(function(v) {
-                    var opt = document.createElement('option');
-                    opt.value = v.id;
-                    opt.dataset.type = v.type;
-                    opt.textContent = v.type !== 'release' ? v.id + ' (' + v.type + ')' : v.id;
-                    if (v.id === current) opt.selected = true;
-                    versionSelect.appendChild(opt);
-                });
-                versionSelect.disabled = false;
-            })
-            .catch(function() { versionSelect.disabled = false; });
+        snapshotHint.style.display = snapshotToggle.checked ? '' : 'none';
+        loadVersions(snapshotToggle.checked, true);
     });
 })();
 
 function fetchForgeVersion() {
-    var mcVersion   = document.getElementById('game_version').value;
-    var forgeInput  = document.getElementById('forge_version');
-    var forgeHint   = document.getElementById('forge-version-hint');
-    var fetchBtn    = document.getElementById('forge-fetch-btn');
+    var mcVersion  = document.getElementById('game_version').value;
+    var forgeInput = document.getElementById('forge_version');
+    var forgeHint  = document.getElementById('forge-version-hint');
+    var fetchBtn   = document.getElementById('forge-fetch-btn');
 
-    if (!mcVersion) return;
+    if (!mcVersion || mcVersion === 'latest') return;
 
     fetchBtn.disabled = true;
     fetchBtn.textContent = '...';
     forgeHint.textContent = 'Fetching Forge versions...';
+    forgeHint.style.color = '';
 
     fetch('/api/forge/versions?mc_version=' + encodeURIComponent(mcVersion))
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            if (data.error) {
+            if (data.error || (!data.recommended && !data.latest)) {
                 forgeHint.textContent = 'No Forge release found for MC ' + mcVersion + '. Try a different version.';
                 forgeHint.style.color = 'var(--accent-warning)';
             } else {
                 var recommended = data.recommended || data.latest;
-                if (recommended) {
-                    forgeInput.placeholder = recommended + ' (recommended)';
-                    forgeHint.textContent = 'Recommended: ' + (data.recommended || 'N/A') +
-                                            ' | Latest: ' + (data.latest || 'N/A') +
-                                            '. Leave the field blank to use recommended automatically.';
-                    forgeHint.style.color = '';
-                } else {
-                    forgeHint.textContent = 'No Forge release found for MC ' + mcVersion + '.';
-                    forgeHint.style.color = 'var(--accent-warning)';
-                }
+                forgeInput.placeholder = recommended + ' (recommended)';
+                forgeHint.textContent = 'Recommended: ' + (data.recommended || 'N/A') +
+                                        ' | Latest: ' + (data.latest || 'N/A') +
+                                        '. Leave blank to use recommended automatically.';
             }
         })
         .catch(function() {
