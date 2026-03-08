@@ -88,12 +88,23 @@ def provision_server(server_id: str) -> None:
 
 
 def start_server(server: GameServer) -> None:
+    from app.services.proxmox import ProxmoxService
+    try:
+        ProxmoxService().start_ct(server.proxmox_node, server.ct_id)
+    except Exception:
+        pass  # CT may already be running
+    _wait_for_ssh(server.ip_address, server)
     ssh_mgr.exec(server.ip_address, f'systemctl start {SYSTEMD_UNIT}')
     _set_status(server, 'running')
 
 
 def stop_server(server: GameServer) -> None:
-    ssh_mgr.exec(server.ip_address, f'systemctl stop {SYSTEMD_UNIT}')
+    from app.services.proxmox import ProxmoxService
+    try:
+        ssh_mgr.exec(server.ip_address, f'systemctl stop {SYSTEMD_UNIT}')
+    except Exception:
+        pass  # CT may be unreachable; stop it anyway
+    ProxmoxService().stop_ct(server.proxmox_node, server.ct_id)
     _set_status(server, 'stopped')
 
 
