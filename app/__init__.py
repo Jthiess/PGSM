@@ -50,6 +50,12 @@ def _apply_migrations(db):
         "ALTER TABLE game_servers ADD COLUMN java_version_override INTEGER",
         # v5: custom startup command override (NULL = use script default)
         "ALTER TABLE game_servers ADD COLUMN custom_startup_command VARCHAR(512)",
+        # v6: Fabric loader version (NULL = latest)
+        "ALTER TABLE game_servers ADD COLUMN fabric_loader_version VARCHAR(32)",
+        # v7: Forge version (NULL = recommended for MC version)
+        "ALTER TABLE game_servers ADD COLUMN forge_version VARCHAR(32)",
+        # v8: Import archive URL (for import server type)
+        "ALTER TABLE game_servers ADD COLUMN import_archive_url VARCHAR(512)",
     ]
 
     with db.engine.connect() as conn:

@@ -64,6 +64,12 @@ class GameServer(db.Model):
     java_version_override = db.Column(db.Integer, nullable=True)
     # Custom startup command override. NULL = use script default.
     custom_startup_command = db.Column(db.String(512), nullable=True)
+    # Modded: Fabric loader version. NULL = use latest stable.
+    fabric_loader_version = db.Column(db.String(32), nullable=True)
+    # Modded: Forge version (e.g. '47.3.12'). NULL = use recommended for MC version.
+    forge_version = db.Column(db.String(32), nullable=True)
+    # Import: URL to a .zip or .tar.gz server archive.
+    import_archive_url = db.Column(db.String(512), nullable=True)
 
     # Lifecycle
     status = db.Column(db.String(32), default='creating')  # creating, stopped, running, error

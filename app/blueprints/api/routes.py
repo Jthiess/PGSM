@@ -27,6 +27,30 @@ def minecraft_versions():
         return jsonify({'error': str(e)}), 500
 
 
+@bp.route('/forge/versions')
+def forge_versions():
+    from app.services.minecraft import MinecraftService
+    mc_version = request.args.get('mc_version', '').strip()
+    if not mc_version:
+        return jsonify({'error': 'mc_version query parameter is required'}), 400
+    try:
+        return jsonify(MinecraftService().get_forge_versions(mc_version))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/fabric/loader-versions')
+def fabric_loader_versions():
+    from app.services.minecraft import MinecraftService
+    try:
+        versions = MinecraftService().get_fabric_loader_versions()
+        # Return only stable versions with just the version string for simplicity
+        stable = [v['version'] for v in versions if not v.get('maven', '').endswith('-SNAPSHOT')]
+        return jsonify(stable)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @bp.route('/servers/<server_id>/status')
 def server_status(server_id):
     server = GameServer.query.get_or_404(server_id)

@@ -50,6 +50,12 @@ def create_server():
     form = request.form
     server_type = form.get('server_type', 'vanilla')
     game_code = 'MCBED' if server_type == 'bedrock' else 'MCJAV'
+
+    # Import type requires a startup command
+    if server_type == 'import' and not form.get('custom_startup_command', '').strip():
+        flash('A startup command is required for imported servers.', 'error')
+        return redirect(url_for('servers.create_server'))
+
     server_id = str(uuid.uuid4())
     partial_uuid = server_id[:8].upper()
     hostname = f'PGSM-{game_code}-{partial_uuid}'
@@ -65,12 +71,15 @@ def create_server():
         return redirect(url_for('servers.create_server'))
 
     cfg = current_app.config
+    # Import servers don't have a meaningful MC version; use 'import' as sentinel
+    game_version = 'import' if server_type == 'import' else form.get('game_version', 'latest')
+
     server = GameServer(
         id=server_id,
         name=form.get('name', hostname),
         game_code=game_code,
         server_type=server_type,
-        game_version=form.get('game_version', 'latest'),
+        game_version=game_version,
         ct_id=ct_id,
         proxmox_node=form.get('node'),
         hostname=hostname,
@@ -86,6 +95,11 @@ def create_server():
         hardcore='hardcore' in form,
         ha_enabled=ha_enabled,
         status='creating',
+        # Modded / import fields
+        fabric_loader_version=form.get('fabric_loader_version', '').strip() or None,
+        forge_version=form.get('forge_version', '').strip() or None,
+        import_archive_url=form.get('import_archive_url', '').strip() or None,
+        custom_startup_command=form.get('custom_startup_command', '').strip() or None,
     )
     db.session.add(server)
     db.session.commit()

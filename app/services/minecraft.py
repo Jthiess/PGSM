@@ -10,6 +10,7 @@ GAME_CODES = {
     'fabric':  'MCJAV',
     'forge':   'MCJAV',
     'bedrock': 'MCBED',
+    'import':  'MCJAV',
 }
 
 # Maps server_type → install script path (relative to project root)
@@ -19,6 +20,7 @@ INSTALL_SCRIPTS = {
     'paper':   'Scripts/Minecraft/Modded/Paper/install-mcpape.sh',
     'fabric':  'Scripts/Minecraft/Modded/Fabric/install-mcfabr.sh',
     'forge':   'Scripts/Minecraft/Modded/Forge/install-mcforg.sh',
+    'import':  'Scripts/Minecraft/Import/install-import.sh',
 }
 
 # Maps server_type → display name
@@ -28,7 +30,12 @@ SERVER_TYPE_NAMES = {
     'fabric':  'Minecraft Java - Fabric',
     'forge':   'Minecraft Java - Forge',
     'bedrock': 'Minecraft Bedrock',
+    'import':  'Minecraft - Import',
 }
+
+_FORGE_PROMOS_URL = 'https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json'
+_FORGE_INSTALLER_URL = 'https://maven.minecraftforge.net/net/minecraftforge/forge/{mc}-{forge}/forge-{mc}-{forge}-installer.jar'
+_FABRIC_LOADER_URL = 'https://meta.fabricmc.net/v2/versions/loader'
 
 
 class MinecraftService:
@@ -66,6 +73,36 @@ class MinecraftService:
             versions = [v for v in versions if v['type'] == 'release']
         return versions
 
+    def get_forge_versions(self, mc_version: str) -> dict:
+        """Returns recommended and latest Forge versions for a given MC version.
+
+        Returns a dict like:
+            {'recommended': '47.3.12', 'latest': '47.3.12'}
+        Either value may be None if not available for the given MC version.
+        """
+        promos = requests.get(_FORGE_PROMOS_URL, timeout=10).json().get('promos', {})
+        return {
+            'recommended': promos.get(f'{mc_version}-recommended'),
+            'latest':      promos.get(f'{mc_version}-latest'),
+        }
+
+    def get_forge_installer_url(self, mc_version: str, forge_version: str | None = None) -> str:
+        """Resolves a Forge installer JAR URL for a given MC + Forge version.
+
+        If forge_version is None, uses the recommended version (falling back to latest).
+        Raises ValueError if no Forge version is found for the given MC version.
+        """
+        if not forge_version:
+            versions = self.get_forge_versions(mc_version)
+            forge_version = versions['recommended'] or versions['latest']
+            if not forge_version:
+                raise ValueError(f"No Forge version found for Minecraft {mc_version}")
+        return _FORGE_INSTALLER_URL.format(mc=mc_version, forge=forge_version)
+
+    def get_fabric_loader_versions(self) -> list[dict]:
+        """Returns a list of available Fabric loader versions."""
+        return requests.get(_FABRIC_LOADER_URL, timeout=10).json()
+
     def get_script_path(self, server_type: str) -> str:
         """Returns the absolute path to the install script for a given server type."""
         relative = INSTALL_SCRIPTS.get(server_type)
@@ -78,13 +115,33 @@ class MinecraftService:
     def build_install_args(self, server) -> str:
         """Builds the argument string for the install script from a GameServer instance."""
         import shlex
-        jar_url = self.get_vanilla_jar_url(server.game_version)
-        args = [f'serverfilelink={jar_url}', f'type={server.server_type}']
+        args = [f'type={server.server_type}']
+
+        if server.server_type == 'import':
+            if not server.import_archive_url:
+                raise ValueError('import_archive_url is required for import server type')
+            args.append(f'archive_url={shlex.quote(server.import_archive_url)}')
+
+        elif server.server_type == 'forge':
+            forge_url = self.get_forge_installer_url(server.game_version, server.forge_version)
+            # Forge script uses forge_url if set, serverfilelink as fallback — pass both
+            args.append(f'serverfilelink={shlex.quote(forge_url)}')
+            args.append(f'forge_url={shlex.quote(forge_url)}')
+
+        else:
+            # vanilla, paper, fabric all need the vanilla JAR
+            jar_url = self.get_vanilla_jar_url(server.game_version)
+            args.append(f'serverfilelink={jar_url}')
+            if server.server_type == 'fabric':
+                args.append(f'mc_version={server.game_version}')
+                if server.fabric_loader_version:
+                    args.append(f'fabric_version={server.fabric_loader_version}')
+
         if server.java_version_override:
             args.append(f'java_version={server.java_version_override}')
         if server.custom_startup_command:
-            # Use shlex.quote on the value portion only; the key= prefix has no spaces
             args.append(f'startup_command={shlex.quote(server.custom_startup_command)}')
+
         return ' '.join(args)
 
     def generate_server_properties(self, server) -> str:

@@ -25,26 +25,62 @@
                 <option value="fabric"  {% if defaults.server_type == 'fabric'  %}selected{% endif %}>Minecraft Java - Fabric</option>
                 <option value="forge"   {% if defaults.server_type == 'forge'   %}selected{% endif %}>Minecraft Java - Forge</option>
                 <option value="bedrock" {% if defaults.server_type == 'bedrock' %}selected{% endif %}>Minecraft Bedrock</option>
+                <option value="import">Minecraft - Import</option>
             </select>
         </div>
-        <div class="form-group">
-            <label for="game_version">Game Version</label>
-            <select name="game_version" id="game_version">
-                {% for v in versions %}
-                    <option value="{{ v.id }}" data-type="{{ v.type }}">{{ v.id }}</option>
-                {% endfor %}
-                {% if not versions %}
-                    <option value="latest">latest</option>
-                {% endif %}
-            </select>
-            <div class="checkbox-row" style="margin-top: 0.5rem;">
-                <input type="checkbox" id="show_snapshots">
-                <label for="show_snapshots">Show snapshot versions</label>
-            </div>
-            <div class="form-hint" id="snapshot-hint" style="display:none; color: var(--accent-warning);">
-                Snapshot versions are unstable development builds.
+
+        <!-- Version picker (hidden for import type) -->
+        <div id="version-section">
+            <div class="form-group">
+                <label for="game_version">Game Version</label>
+                <select name="game_version" id="game_version">
+                    {% for v in versions %}
+                        <option value="{{ v.id }}" data-type="{{ v.type }}">{{ v.id }}</option>
+                    {% endfor %}
+                    {% if not versions %}
+                        <option value="latest">latest</option>
+                    {% endif %}
+                </select>
+                <div class="checkbox-row" style="margin-top: 0.5rem;">
+                    <input type="checkbox" id="show_snapshots">
+                    <label for="show_snapshots">Show snapshot versions</label>
+                </div>
+                <div class="form-hint" id="snapshot-hint" style="display:none; color: var(--accent-warning);">
+                    Snapshot versions are unstable development builds.
+                </div>
             </div>
         </div>
+
+        <!-- Fabric: optional loader version -->
+        <div class="form-group" id="fabric-options" style="display:none">
+            <label for="fabric_loader_version">Fabric Loader Version</label>
+            <input type="text" name="fabric_loader_version" id="fabric_loader_version" placeholder="latest">
+            <div class="form-hint">Leave blank to use the latest stable Fabric loader.</div>
+        </div>
+
+        <!-- Forge: version (auto-fetched from Forge promotions API) -->
+        <div class="form-group" id="forge-options" style="display:none">
+            <label for="forge_version">Forge Version</label>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+                <input type="text" name="forge_version" id="forge_version" placeholder="Auto (recommended for selected MC version)" style="flex:1">
+                <button type="button" class="btn btn-secondary" id="forge-fetch-btn" onclick="fetchForgeVersion()">Fetch</button>
+            </div>
+            <div class="form-hint" id="forge-version-hint">
+                Leave blank to automatically use the recommended Forge version for the selected MC version.
+            </div>
+        </div>
+
+        <!-- Import: archive URL -->
+        <div class="form-group" id="import-options" style="display:none">
+            <label for="import_archive_url">Server Archive URL</label>
+            <input type="url" name="import_archive_url" id="import_archive_url"
+                   placeholder="https://example.com/my-server.tar.gz">
+            <div class="form-hint">
+                Direct download URL to a <strong>.zip</strong> or <strong>.tar.gz</strong> archive containing your server folder.
+                The archive will be downloaded and extracted to <code>/PGSM/</code> inside the container.
+            </div>
+        </div>
+
         <div class="wizard-nav">
             <span></span>
             <button type="button" class="btn btn-primary" onclick="wizardGo(2)">Next &rarr;</button>
@@ -144,6 +180,20 @@
                 <label for="hardcore">Hardcore Mode</label>
             </div>
         </div>
+
+        <!-- Import: startup command (required) -->
+        <div class="form-group" id="startup-cmd-group" style="display:none">
+            <label for="custom_startup_command">
+                Startup Command
+                <span id="startup-cmd-required" style="color:var(--accent-error); display:none"> *</span>
+            </label>
+            <input type="text" name="custom_startup_command" id="custom_startup_command"
+                   placeholder="/opt/java/java21/bin/java -jar server.jar">
+            <div class="form-hint" id="startup-cmd-hint">
+                Override the default startup command. Leave blank to use the server type default.
+            </div>
+        </div>
+
         <div class="wizard-nav">
             <button type="button" class="btn btn-secondary" onclick="wizardGo(2)">&larr; Back</button>
             <button type="submit" class="btn btn-primary">&#9654; Create Server</button>
@@ -157,10 +207,64 @@
 <script src="{{ url_for('static', filename='js/wizard.js') }}"></script>
 <script>
 (function() {
-    var snapshotToggle = document.getElementById('show_snapshots');
-    var versionSelect  = document.getElementById('game_version');
-    var snapshotHint   = document.getElementById('snapshot-hint');
+    var serverTypeSelect = document.getElementById('server_type');
+    var snapshotToggle   = document.getElementById('show_snapshots');
+    var versionSelect    = document.getElementById('game_version');
+    var snapshotHint     = document.getElementById('snapshot-hint');
 
+    // Section visibility refs
+    var versionSection   = document.getElementById('version-section');
+    var fabricOptions    = document.getElementById('fabric-options');
+    var forgeOptions     = document.getElementById('forge-options');
+    var importOptions    = document.getElementById('import-options');
+    var startupCmdGroup  = document.getElementById('startup-cmd-group');
+    var startupCmdReq    = document.getElementById('startup-cmd-required');
+    var startupCmdHint   = document.getElementById('startup-cmd-hint');
+    var startupCmdInput  = document.getElementById('custom_startup_command');
+    var importArchiveUrl = document.getElementById('import_archive_url');
+
+    function updateTypeUI() {
+        var type = serverTypeSelect.value;
+        var isImport = type === 'import';
+        var isFabric = type === 'fabric';
+        var isForge  = type === 'forge';
+
+        // Version section visibility
+        versionSection.style.display  = isImport ? 'none' : '';
+        fabricOptions.style.display   = isFabric ? '' : 'none';
+        forgeOptions.style.display    = isForge  ? '' : 'none';
+        importOptions.style.display   = isImport ? '' : 'none';
+
+        // Startup command: always visible for import, hidden otherwise
+        startupCmdGroup.style.display  = isImport ? '' : 'none';
+        startupCmdReq.style.display    = isImport ? '' : 'none';
+        startupCmdInput.required       = isImport;
+        if (isImport) {
+            startupCmdHint.textContent = 'Required. The command used to start your server (e.g. /opt/java/java21/bin/java -jar server.jar).';
+        } else {
+            startupCmdHint.textContent = 'Override the default startup command. Leave blank to use the server type default.';
+        }
+
+        // Forge: try to auto-fetch version when MC version changes
+        if (isForge) {
+            versionSelect.addEventListener('change', onMcVersionChangeForForge);
+        } else {
+            versionSelect.removeEventListener('change', onMcVersionChangeForForge);
+        }
+    }
+
+    function onMcVersionChangeForForge() {
+        // Only auto-fetch if the forge_version field is empty
+        var forgeInput = document.getElementById('forge_version');
+        if (!forgeInput.value.trim()) {
+            fetchForgeVersion();
+        }
+    }
+
+    serverTypeSelect.addEventListener('change', updateTypeUI);
+    updateTypeUI(); // run on page load to reflect default
+
+    // Snapshot toggle
     snapshotToggle.addEventListener('change', function() {
         var includeSnapshots = snapshotToggle.checked;
         snapshotHint.style.display = includeSnapshots ? '' : 'none';
@@ -186,5 +290,47 @@
             .catch(function() { versionSelect.disabled = false; });
     });
 })();
+
+function fetchForgeVersion() {
+    var mcVersion   = document.getElementById('game_version').value;
+    var forgeInput  = document.getElementById('forge_version');
+    var forgeHint   = document.getElementById('forge-version-hint');
+    var fetchBtn    = document.getElementById('forge-fetch-btn');
+
+    if (!mcVersion) return;
+
+    fetchBtn.disabled = true;
+    fetchBtn.textContent = '...';
+    forgeHint.textContent = 'Fetching Forge versions...';
+
+    fetch('/api/forge/versions?mc_version=' + encodeURIComponent(mcVersion))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                forgeHint.textContent = 'No Forge release found for MC ' + mcVersion + '. Try a different version.';
+                forgeHint.style.color = 'var(--accent-warning)';
+            } else {
+                var recommended = data.recommended || data.latest;
+                if (recommended) {
+                    forgeInput.placeholder = recommended + ' (recommended)';
+                    forgeHint.textContent = 'Recommended: ' + (data.recommended || 'N/A') +
+                                            ' | Latest: ' + (data.latest || 'N/A') +
+                                            '. Leave the field blank to use recommended automatically.';
+                    forgeHint.style.color = '';
+                } else {
+                    forgeHint.textContent = 'No Forge release found for MC ' + mcVersion + '.';
+                    forgeHint.style.color = 'var(--accent-warning)';
+                }
+            }
+        })
+        .catch(function() {
+            forgeHint.textContent = 'Could not reach Forge API. Leave blank to use recommended automatically.';
+            forgeHint.style.color = 'var(--accent-warning)';
+        })
+        .finally(function() {
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = 'Fetch';
+        });
+}
 </script>
 {% endblock %}
