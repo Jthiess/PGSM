@@ -39,7 +39,7 @@ esac
 
 # Use custom startup command if provided, else fall back to default
 if [ -z "$STARTUP_COMMAND" ]; then
-  STARTUP_COMMAND="$JAVA_BIN -Xms512M -Xmx2G -XX:+UseG1GC -jar fabric-server-launch.jar --nogui"
+  STARTUP_COMMAND="$JAVA_BIN -Xms512M -Xmx2G -XX:+UseG1GC -jar server.jar --nogui"
 fi
 
 # Step 1: Update and Upgrade
