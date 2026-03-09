@@ -81,6 +81,7 @@ def create_server():
         flash(f'Setup error: {e}', 'error')
         return redirect(url_for('servers.create_server'))
 
+    cfg = current_app.config
     game_port = int(form.get('game_port', cfg['SERVER_DEFAULT_GAME_PORT']))
     port_conflict = GameServer.port_in_use_by(game_port)
     if port_conflict:
@@ -88,8 +89,6 @@ def create_server():
             os.remove(import_archive_path)
         flash(f'Port {game_port} is already in use by server "{port_conflict.name}".', 'error')
         return redirect(url_for('servers.create_server'))
-
-    cfg = current_app.config
     # Import servers don't have a meaningful MC version; use 'import' as sentinel
     game_version = 'import' if server_type == 'import' else form.get('game_version', 'latest')
 
