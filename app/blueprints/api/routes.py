@@ -203,6 +203,40 @@ def add_port(server_id):
     return jsonify({'ok': True, 'all_ports': server.all_ports})
 
 
+@bp.route('/servers/<server_id>/ports/primary', methods=['POST'])
+def set_primary_port(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    data = request.get_json(silent=True) or {}
+    port = data.get('port')
+
+    if not port or not isinstance(port, int) or not (1024 <= port <= 65535):
+        return jsonify({'error': 'Invalid port number (must be 1024–65535)'}), 400
+
+    if port == server.game_port:
+        return jsonify({'error': 'That is already the primary port'}), 400
+
+    # Check it's not already an extra port
+    extra = list(server.extra_ports or [])
+    extra_port_nums = [e['port'] if isinstance(e, dict) else e for e in extra]
+    if port in extra_port_nums:
+        return jsonify({'error': f'Port {port} is already an extra port — remove it first'}), 400
+
+    conflict = GameServer.port_in_use_by(port, exclude_id=server_id)
+    if conflict:
+        return jsonify({'error': f'Port {port} is already in use by server "{conflict.name}"'}), 400
+
+    server.game_port = port
+    db.session.commit()
+
+    try:
+        from app.services.nginx import NginxService
+        NginxService().add_server(server)
+    except Exception as e:
+        return jsonify({'ok': True, 'game_port': server.game_port, 'nginx_warning': str(e)})
+
+    return jsonify({'ok': True, 'game_port': server.game_port})
+
+
 @bp.route('/servers/<server_id>/ports/remove', methods=['POST'])
 def remove_port(server_id):
     server = GameServer.query.get_or_404(server_id)

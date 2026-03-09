@@ -216,11 +216,20 @@
                 </tr>
             </thead>
             <tbody id="ports-table-body">
-                <tr>
-                    <td class="text-mono">{{ server.game_port }}</td>
+                <tr id="primary-port-row">
+                    <td class="text-mono" id="primary-port-display">{{ server.game_port }}</td>
                     <td><span class="text-mono" style="font-size: 0.82rem;">TCP</span></td>
                     <td><span class="badge badge-running" style="font-size: 0.7rem;">Primary</span></td>
-                    <td><span class="text-muted" style="font-size: 0.8rem;">Cannot remove</span></td>
+                    <td>
+                        <span id="primary-port-edit-btn">
+                            <button class="btn btn-ghost btn-sm" onclick="startEditPrimaryPort()">Edit</button>
+                        </span>
+                        <span id="primary-port-edit-form" style="display:none;">
+                            <input type="number" id="primary-port-input" min="1024" max="65535" style="width:110px;">
+                            <button class="btn btn-primary btn-sm" onclick="savePrimaryPort()">Save</button>
+                            <button class="btn btn-ghost btn-sm" onclick="cancelEditPrimaryPort()">Cancel</button>
+                        </span>
+                    </td>
                 </tr>
                 {% for entry in server.all_ports_with_protocols %}
                 {% if entry.port != server.game_port %}
@@ -473,6 +482,44 @@ function addPort() {
             showPortFeedback('Port added, but nginx reload failed: ' + data.nginx_warning, true);
         } else {
             showPortFeedback('Port ' + port + ' (' + protocol.toUpperCase() + ') added.', false);
+        }
+    })
+    .catch(function() { showPortFeedback('Request failed.', true); });
+}
+
+function startEditPrimaryPort() {
+    document.getElementById('primary-port-input').value = PRIMARY_PORT;
+    document.getElementById('primary-port-edit-btn').style.display = 'none';
+    document.getElementById('primary-port-edit-form').style.display = '';
+    document.getElementById('primary-port-input').focus();
+}
+
+function cancelEditPrimaryPort() {
+    document.getElementById('primary-port-edit-form').style.display = 'none';
+    document.getElementById('primary-port-edit-btn').style.display = '';
+}
+
+function savePrimaryPort() {
+    var port = parseInt(document.getElementById('primary-port-input').value, 10);
+    if (!port || port < 1024 || port > 65535) {
+        showPortFeedback('Port must be between 1024 and 65535.', true);
+        return;
+    }
+    fetch('/api/servers/' + SERVER_ID + '/ports/primary', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({port: port}),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { showPortFeedback(data.error, true); return; }
+        PRIMARY_PORT = data.game_port;
+        document.getElementById('primary-port-display').textContent = data.game_port;
+        cancelEditPrimaryPort();
+        if (data.nginx_warning) {
+            showPortFeedback('Primary port updated, but nginx reload failed: ' + data.nginx_warning, true);
+        } else {
+            showPortFeedback('Primary port changed to ' + data.game_port + '.', false);
         }
     })
     .catch(function() { showPortFeedback('Request failed.', true); });
