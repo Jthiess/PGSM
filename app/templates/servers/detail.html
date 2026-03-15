@@ -83,6 +83,7 @@
 <div class="tabs">
     <a class="tab {% if active_tab == 'info' %}active{% endif %}" data-tab="info" href="#">Info</a>
     <a class="tab {% if active_tab == 'game-settings' %}active{% endif %}" data-tab="game-settings" href="#">Game Settings</a>
+    <a class="tab {% if active_tab == 'resources' %}active{% endif %}" data-tab="resources" href="#">Resources</a>
     <a class="tab {% if active_tab == 'ports' %}active{% endif %}" data-tab="ports" href="#">Ports</a>
     <a class="tab {% if active_tab == 'monitoring' %}active{% endif %}" data-tab="monitoring" href="#">Monitoring</a>
 </div>
@@ -193,6 +194,32 @@
                 <span class="text-muted" style="font-size: 0.8rem;">
                     A server restart is required for changes to take effect.
                 </span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="tab-resources" class="tab-panel" {% if active_tab != 'resources' %}style="display:none"{% endif %}>
+    <div class="card">
+        <h3 class="section-title" style="margin-bottom: 0.5rem;">CPU &amp; Memory Allocation</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Changes are applied immediately to the Proxmox container.
+        </p>
+        <form method="POST" action="{{ url_for('servers.update_resources', server_id=server.id) }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cores">CPU Cores</label>
+                    <input type="number" id="cores" name="cores"
+                           value="{{ server.cores }}" min="1" max="128">
+                </div>
+                <div class="form-group">
+                    <label for="memory_mb">Memory (MB)</label>
+                    <input type="number" id="memory_mb" name="memory_mb"
+                           value="{{ server.memory_mb }}" min="128" max="1048576" step="128">
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem;">
+                <button type="submit" class="btn btn-primary btn-sm">Update Resources</button>
             </div>
         </form>
     </div>

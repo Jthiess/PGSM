@@ -114,6 +114,25 @@ class ProxmoxService:
         """
         self._get_api().cluster.ha.resources(f'lxc:{ct_id}').delete()
 
+    def update_ct_resources(
+        self,
+        node: str,
+        ct_id: int,
+        cores: int | None = None,
+        memory_mb: int | None = None,
+    ) -> None:
+        """Updates CPU and/or memory allocation on an existing LXC container.
+
+        Proxmox applies CPU/memory changes immediately to running containers.
+        """
+        params: dict = {}
+        if cores is not None:
+            params['cores'] = cores
+        if memory_mb is not None:
+            params['memory'] = memory_mb
+        if params:
+            self._get_api().nodes(node).lxc(ct_id).config.put(**params)
+
     def start_ct(self, node: str, ct_id: int) -> None:
         self._get_api().nodes(node).lxc(ct_id).status.start.post()
 

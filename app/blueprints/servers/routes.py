@@ -213,6 +213,58 @@ def restart(server_id):
     return redirect(url_for('servers.detail', server_id=server_id))
 
 
+@bp.route('/<server_id>/resources', methods=['POST'])
+def update_resources(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    form = request.form
+
+    # Validate cores
+    try:
+        cores = int(form.get('cores', server.cores))
+    except (TypeError, ValueError):
+        flash('Invalid CPU cores value.', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='resources'))
+    if cores < 1 or cores > 128:
+        flash('CPU cores must be between 1 and 128.', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='resources'))
+
+    # Validate memory
+    try:
+        memory_mb = int(form.get('memory_mb', server.memory_mb))
+    except (TypeError, ValueError):
+        flash('Invalid memory value.', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='resources'))
+    if memory_mb < 128 or memory_mb > 1048576:
+        flash('Memory must be between 128 MB and 1,048,576 MB (1 TB).', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='resources'))
+
+    # Skip if nothing changed
+    if cores == server.cores and memory_mb == server.memory_mb:
+        flash('No changes detected.', 'info')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='resources'))
+
+    # Apply to Proxmox CT
+    from app.services.proxmox import ProxmoxService
+    proxmox = ProxmoxService()
+    try:
+        proxmox.update_ct_resources(
+            server.proxmox_node, server.ct_id,
+            cores=cores if cores != server.cores else None,
+            memory_mb=memory_mb if memory_mb != server.memory_mb else None,
+        )
+    except Exception as e:
+        flash(f'Failed to update container resources: {e}', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='resources'))
+
+    # Update DB
+    server.cores = cores
+    server.memory_mb = memory_mb
+    db.session.commit()
+
+    flash('Resources updated successfully.', 'success')
+    return redirect(url_for('servers.detail', server_id=server_id, tab='resources'))
+
+
 @bp.route('/<server_id>/settings', methods=['POST'])
 def update_settings(server_id):
     server = GameServer.query.get_or_404(server_id)
