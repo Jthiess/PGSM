@@ -1,3 +1,5 @@
+import json
+
 from flask import jsonify, request
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -235,6 +237,58 @@ def set_primary_port(server_id):
         return jsonify({'ok': True, 'game_port': server.game_port, 'nginx_warning': str(e)})
 
     return jsonify({'ok': True, 'game_port': server.game_port})
+
+
+@bp.route('/servers', methods=['GET'])
+def list_servers():
+    """Lists all game servers for external integrations (e.g. Game-Panel whitelist sync)."""
+    servers = GameServer.query.all()
+    return jsonify([
+        {
+            'id': s.id,
+            'name': s.name,
+            'status': s.status,
+            'ip_address': s.ip_address,
+            'game_port': s.game_port,
+            'game_code': s.game_code,
+            'server_type': s.server_type,
+            'game_version': s.game_version,
+        }
+        for s in servers
+    ])
+
+
+@bp.route('/servers/<server_id>/whitelist', methods=['POST'])
+def push_whitelist(server_id):
+    """Writes whitelist.json to a server and reloads the whitelist.
+
+    Expects JSON body: [{"uuid": "...", "name": "..."}, ...]
+    """
+    server = GameServer.query.get_or_404(server_id)
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({'error': 'Request body must be JSON'}), 400
+
+    payload = json.dumps(data, indent=2)
+    try:
+        ssh_client, sftp = _ssh_mgr.get_sftp(server.ip_address)
+        try:
+            with sftp.file('/PGSM/whitelist.json', 'w') as f:
+                f.write(payload)
+            sftp.close()
+        finally:
+            ssh_client.close()
+        _ssh_mgr.exec(server.ip_address, 'chown PGSM:PGSM /PGSM/whitelist.json')
+        # Send whitelist reload command via the Minecraft console
+        _ssh_mgr.exec(
+            server.ip_address,
+            "screen -S minecraft -p 0 -X stuff 'whitelist reload\\n'",
+            timeout=5,
+        )
+    except Exception as e:
+        return jsonify({'error': f'Failed to push whitelist: {e}'}), 500
+
+    return jsonify({'ok': True, 'entries': len(data)})
 
 
 @bp.route('/servers/<server_id>/ports/remove', methods=['POST'])
