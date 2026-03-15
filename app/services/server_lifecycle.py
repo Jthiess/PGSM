@@ -139,7 +139,7 @@ def restart_server(server: GameServer) -> None:
 def get_live_status(server: GameServer) -> str:
     """Queries systemd for the live unit state. Returns 'active', 'inactive', or 'failed'."""
     try:
-        stdout, _ = ssh_mgr.exec(server.ip_address, f'systemctl is-active {SYSTEMD_UNIT}')
+        stdout, _ = ssh_mgr.exec(server.ip_address, f'systemctl is-active {SYSTEMD_UNIT}', timeout=5)
         raw = stdout.strip()
         # Map systemd states to PGSM status vocabulary
         if raw == 'active':

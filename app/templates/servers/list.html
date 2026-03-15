@@ -71,6 +71,16 @@
 
 {% block scripts %}
 <script>
+// Fetch with a timeout so unreachable servers don't block the UI
+function fetchWithTimeout(url, opts, ms) {
+    ms = ms || 10000;
+    var controller = new AbortController();
+    opts = opts || {};
+    opts.signal = controller.signal;
+    var timer = setTimeout(function() { controller.abort(); }, ms);
+    return fetch(url, opts).finally(function() { clearTimeout(timer); });
+}
+
 // Poll/sync status for all servers
 document.querySelectorAll('[id^="status-"]').forEach(function(el) {
     var serverId = el.id.replace('status-', '');
@@ -79,7 +89,7 @@ document.querySelectorAll('[id^="status-"]').forEach(function(el) {
     if (status === 'creating') {
         // Frequent poll while provisioning
         var interval = setInterval(function() {
-            fetch('/api/servers/' + serverId + '/status')
+            fetchWithTimeout('/api/servers/' + serverId + '/status', {}, 8000)
                 .then(r => r.json())
                 .then(data => {
                     el.textContent = data.db_status;
@@ -91,7 +101,7 @@ document.querySelectorAll('[id^="status-"]').forEach(function(el) {
     } else {
         // Sync with Proxmox every 30s for running/stopped servers
         setInterval(function() {
-            fetch('/api/servers/' + serverId + '/sync', { method: 'POST' })
+            fetchWithTimeout('/api/servers/' + serverId + '/sync', { method: 'POST' }, 10000)
                 .then(r => r.json())
                 .then(data => {
                     if (data.changed) {
@@ -108,7 +118,7 @@ document.querySelectorAll('[id^="status-"]').forEach(function(el) {
 document.querySelectorAll('[id^="players-"]').forEach(function(el) {
     var serverId = el.id.replace('players-', '');
     function fetchPlayers() {
-        fetch('/api/servers/' + serverId + '/metrics')
+        fetchWithTimeout('/api/servers/' + serverId + '/metrics', {}, 10000)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.players_online !== null) {

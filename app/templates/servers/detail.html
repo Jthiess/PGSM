@@ -336,6 +336,16 @@
 
 {% block scripts %}
 <script>
+// Fetch with a timeout so unreachable servers don't block the UI
+function fetchWithTimeout(url, opts, ms) {
+    ms = ms || 10000;
+    var controller = new AbortController();
+    opts = opts || {};
+    opts.signal = controller.signal;
+    var timer = setTimeout(function() { controller.abort(); }, ms);
+    return fetch(url, opts).finally(function() { clearTimeout(timer); });
+}
+
 // Tab switching
 document.querySelectorAll('.tab').forEach(function(tab) {
     tab.addEventListener('click', function(e) {
@@ -354,7 +364,7 @@ const currentStatus = badge ? badge.textContent.trim() : '';
 if (currentStatus === 'creating') {
     // Poll DB status frequently while provisioning
     const interval = setInterval(function() {
-        fetch('/api/servers/{{ server.id }}/status')
+        fetchWithTimeout('/api/servers/{{ server.id }}/status', {}, 8000)
             .then(r => r.json())
             .then(data => {
                 const status = data.db_status;
@@ -370,7 +380,7 @@ if (currentStatus === 'creating') {
 } else {
     // Sync with Proxmox every 30s; reload if status changed externally
     setInterval(function() {
-        fetch('/api/servers/{{ server.id }}/sync', { method: 'POST' })
+        fetchWithTimeout('/api/servers/{{ server.id }}/sync', { method: 'POST' }, 10000)
             .then(r => r.json())
             .then(data => {
                 if (data.changed) location.reload();
@@ -401,7 +411,7 @@ if (currentStatus === 'creating') {
     }
 
     function pollMetrics() {
-        fetch('/api/servers/{{ server.id }}/metrics')
+        fetchWithTimeout('/api/servers/{{ server.id }}/metrics', {}, 10000)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 // CPU

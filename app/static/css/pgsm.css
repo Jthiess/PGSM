@@ -827,6 +827,19 @@ input[type="checkbox"] {
 
 /* ── Utility classes ─────────────────────────────────────────────────────── */
 
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
 .text-muted  { color: var(--text-muted); }
 .text-mono   { font-family: var(--mono); }
 .mt-1        { margin-top: 0.5rem; }

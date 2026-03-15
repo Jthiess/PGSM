@@ -20,6 +20,34 @@ def browse(server_id, remote_path='/PGSM'):
     if not remote_path.startswith('/'):
         remote_path = '/' + remote_path
 
+    # Build breadcrumb parts
+    parts = [p for p in remote_path.split('/') if p]
+    breadcrumbs = []
+    for i, part in enumerate(parts):
+        breadcrumbs.append({
+            'name': part,
+            'path': '/' + '/'.join(parts[:i + 1]),
+        })
+
+    # Page renders immediately; file list is fetched via AJAX
+    return render_template(
+        'files/browser.html',
+        server=server,
+        entries=None,
+        current_path=remote_path,
+        breadcrumbs=breadcrumbs,
+    )
+
+
+@bp.route('/<server_id>/list')
+@bp.route('/<server_id>/list/<path:remote_path>')
+def list_files(server_id, remote_path='/PGSM'):
+    """JSON API: returns directory listing for the file browser."""
+    server = GameServer.query.get_or_404(server_id)
+
+    if not remote_path.startswith('/'):
+        remote_path = '/' + remote_path
+
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
@@ -36,25 +64,9 @@ def browse(server_id, remote_path='/PGSM'):
             sftp.close()
             client.close()
     except Exception as e:
-        flash(f'SFTP error: {e}', 'error')
-        entries = []
+        return jsonify({'error': str(e)}), 502
 
-    # Build breadcrumb parts
-    parts = [p for p in remote_path.split('/') if p]
-    breadcrumbs = []
-    for i, part in enumerate(parts):
-        breadcrumbs.append({
-            'name': part,
-            'path': '/' + '/'.join(parts[:i + 1]),
-        })
-
-    return render_template(
-        'files/browser.html',
-        server=server,
-        entries=entries,
-        current_path=remote_path,
-        breadcrumbs=breadcrumbs,
-    )
+    return jsonify({'entries': entries})
 
 
 @bp.route('/<server_id>/download')

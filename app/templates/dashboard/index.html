@@ -88,6 +88,15 @@
 
 {% block scripts %}
 <script>
+function fetchWithTimeout(url, opts, ms) {
+    ms = ms || 10000;
+    var controller = new AbortController();
+    opts = opts || {};
+    opts.signal = controller.signal;
+    var timer = setTimeout(function() { controller.abort(); }, ms);
+    return fetch(url, opts).finally(function() { clearTimeout(timer); });
+}
+
 // Poll metrics for running servers (2s interval for live updates)
 (function() {
     var servers = {};
@@ -111,7 +120,7 @@
 
     function pollAllMetrics() {
         Object.keys(servers).forEach(function(serverId) {
-            fetch('/api/servers/' + serverId + '/metrics')
+            fetchWithTimeout('/api/servers/' + serverId + '/metrics', {}, 10000)
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     var s = servers[serverId];

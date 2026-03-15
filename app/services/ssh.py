@@ -59,8 +59,8 @@ class SSHManager:
             ip,
             username=username,
             key_filename=key_path,
-            timeout=15,
-            banner_timeout=30,
+            timeout=5,
+            banner_timeout=10,
         )
         return client
 

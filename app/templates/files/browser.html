@@ -33,69 +33,108 @@
     </form>
 </div>
 
-<!-- File listing -->
-<div class="table-container">
-    {% if entries %}
-    <ul class="file-list">
-        {% if current_path != '/PGSM' and current_path != '/' %}
-        {% set parent_path = '/'.join(current_path.split('/')[:-1]) or '/PGSM' %}
-        <li class="file-item">
-            <span class="file-icon">&#128193;</span>
-            <span class="file-name">
-                <a href="{{ url_for('files.browse', server_id=server.id, remote_path=parent_path.lstrip('/')) }}">..</a>
-            </span>
-        </li>
-        {% endif %}
-        {% for entry in entries %}
-        <li class="file-item">
-            <span class="file-icon">{% if entry.is_dir %}&#128193;{% else %}&#128196;{% endif %}</span>
-            <span class="file-name">
-                {% if entry.is_dir %}
-                    <a href="{{ url_for('files.browse', server_id=server.id, remote_path=entry.path.lstrip('/')) }}">{{ entry.name }}/</a>
-                {% else %}
-                    <a href="{{ url_for('files.edit_file', server_id=server.id, path=entry.path) }}">{{ entry.name }}</a>
-                {% endif %}
-            </span>
-            <span class="file-size">
-                {% if not entry.is_dir %}
-                    {% if entry.size < 1024 %}
-                        {{ entry.size }} B
-                    {% elif entry.size < 1048576 %}
-                        {{ (entry.size / 1024) | round(1) }} KB
-                    {% else %}
-                        {{ (entry.size / 1048576) | round(1) }} MB
-                    {% endif %}
-                {% endif %}
-            </span>
-            {% if entry.is_dir %}
-            <div class="flex gap-1">
-                <form method="POST" action="{{ url_for('files.delete_dir', server_id=server.id) }}"
-                      onsubmit="return confirm('Delete directory {{ entry.name }} and ALL its contents? This cannot be undone.')" style="display:inline">
-                    <input type="hidden" name="path" value="{{ entry.path }}">
-                    <button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger)">Delete</button>
-                </form>
-            </div>
-            {% else %}
-            <div class="flex gap-1">
-                <a href="{{ url_for('files.edit_file', server_id=server.id, path=entry.path) }}"
-                   class="btn btn-ghost btn-sm">Edit</a>
-                <a href="{{ url_for('files.download', server_id=server.id, path=entry.path) }}"
-                   class="btn btn-ghost btn-sm">Download</a>
-                <form method="POST" action="{{ url_for('files.delete_file', server_id=server.id) }}"
-                      onsubmit="return confirm('Delete {{ entry.name }}?')" style="display:inline">
-                    <input type="hidden" name="path" value="{{ entry.path }}">
-                    <button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger)">Delete</button>
-                </form>
-            </div>
-            {% endif %}
-        </li>
-        {% endfor %}
-    </ul>
-    {% else %}
-    <div class="empty-state">
-        <h3>Empty directory</h3>
-        <p>Upload files using the form above.</p>
+<!-- File listing (loaded via AJAX) -->
+<div class="table-container" id="file-listing">
+    <div class="empty-state" id="file-loading">
+        <div class="spinner" style="margin: 0 auto 0.75rem;"></div>
+        <p>Loading files&hellip;</p>
     </div>
-    {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var serverId = {{ server.id | tojson }};
+    var currentPath = {{ current_path | tojson }};
+    var container = document.getElementById('file-listing');
+    var listUrl = '/files/' + serverId + '/list/' + currentPath.replace(/^\//, '');
+
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 12000);
+
+    fetch(listUrl, { signal: controller.signal })
+        .then(function(r) { clearTimeout(timer); return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                container.innerHTML = '<div class="empty-state"><h3>Connection error</h3><p>' +
+                    escapeHtml(data.error) + '</p></div>';
+                return;
+            }
+            renderEntries(data.entries || []);
+        })
+        .catch(function(err) {
+            clearTimeout(timer);
+            var msg = err.name === 'AbortError' ? 'Request timed out — server may be unreachable.' : err.message;
+            container.innerHTML = '<div class="empty-state"><h3>Could not load files</h3><p>' +
+                escapeHtml(msg) + '</p></div>';
+        });
+
+    function escapeHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function renderEntries(entries) {
+        if (!entries.length) {
+            container.innerHTML = '<div class="empty-state"><h3>Empty directory</h3>' +
+                '<p>Upload files using the form above.</p></div>';
+            return;
+        }
+
+        var html = '<ul class="file-list">';
+
+        // Parent directory link
+        if (currentPath !== '/PGSM' && currentPath !== '/') {
+            var parts = currentPath.split('/').filter(Boolean);
+            parts.pop();
+            var parentPath = parts.length ? parts.join('/') : 'PGSM';
+            html += '<li class="file-item">' +
+                '<span class="file-icon">&#128193;</span>' +
+                '<span class="file-name"><a href="/files/' + serverId + '/' + parentPath + '">..</a></span>' +
+                '</li>';
+        }
+
+        entries.forEach(function(e) {
+            var safeName = escapeHtml(e.name);
+            var safePath = encodeURI(e.path.replace(/^\//, ''));
+            html += '<li class="file-item">';
+            if (e.is_dir) {
+                html += '<span class="file-icon">&#128193;</span>' +
+                    '<span class="file-name"><a href="/files/' + serverId + '/' + safePath + '">' + safeName + '/</a></span>' +
+                    '<span class="file-size"></span>' +
+                    '<div class="flex gap-1">' +
+                    '<form method="POST" action="/files/' + serverId + '/delete_dir" ' +
+                    'onsubmit="return confirm(\'Delete directory ' + safeName + ' and ALL its contents? This cannot be undone.\')" style="display:inline">' +
+                    '<input type="hidden" name="path" value="' + escapeHtml(e.path) + '">' +
+                    '<button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger)">Delete</button>' +
+                    '</form></div>';
+            } else {
+                html += '<span class="file-icon">&#128196;</span>' +
+                    '<span class="file-name"><a href="/files/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '">' + safeName + '</a></span>' +
+                    '<span class="file-size">' + formatSize(e.size) + '</span>' +
+                    '<div class="flex gap-1">' +
+                    '<a href="/files/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-sm">Edit</a>' +
+                    '<a href="/files/' + serverId + '/download?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-sm">Download</a>' +
+                    '<form method="POST" action="/files/' + serverId + '/delete_file" ' +
+                    'onsubmit="return confirm(\'Delete ' + safeName + '?\')" style="display:inline">' +
+                    '<input type="hidden" name="path" value="' + escapeHtml(e.path) + '">' +
+                    '<button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger)">Delete</button>' +
+                    '</form></div>';
+            }
+            html += '</li>';
+        });
+
+        html += '</ul>';
+        container.innerHTML = html;
+    }
+})();
+</script>
 {% endblock %}
