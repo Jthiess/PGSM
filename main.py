@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings('ignore', message='.*Eventlet is deprecated.*')
+
 import eventlet
 eventlet.monkey_patch()
 

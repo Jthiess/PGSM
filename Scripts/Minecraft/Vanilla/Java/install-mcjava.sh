@@ -84,28 +84,44 @@ echo "eula=true" > /PGSM/eula.txt # This line of code should never be used in a 
 # Step 7: Install tmux
 apt install tmux -y
 
-# Step 8: Create tmux service
+# Step 8: Create wrapper script that monitors the tmux session
+mkdir -p /opt/pgsm
+tee /opt/pgsm/run.sh > /dev/null <<'RUNEOF'
+#!/bin/bash
+# PGSM wrapper: starts the server in tmux and monitors it.
+# Exits non-zero on crash (triggering systemd Restart=on-failure).
+CLEAN_STOP=0
+trap 'CLEAN_STOP=1' SIGTERM SIGINT
+
+/usr/bin/tmux new-session -d -c /PGSM -s PGSM "$@"
+
+while /usr/bin/tmux has-session -t PGSM 2>/dev/null; do
+    sleep 2
+done
+
+[ "$CLEAN_STOP" -eq 1 ] && exit 0
+exit 1
+RUNEOF
+chmod +x /opt/pgsm/run.sh
+
+# Step 9: Create systemd service
 tee /etc/systemd/system/PGSM.service > /dev/null <<EOF
 [Unit]
 Description=Proxmox Game Server Manager
 After=network.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
 
 [Service]
-Type=forking
+Type=simple
 User=PGSM
 Group=PGSM
-
-# Ensure tmux has a predictable environment
 Environment=TERM=xterm-256color
 Environment=TMUX_TMPDIR=/tmp
-# Start tmux session (only if it doesn't already exist)
-ExecStart=/usr/bin/tmux new-session -d -c /PGSM -s PGSM "$STARTUP_COMMAND"
-# Optional: stop the tmux session cleanly
+ExecStart=/opt/pgsm/run.sh $STARTUP_COMMAND
 ExecStop=/usr/bin/tmux kill-session -t PGSM
-# Restart if the tmux server exits unexpectedly
 Restart=on-failure
-# Needed so systemd doesn't kill tmux when ExecStart exits
-RemainAfterExit=yes
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
@@ -113,6 +129,6 @@ EOF
 
 systemctl daemon-reload
 
-# Step 9: Enable and start the service
+# Step 10: Enable and start the service
 systemctl enable PGSM
 systemctl start PGSM

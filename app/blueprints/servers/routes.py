@@ -323,27 +323,57 @@ def update_settings(server_id):
 
 def _rewrite_systemd_unit(server, ssh_mgr):
     """Rewrites /etc/systemd/system/PGSM.service on the container to reflect
-    current java_version and custom_startup_command, then reloads systemd."""
+    current java_version and custom_startup_command, then reloads systemd.
+    Also ensures the run.sh wrapper script exists."""
     if server.custom_startup_command:
         startup_cmd = server.custom_startup_command
     else:
         java_dir = f'java{server.java_version}'
         startup_cmd = f'/opt/java/{java_dir}/bin/java -jar server.jar'
 
+    # Ensure the crash-recovery wrapper script exists
+    run_sh = (
+        '#!/bin/bash\n'
+        '# PGSM wrapper: starts the server in tmux and monitors it.\n'
+        '# Exits non-zero on crash (triggering systemd Restart=on-failure).\n'
+        'CLEAN_STOP=0\n'
+        'trap \'CLEAN_STOP=1\' SIGTERM SIGINT\n'
+        '\n'
+        '/usr/bin/tmux new-session -d -c /PGSM -s PGSM "$@"\n'
+        '\n'
+        'while /usr/bin/tmux has-session -t PGSM 2>/dev/null; do\n'
+        '    sleep 2\n'
+        'done\n'
+        '\n'
+        '[ "$CLEAN_STOP" -eq 1 ] && exit 0\n'
+        'exit 1\n'
+    )
+    ssh_mgr.exec(server.ip_address, 'mkdir -p /opt/pgsm')
+    client, sftp = ssh_mgr.get_sftp(server.ip_address)
+    try:
+        with sftp.file('/opt/pgsm/run.sh', 'w') as f:
+            f.write(run_sh)
+    finally:
+        sftp.close()
+        client.close()
+    ssh_mgr.exec(server.ip_address, 'chmod +x /opt/pgsm/run.sh')
+
     service_content = (
         '[Unit]\n'
         'Description=Proxmox Game Server Manager\n'
-        'After=network.target\n\n'
+        'After=network.target\n'
+        'StartLimitIntervalSec=120\n'
+        'StartLimitBurst=3\n\n'
         '[Service]\n'
-        'Type=forking\n'
+        'Type=simple\n'
         'User=PGSM\n'
         'Group=PGSM\n'
         'Environment=TERM=xterm-256color\n'
         'Environment=TMUX_TMPDIR=/tmp\n'
-        f'ExecStart=/usr/bin/tmux new-session -d -c /PGSM -s PGSM "{startup_cmd}"\n'
+        f'ExecStart=/opt/pgsm/run.sh {startup_cmd}\n'
         'ExecStop=/usr/bin/tmux kill-session -t PGSM\n'
         'Restart=on-failure\n'
-        'RemainAfterExit=yes\n\n'
+        'RestartSec=10\n\n'
         '[Install]\n'
         'WantedBy=multi-user.target\n'
     )
