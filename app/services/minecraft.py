@@ -36,6 +36,7 @@ SERVER_TYPE_NAMES = {
 _FORGE_PROMOS_URL = 'https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json'
 _FORGE_INSTALLER_URL = 'https://maven.minecraftforge.net/net/minecraftforge/forge/{mc}-{forge}/forge-{mc}-{forge}-installer.jar'
 _FABRIC_LOADER_URL = 'https://meta.fabricmc.net/v2/versions/loader'
+_PAPER_API_URL = 'https://api.papermc.io/v2/projects/paper'
 
 
 class MinecraftService:
@@ -99,6 +100,23 @@ class MinecraftService:
                 raise ValueError(f"No Forge version found for Minecraft {mc_version}")
         return _FORGE_INSTALLER_URL.format(mc=mc_version, forge=forge_version)
 
+    def get_paper_jar_url(self, mc_version: str) -> str:
+        """Resolves the latest Paper build JAR download URL for a given Minecraft version."""
+        # Get the latest build number for this MC version
+        version_url = f'{_PAPER_API_URL}/versions/{mc_version}'
+        version_data = requests.get(version_url, timeout=10)
+        if version_data.status_code != 200:
+            raise ValueError(f"Paper does not support Minecraft version '{mc_version}'")
+        builds = version_data.json().get('builds', [])
+        if not builds:
+            raise ValueError(f"No Paper builds found for Minecraft version '{mc_version}'")
+        latest_build = builds[-1]
+        # Get the download filename for this build
+        build_url = f'{_PAPER_API_URL}/versions/{mc_version}/builds/{latest_build}'
+        build_data = requests.get(build_url, timeout=10).json()
+        download_name = build_data['downloads']['application']['name']
+        return f'{_PAPER_API_URL}/versions/{mc_version}/builds/{latest_build}/downloads/{download_name}'
+
     def get_fabric_loader_versions(self) -> list[dict]:
         """Returns a list of available Fabric loader versions."""
         return requests.get(_FABRIC_LOADER_URL, timeout=10).json()
@@ -130,8 +148,12 @@ class MinecraftService:
             args.append(f'serverfilelink={shlex.quote(forge_url)}')
             args.append(f'forge_url={shlex.quote(forge_url)}')
 
+        elif server.server_type == 'paper':
+            jar_url = self.get_paper_jar_url(server.game_version)
+            args.append(f'serverfilelink={jar_url}')
+
         else:
-            # vanilla, paper, fabric all need the vanilla JAR
+            # vanilla, fabric need the vanilla JAR
             jar_url = self.get_vanilla_jar_url(server.game_version)
             args.append(f'serverfilelink={jar_url}')
             if server.server_type == 'fabric':
