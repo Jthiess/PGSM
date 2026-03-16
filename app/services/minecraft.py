@@ -121,6 +121,19 @@ class MinecraftService:
         """Returns a list of available Fabric loader versions."""
         return requests.get(_FABRIC_LOADER_URL, timeout=10).json()
 
+    def get_fabric_server_jar_url(self, mc_version: str, loader_version: str | None = None) -> str:
+        """Resolves a direct Fabric server JAR download URL via the Fabric meta API.
+
+        If loader_version is None, uses the latest stable loader version.
+        """
+        if not loader_version:
+            loaders = self.get_fabric_loader_versions()
+            stable = [l for l in loaders if l.get('stable')]
+            if not stable:
+                raise ValueError('No stable Fabric loader versions found')
+            loader_version = stable[0]['version']
+        return f'{_FABRIC_LOADER_URL}/{mc_version}/{loader_version}/server/jar'
+
     def get_script_path(self, server_type: str) -> str:
         """Returns the absolute path to the install script for a given server type."""
         relative = INSTALL_SCRIPTS.get(server_type)
@@ -153,17 +166,16 @@ class MinecraftService:
             args.append(f'serverfilelink={jar_url}')
 
         elif server.server_type == 'fabric':
-            args.append(f'mc_version={server.game_version}')
-            if server.fabric_loader_version:
-                args.append(f'fabric_version={server.fabric_loader_version}')
+            jar_url = self.get_fabric_server_jar_url(server.game_version, server.fabric_loader_version)
+            args.append(f'serverfilelink={jar_url}')
 
         else:
             # vanilla
             jar_url = self.get_vanilla_jar_url(server.game_version)
             args.append(f'serverfilelink={jar_url}')
 
-        if server.java_version_override:
-            args.append(f'java_version={server.java_version_override}')
+        if server.java_version:
+            args.append(f'java_version={server.java_version}')
         if server.custom_startup_command:
             args.append(f'startup_command={shlex.quote(server.custom_startup_command)}')
 

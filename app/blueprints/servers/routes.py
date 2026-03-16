@@ -384,6 +384,9 @@ def _rewrite_systemd_unit(server, ssh_mgr):
     finally:
         sftp.close()
         client.close()
+    # Update /usr/local/bin/java symlink to match the active Java version
+    java_dir = f'java{server.java_version}'
+    ssh_mgr.exec(server.ip_address, f'ln -sf /opt/java/{java_dir}/bin/java /usr/local/bin/java')
     ssh_mgr.exec(server.ip_address, 'systemctl daemon-reload')
 
 
