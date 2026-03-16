@@ -94,6 +94,11 @@ fi
 chmod +x fabric-server-launch.jar
 rm -f fabric-installer.jar
 
+# Step 5: First-run to let Fabric download libraries and vanilla server
+echo "Running Fabric first-launch to download dependencies..."
+echo "eula=true" > /PGSM/eula.txt
+cd /PGSM && timeout 60 $JAVA_BIN -jar fabric-server-launch.jar --nogui --initSettings || true
+
 # Step 6: Create PGSM user
 echo "Creating PGSM user..."
 useradd -M -s /bin/bash PGSM
