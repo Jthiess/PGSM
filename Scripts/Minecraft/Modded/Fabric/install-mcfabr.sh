@@ -39,7 +39,7 @@ esac
 
 # Use custom startup command if provided, else fall back to default
 if [ -z "$STARTUP_COMMAND" ]; then
-  STARTUP_COMMAND="$JAVA_BIN -Xms512M -Xmx2G -XX:+UseG1GC -jar server.jar --nogui"
+  STARTUP_COMMAND="$JAVA_BIN -Xms512M -Xmx2G -XX:+UseG1GC -jar fabric-server-launch.jar --nogui"
 fi
 
 # Step 1: Update and Upgrade
@@ -79,8 +79,16 @@ wget "$SERVERFILELINK" -O server.jar
 echo "Installing Fabric..."
 FABRIC_INSTALLER_URL="https://maven.fabricmc.net/net/fabricmc/fabric-installer/latest/fabric-installer-latest.jar"
 wget "$FABRIC_INSTALLER_URL" -O fabric-installer.jar
-/opt/java/java21/bin/java -jar fabric-installer.jar server -mcversion "${MC_VERSION:-latest}" -downloadMinecraft
+
+FABRIC_INSTALL_CMD="$JAVA_BIN -jar fabric-installer.jar server -mcversion ${MC_VERSION:-latest} -downloadMinecraft"
+if [ -n "$FABRIC_VERSION" ]; then
+  FABRIC_INSTALL_CMD="$FABRIC_INSTALL_CMD -loader $FABRIC_VERSION"
+fi
+echo "Running: $FABRIC_INSTALL_CMD"
+$FABRIC_INSTALL_CMD
+
 chmod +x fabric-server-launch.jar 2>/dev/null || true
+rm -f fabric-installer.jar
 
 # Step 6: Create PGSM user
 echo "Creating PGSM user..."
