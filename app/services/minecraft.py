@@ -152,14 +152,15 @@ class MinecraftService:
             jar_url = self.get_paper_jar_url(server.game_version)
             args.append(f'serverfilelink={jar_url}')
 
+        elif server.server_type == 'fabric':
+            args.append(f'mc_version={server.game_version}')
+            if server.fabric_loader_version:
+                args.append(f'fabric_version={server.fabric_loader_version}')
+
         else:
-            # vanilla, fabric need the vanilla JAR
+            # vanilla
             jar_url = self.get_vanilla_jar_url(server.game_version)
             args.append(f'serverfilelink={jar_url}')
-            if server.server_type == 'fabric':
-                args.append(f'mc_version={server.game_version}')
-                if server.fabric_loader_version:
-                    args.append(f'fabric_version={server.fabric_loader_version}')
 
         if server.java_version_override:
             args.append(f'java_version={server.java_version_override}')

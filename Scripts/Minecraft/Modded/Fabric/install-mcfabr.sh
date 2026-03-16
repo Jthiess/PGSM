@@ -17,8 +17,8 @@ for arg in "$@"; do
   esac
 done
 
-if [ -z "$SERVERFILELINK" ]; then
-    echo "ERROR: serverfilelink argument is required."
+if [ -z "$MC_VERSION" ]; then
+    echo "ERROR: mc_version argument is required for Fabric."
     exit 1
 fi
 
@@ -69,25 +69,26 @@ mv jdk-17* java17
 mv jdk-16* java16
 mv jdk8* java8
 
-# Step 4: Download Minecraft server file (vanilla JAR needed by Fabric)
-echo "Downloading Minecraft server file..."
+# Step 4: Download and run Fabric installer
+echo "Installing Fabric for MC ${MC_VERSION}..."
 mkdir -p /PGSM
 cd /PGSM
-wget "$SERVERFILELINK" -O server.jar
-
-# Step 5: Download and run Fabric installer
-echo "Installing Fabric..."
 FABRIC_INSTALLER_URL="https://maven.fabricmc.net/net/fabricmc/fabric-installer/latest/fabric-installer-latest.jar"
 wget "$FABRIC_INSTALLER_URL" -O fabric-installer.jar
 
-FABRIC_INSTALL_CMD="$JAVA_BIN -jar fabric-installer.jar server -mcversion ${MC_VERSION:-latest} -downloadMinecraft"
 if [ -n "$FABRIC_VERSION" ]; then
-  FABRIC_INSTALL_CMD="$FABRIC_INSTALL_CMD -loader $FABRIC_VERSION"
+  echo "Using Fabric loader version: $FABRIC_VERSION"
+  $JAVA_BIN -jar fabric-installer.jar server -mcversion "$MC_VERSION" -loader "$FABRIC_VERSION" -downloadMinecraft
+else
+  $JAVA_BIN -jar fabric-installer.jar server -mcversion "$MC_VERSION" -downloadMinecraft
 fi
-echo "Running: $FABRIC_INSTALL_CMD"
-$FABRIC_INSTALL_CMD
 
-chmod +x fabric-server-launch.jar 2>/dev/null || true
+if [ ! -f fabric-server-launch.jar ]; then
+  echo "ERROR: Fabric installer did not produce fabric-server-launch.jar"
+  exit 1
+fi
+
+chmod +x fabric-server-launch.jar
 rm -f fabric-installer.jar
 
 # Step 6: Create PGSM user
