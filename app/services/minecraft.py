@@ -36,6 +36,7 @@ SERVER_TYPE_NAMES = {
 _FORGE_PROMOS_URL = 'https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json'
 _FORGE_INSTALLER_URL = 'https://maven.minecraftforge.net/net/minecraftforge/forge/{mc}-{forge}/forge-{mc}-{forge}-installer.jar'
 _FABRIC_LOADER_URL = 'https://meta.fabricmc.net/v2/versions/loader'
+_FABRIC_INSTALLER_URL = 'https://meta.fabricmc.net/v2/versions/installer'
 _PAPER_API_URL = 'https://api.papermc.io/v2/projects/paper'
 
 
@@ -121,18 +122,23 @@ class MinecraftService:
         """Returns a list of available Fabric loader versions."""
         return requests.get(_FABRIC_LOADER_URL, timeout=10).json()
 
-    def get_fabric_server_jar_url(self, mc_version: str, loader_version: str | None = None) -> str:
-        """Resolves a direct Fabric server JAR download URL via the Fabric meta API.
+    def get_fabric_installer_url(self) -> str:
+        """Resolves the latest stable Fabric installer JAR download URL."""
+        installers = requests.get(_FABRIC_INSTALLER_URL, timeout=10).json()
+        stable = [i for i in installers if i.get('stable')]
+        if not stable:
+            raise ValueError('No stable Fabric installer versions found')
+        return stable[0]['url']
 
-        If loader_version is None, uses the latest stable loader version.
-        """
-        if not loader_version:
-            loaders = self.get_fabric_loader_versions()
-            stable = [l for l in loaders if l.get('stable')]
-            if not stable:
-                raise ValueError('No stable Fabric loader versions found')
-            loader_version = stable[0]['version']
-        return f'{_FABRIC_LOADER_URL}/{mc_version}/{loader_version}/server/jar'
+    def get_fabric_loader_version(self, loader_version: str | None = None) -> str:
+        """Resolves a Fabric loader version. If None, returns the latest stable."""
+        if loader_version:
+            return loader_version
+        loaders = self.get_fabric_loader_versions()
+        stable = [l for l in loaders if l.get('stable')]
+        if not stable:
+            raise ValueError('No stable Fabric loader versions found')
+        return stable[0]['version']
 
     def get_script_path(self, server_type: str) -> str:
         """Returns the absolute path to the install script for a given server type."""
@@ -166,8 +172,11 @@ class MinecraftService:
             args.append(f'serverfilelink={jar_url}')
 
         elif server.server_type == 'fabric':
-            jar_url = self.get_fabric_server_jar_url(server.game_version, server.fabric_loader_version)
-            args.append(f'serverfilelink={jar_url}')
+            installer_url = self.get_fabric_installer_url()
+            loader_version = self.get_fabric_loader_version(server.fabric_loader_version)
+            args.append(f'fabric_installer_url={installer_url}')
+            args.append(f'fabric_version={loader_version}')
+            args.append(f'mc_version={server.game_version}')
 
         else:
             # vanilla
