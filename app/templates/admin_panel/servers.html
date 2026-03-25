@@ -76,8 +76,8 @@
               {% endif %}
             </td>
             <td>
-              <a href="{{ url_for('admin_panel.server_edit', server_id=server.id) }}" class="btn btn-sm btn-primary">Edit</a>
-              <form method="post" action="{{ url_for('admin_panel.server_delete', server_id=server.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this server?');">
+              <a href="{{ url_for('admin_panel.server_edit', id=server.id) }}" class="btn btn-sm btn-primary">Edit</a>
+              <form method="post" action="{{ url_for('admin_panel.server_delete', id=server.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this server?');">
                 <button type="submit" class="btn btn-sm btn-danger">Delete</button>
               </form>
             </td>
