@@ -31,9 +31,9 @@ def index():
 
     return render_template(
         'panel/index.html',
-        middle_cards=active_servers,
-        bottom_cards=archived_servers,
-        random_message=random_message,
+        servers=active_servers,
+        archived=archived_servers,
+        message=random_message,
     )
 
 
