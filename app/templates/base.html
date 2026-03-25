@@ -20,6 +20,8 @@
             <li><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
             <li><a href="{{ url_for('servers.list_servers') }}">Servers</a></li>
             <li><a href="{{ url_for('servers.create_server') }}" class="btn btn-primary btn-sm">+ New Server</a></li>
+            <li><a href="{{ url_for('admin_panel.panel') }}">Admin Panel</a></li>
+            <li><a href="{{ url_for('panel.index') }}">Public Site</a></li>
         </ul>
         <div class="theme-switcher">
             <button class="theme-toggle-btn" onclick="toggleThemeMenu()" title="Switch theme" aria-label="Switch theme">

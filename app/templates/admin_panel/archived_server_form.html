@@ -1,0 +1,228 @@
+{% extends 'panel_base.html' %}
+{% block title %}{% if server %}Edit Archived Server{% else %}New Archived Server{% endif %}{% endblock %}
+{% block head %}
+  <style>
+    .card { background: var(--surface); border: 1px solid var(--muted-border); color: var(--text); }
+    .form-label { color: var(--text); font-weight: 500; }
+    .form-control, .form-select { background-color: var(--card-bg); border-color: var(--muted-border); color: var(--text); }
+    .form-control:focus, .form-select:focus { background-color: var(--card-bg); border-color: var(--accent); color: var(--text); box-shadow: none; }
+    .form-check-input { background-color: var(--card-bg); border-color: var(--muted-border); }
+    .form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
+    .form-check-label { color: var(--text); }
+    .modded-fields { display: none; }
+    .modded-fields.show { display: block; }
+    .img-preview { max-width: 200px; max-height: 200px; margin-top: 10px; border: 1px solid var(--muted-border); border-radius: 4px; }
+    .text-muted { color: var(--muted) !important; }
+    .form-control::placeholder { color: #7d7d7d; opacity: 1; }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="h4 m-0">{% if server %}Edit Archived Server: {{ server.name }}{% else %}New Archived Server{% endif %}</h1>
+      <a href="{{ url_for('admin_panel.archived_servers') }}" class="btn btn-outline-secondary btn-sm">← Back to List</a>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+
+          <!-- Basic Information -->
+          <h5 class="mb-3 text-warning">Basic Information</h5>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="name" class="form-label">Server Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="name" name="name"
+                     value="{{ server.name if server else '' }}" required>
+              <small class="text-muted">The display name for your archived server</small>
+            </div>
+
+            <div class="col-md-6">
+              <label for="game" class="form-label">Game <span class="text-danger">*</span></label>
+              <select class="form-select" id="game" name="game" required>
+                <option value="">-- Select Game --</option>
+                {% for g in games %}
+                  <option value="{{ g }}" {% if server and server.game == g %}selected{% endif %}>
+                    {{ g|capitalize }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="motd" class="form-label">MOTD (Message of the Day)</label>
+            <input type="text" class="form-control" id="motd" name="motd"
+                   value="{{ server.motd if server else '' }}" placeholder="A fun server that was retired">
+            <small class="text-muted">Static message displayed on the server card</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-control" id="description" name="description" rows="3">{{ server.description if server else '' }}</textarea>
+            <small class="text-muted">Brief description of what this server was about</small>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label for="version" class="form-label">Version</label>
+              <input type="text" class="form-control" id="version" name="version"
+                     value="{{ server.version if server else '' }}" placeholder="1.20.1">
+              <small class="text-muted">Game version (e.g., 1.20.1)</small>
+            </div>
+
+            <div class="col-md-4">
+              <label for="file_size" class="form-label">File Size</label>
+              <input type="text" class="form-control" id="file_size" name="file_size"
+                     value="{{ server.file_size if server else '' }}" placeholder="2.5 GB">
+              <small class="text-muted">Size of the world download</small>
+            </div>
+
+            <div class="col-md-4">
+              <label for="retirement_date" class="form-label">Retirement Date</label>
+              <input type="text" class="form-control" id="retirement_date" name="retirement_date"
+                     value="{{ server.retirement_date if server else '' }}" placeholder="YYYY-MM-DD or 'now'">
+              <small class="text-muted">Date retired (YYYY-MM-DD or 'now')</small>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="world_link" class="form-label">World Download Link</label>
+            <input type="url" class="form-control" id="world_link" name="world_link"
+                   value="{{ server.world_link if server else '' }}" placeholder="https://...">
+            <small class="text-muted">Link to download the world file</small>
+          </div>
+
+          <hr class="my-4">
+
+          <!-- Modded Toggle -->
+          <div class="mb-4">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="modded" name="modded"
+                     {% if server and server.modded %}checked{% endif %}>
+              <label class="form-check-label" for="modded">
+                <strong>This was a modded server</strong>
+              </label>
+            </div>
+            <small class="text-muted">Enable this if the server used mods or a modpack</small>
+          </div>
+
+          <!-- Modded Fields (shown when toggle is on) -->
+          <div class="modded-fields {% if server and server.modded %}show{% endif %}" id="moddedFields">
+            <h5 class="mb-3 text-warning">Modpack Information</h5>
+
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="pack_name" class="form-label">Pack Name</label>
+                <input type="text" class="form-control" id="pack_name" name="pack_name"
+                       value="{{ server.pack_name if server else '' }}">
+                <small class="text-muted">Name of the modpack</small>
+              </div>
+
+              <div class="col-md-6">
+                <label for="pack_version" class="form-label">Pack Version</label>
+                <input type="text" class="form-control" id="pack_version" name="pack_version"
+                       value="{{ server.pack_version if server else '' }}" placeholder="1.0.0">
+                <small class="text-muted">Modpack version number</small>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="pack_link" class="form-label">Pack Link</label>
+              <input type="url" class="form-control" id="pack_link" name="pack_link"
+                     value="{{ server.pack_link if server else '' }}" placeholder="https://...">
+              <small class="text-muted">Download link for the modpack</small>
+            </div>
+
+            <div class="mb-3">
+              <label for="pack_desc" class="form-label">Pack Description</label>
+              <textarea class="form-control" id="pack_desc" name="pack_desc" rows="2">{{ server.pack_desc if server else '' }}</textarea>
+              <small class="text-muted">Brief description of the modpack</small>
+            </div>
+
+            <div class="mb-3">
+              <label for="pack_image" class="form-label">Pack Icon/Image</label>
+              <input type="file" class="form-control" id="pack_image" name="pack_image"
+                     accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+              <small class="text-muted">Upload an icon for the modpack (PNG, JPG, GIF, or WebP - max 16MB)</small>
+
+              {% if server and server.pack_img_id %}
+                <div class="mt-2">
+                  <p class="mb-1 text-muted small">Current image:</p>
+                  <img src="{{ url_for('static', filename='images/packicons/' + server.pack_img_id) }}" alt="Current pack icon" class="img-preview">
+                  <p class="mt-1 text-muted small">Upload a new image to replace it</p>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <!-- Submit Buttons -->
+          <div class="d-flex justify-content-end gap-2">
+            <a href="{{ url_for('admin_panel.archived_servers') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-success">
+              {% if server %}Update Archived Server{% else %}Create Archived Server{% endif %}
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+    <div class="mt-3 text-muted small">
+      <p><strong>Note:</strong> For retirement date, enter a date in YYYY-MM-DD format (e.g., 2024-06-15) or type "now" to use today's date.</p>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>
+    // Toggle modded fields visibility
+    const moddedCheckbox = document.getElementById('modded');
+    const moddedFields = document.getElementById('moddedFields');
+
+    moddedCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        moddedFields.classList.add('show');
+      } else {
+        moddedFields.classList.remove('show');
+      }
+    });
+
+    // Image preview
+    const packImageInput = document.getElementById('pack_image');
+    if (packImageInput) {
+      packImageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            // Remove any existing preview
+            const existingPreview = document.querySelector('.new-img-preview');
+            if (existingPreview) {
+              existingPreview.remove();
+            }
+
+            // Create new preview
+            const preview = document.createElement('img');
+            preview.src = e.target.result;
+            preview.className = 'img-preview new-img-preview';
+            preview.alt = 'New pack icon preview';
+
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'mt-2';
+            const label = document.createElement('p');
+            label.className = 'mb-1 text-muted small';
+            label.textContent = 'New image preview:';
+            previewContainer.appendChild(label);
+            previewContainer.appendChild(preview);
+
+            packImageInput.parentNode.appendChild(previewContainer);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+  </script>
+{% endblock %}

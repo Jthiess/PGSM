@@ -3,6 +3,7 @@ import stat
 
 from flask import render_template, request, redirect, url_for, send_file, flash, jsonify
 
+from app.auth import require_admin
 from app.blueprints.files import bp
 from app.models.server import GameServer
 from app.services.ssh import SSHManager
@@ -12,6 +13,7 @@ ssh_mgr = SSHManager()
 
 @bp.route('/<server_id>')
 @bp.route('/<server_id>/<path:remote_path>')
+@require_admin
 def browse(server_id, remote_path='/PGSM'):
     server = GameServer.query.get_or_404(server_id)
 
@@ -41,6 +43,7 @@ def browse(server_id, remote_path='/PGSM'):
 
 @bp.route('/<server_id>/list')
 @bp.route('/<server_id>/list/<path:remote_path>')
+@require_admin
 def list_files(server_id, remote_path='/PGSM'):
     """JSON API: returns directory listing for the file browser."""
     server = GameServer.query.get_or_404(server_id)
@@ -70,6 +73,7 @@ def list_files(server_id, remote_path='/PGSM'):
 
 
 @bp.route('/<server_id>/download')
+@require_admin
 def download(server_id):
     server = GameServer.query.get_or_404(server_id)
     remote_path = request.args.get('path', '')
@@ -95,6 +99,7 @@ def download(server_id):
 
 
 @bp.route('/<server_id>/upload', methods=['POST'])
+@require_admin
 def upload(server_id):
     server = GameServer.query.get_or_404(server_id)
     remote_dir = request.form.get('path', '/PGSM')
@@ -120,6 +125,7 @@ def upload(server_id):
 
 
 @bp.route('/<server_id>/delete_file', methods=['POST'])
+@require_admin
 def delete_file(server_id):
     server = GameServer.query.get_or_404(server_id)
     remote_path = request.form.get('path', '')
@@ -144,6 +150,7 @@ def delete_file(server_id):
 
 
 @bp.route('/<server_id>/delete_dir', methods=['POST'])
+@require_admin
 def delete_dir(server_id):
     server = GameServer.query.get_or_404(server_id)
     remote_path = request.form.get('path', '')
@@ -172,6 +179,7 @@ _EDIT_SIZE_LIMIT = 512 * 1024  # 512 KB
 
 
 @bp.route('/<server_id>/edit')
+@require_admin
 def edit_file(server_id):
     server = GameServer.query.get_or_404(server_id)
     remote_path = request.args.get('path', '')
@@ -224,6 +232,7 @@ def edit_file(server_id):
 
 
 @bp.route('/<server_id>/save', methods=['POST'])
+@require_admin
 def save_file(server_id):
     server = GameServer.query.get_or_404(server_id)
     remote_path = request.form.get('path', '')

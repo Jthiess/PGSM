@@ -1,0 +1,95 @@
+{% extends 'panel_base.html' %}
+{% block title %}Manage Archived Servers{% endblock %}
+{% block head %}
+  <style>
+    .table-dark { --bs-table-bg: var(--surface); --bs-table-border-color: var(--muted-border); }
+    .badge { font-size: 0.75rem; }
+    .server-icon { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="h4 m-0">Manage Archived Servers</h1>
+      <div>
+        <a href="{{ url_for('admin_panel.archived_server_new') }}" class="btn btn-success btn-sm">+ New Archived Server</a>
+        <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-outline-secondary btn-sm ms-2">← Back</a>
+      </div>
+    </div>
+
+    {% if servers %}
+    <div class="table-responsive">
+      <table class="table table-dark table-hover">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Icon</th>
+            <th>Name</th>
+            <th>Game</th>
+            <th>Version</th>
+            <th>File Size</th>
+            <th>Retirement Date</th>
+            <th>Modded</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for server in servers %}
+          <tr>
+            <td>{{ server.id }}</td>
+            <td>
+              {% if server.modded and server.pack_img_id %}
+                <img src="{{ url_for('static', filename='images/packicons/' + server.pack_img_id) }}" alt="{{ server.pack_name }}" class="server-icon">
+              {% else %}
+                <div class="server-icon bg-secondary d-flex align-items-center justify-content-center">
+                  📦
+                </div>
+              {% endif %}
+            </td>
+            <td>
+              <strong>{{ server.name }}</strong>
+              <br>
+              <small class="text-muted">{{ server.description[:50] if server.description else '' }}{% if server.description and server.description|length > 50 %}...{% endif %}</small>
+              {% if server.motd %}
+                <br>
+                <small class="text-info">MOTD: {{ server.motd[:40] }}{% if server.motd|length > 40 %}...{% endif %}</small>
+              {% endif %}
+            </td>
+            <td><span class="badge bg-info">{{ server.game }}</span></td>
+            <td>{{ server.version or '-' }}</td>
+            <td>{{ server.file_size or '-' }}</td>
+            <td>
+              {% if server.retirement_date %}
+                <span class="badge bg-warning text-dark">{{ server.retirement_date }}</span>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if server.modded %}
+                <span class="badge bg-warning text-dark">Modded</span>
+                {% if server.pack_name %}
+                  <br><small class="text-muted">{{ server.pack_name }}</small>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-secondary">Vanilla</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('admin_panel.archived_server_edit', server_id=server.id) }}" class="btn btn-sm btn-primary">Edit</a>
+              <form method="post" action="{{ url_for('admin_panel.archived_server_delete', server_id=server.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this archived server?');">
+                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-secondary" role="alert">
+      <p class="mb-0">No archived servers found. <a href="{{ url_for('admin_panel.archived_server_new') }}" class="alert-link">Create your first archived server</a>.</p>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}

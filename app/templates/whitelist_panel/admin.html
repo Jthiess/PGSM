@@ -1,0 +1,155 @@
+{% extends 'panel_base.html' %}
+{% block title %}Whitelist Admin{% endblock %}
+{% block head %}
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Poppins', sans-serif; }
+    .wl-admin-container { width: 100%; max-width: 1100px; margin: 0 auto; padding: 2em 1em; }
+    h1 { color: var(--accent); font-size: 2rem; text-align: center; margin-bottom: 0.5rem; }
+    fieldset { background: var(--surface); border: 1px solid var(--muted-border); border-radius: 8px; padding: 1em 1.5em; margin-bottom: 2em; }
+    legend { font-weight: 600; color: var(--accent); padding: 0 0.5em; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.75em; }
+    th, td { border: 1px solid var(--muted-border); padding: 0.6em 0.75em; text-align: left; font-size: 0.85rem; }
+    th { background: var(--card-bg); color: var(--text); font-weight: 600; }
+    tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+    .btn { padding: 0.35em 0.7em; border: none; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.2s; color: #fff; }
+    .btn-approve { background: var(--accent); }
+    .btn-approve:hover { background: #6d28d9; }
+    .btn-revoke { background: #555; }
+    .btn-revoke:hover { background: #444; }
+    .btn-danger { background: #dc2626; }
+    .btn-danger:hover { background: #b91c1c; }
+    form.inline { display: inline-block; margin: 0; }
+    .add-server-form { display: flex; gap: 0.5em; align-items: flex-end; flex-wrap: wrap; margin-top: 1em; }
+    .add-server-form input { padding: 0.5em 0.75em; border: 1px solid var(--muted-border); border-radius: 6px; background: var(--card-bg); color: var(--text); font-size: 0.9rem; }
+    .add-server-form button { padding: 0.5em 1em; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    .add-server-form button:hover { background: #6d28d9; }
+    .status-yes { color: #22c55e; font-weight: 600; }
+    .status-no { color: #6b7280; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .header-actions { display: flex; gap: 0.5rem; }
+    .header-actions a, .header-actions button { padding: 0.4em 0.75em; border-radius: 6px; font-size: 0.9rem; font-weight: 500; text-decoration: none; cursor: pointer; border: none; }
+    .btn-hub { background: var(--accent); color: #fff; }
+    .btn-hub:hover { background: #6d28d9; }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="wl-admin-container">
+    <div class="page-header">
+      <h1>Whitelist Admin</h1>
+      <div class="header-actions">
+        <a class="btn-hub" href="{{ url_for('admin_panel.panel') }}">Hub</a>
+        <form method="post" action="{{ url_for('admin_panel.logout') }}">
+          <button style="background:transparent; color:#ffda6a; border:1px solid #ffda6a; padding:.35em .6em; border-radius:6px; cursor:pointer; font-size:0.9rem;" type="submit">Log out</button>
+        </form>
+      </div>
+    </div>
+
+    <fieldset>
+      <legend>PGSM Servers (Whitelist Sync Targets)</legend>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Server UUID</th>
+            <th>Sync Enabled?</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for server in servers %}
+          <tr>
+            <td>{{ server['id'] }}</td>
+            <td>{{ server['name'] }}</td>
+            <td style="font-family:monospace;font-size:0.8rem;">{{ server['server_id'] }}</td>
+            <td>
+              {% if server['enabled'] %}
+                <span class="status-yes">✓ Enabled</span>
+              {% else %}
+                <span class="status-no">✗ Disabled</span>
+              {% endif %}
+            </td>
+            <td>
+              <form class="inline" action="{{ url_for('whitelist_panel.toggle_server', id=server['id']) }}" method="post">
+                <button class="btn {% if server['enabled'] %}btn-revoke{% else %}btn-approve{% endif %}" type="submit">
+                  {{ 'Disable' if server['enabled'] else 'Enable' }}
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--muted);">No servers configured.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="add-server-form">
+        <form method="post" action="{{ url_for('whitelist_panel.add_server') }}" style="display:flex;gap:0.5em;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:0.25em;">Server Name</label>
+            <input type="text" name="name" placeholder="e.g. Survival SMP" required>
+          </div>
+          <div>
+            <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:0.25em;">PGSM Server UUID</label>
+            <input type="text" name="server_id" placeholder="UUID from PGSM" required style="width:22em;">
+          </div>
+          <button type="submit">Add Server</button>
+        </form>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Whitelist Requests</legend>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>MC Username</th>
+            <th>UUID</th>
+            <th>Discord</th>
+            <th>IP Address</th>
+            <th>Approved?</th>
+            <th>Submitted</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in entries|sort(attribute='id', reverse=True) %}
+          <tr>
+            <td>{{ entry['id'] }}</td>
+            <td>{{ entry['username'] }}</td>
+            <td style="font-family:monospace;font-size:0.8rem;">{{ entry['player_uuid'] }}</td>
+            <td>{{ entry['discord_username'] }}</td>
+            <td>{{ entry['client_ip'] }}</td>
+            <td>
+              {% if entry['approved'] %}
+                <span class="status-yes">✓ Approved</span>
+              {% else %}
+                <span class="status-no">✗ Pending</span>
+              {% endif %}
+            </td>
+            <td style="font-size:0.8rem;">{{ entry['created_at'] }}</td>
+            <td>
+              <form class="inline" action="{{ url_for('whitelist_panel.toggle', id=entry['id']) }}" method="post">
+                <button class="btn {% if entry['approved'] %}btn-revoke{% else %}btn-approve{% endif %}" type="submit">
+                  {{ 'Revoke' if entry['approved'] else 'Approve' }}
+                </button>
+              </form>
+              <form class="inline" action="{{ url_for('whitelist_panel.delete_entry', id=entry['id']) }}" method="post">
+                <button class="btn btn-danger" type="submit" onclick="return confirm('Delete this entry?')">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" style="text-align:center;color:var(--muted);">No whitelist requests yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </fieldset>
+
+    <div style="text-align:center;margin-top:1rem;">
+      <a href="{{ url_for('panel.index') }}" style="color:var(--accent);text-decoration:none;">← Back to Game Panel</a>
+    </div>
+  </div>
+{% endblock %}

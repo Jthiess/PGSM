@@ -44,6 +44,42 @@ class Config:
         'kestrel:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst'
     )
 
+    # ----------------------------------------------------------
+    # Game-Panel: Admin auth
+    # ----------------------------------------------------------
+    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin')
+    MESSAGES_PASSWORD = os.getenv('MESSAGES_PASSWORD')
+
+    # ----------------------------------------------------------
+    # Game-Panel: PostgreSQL (public panel DB)
+    # ----------------------------------------------------------
+    PANEL_DB_HOST = os.getenv('DB_HOST', 'localhost')
+    PANEL_DB_PORT = int(os.getenv('DB_PORT', 5432))
+    PANEL_DB_NAME = os.getenv('DB_NAME', 'gamepanel')
+    PANEL_DB_USER = os.getenv('DB_USER', 'postgres')
+    PANEL_DB_PASSWORD = os.getenv('DB_PASSWORD', '')
+    PANEL_DB_SCHEMA = os.getenv('DB_SCHEMA', 'public')
+    PANEL_DB_SERVERS_SCHEMA = os.getenv('DB_SERVERS_SCHEMA', 'servers')
+
+    # ----------------------------------------------------------
+    # Game-Panel: Optional integrations
+    # ----------------------------------------------------------
+    NTFY_TOPIC = os.getenv('NTFY_TOPIC')
+    DISCORD_GUILD_ID = os.getenv('DISCORD_GUILD_ID')
+    DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+    MAX_REQUESTS_PER_DISCORD = int(os.getenv('MAX_REQUESTS_PER_DISCORD', 1))
+
+    # ----------------------------------------------------------
+    # Game-Panel: Data file paths
+    # ----------------------------------------------------------
+    PANEL_DATA_DIR = os.getenv('PANEL_DATA_DIR', 'data')
+    PANEL_PACK_ICONS_DIR = os.getenv('PANEL_PACK_ICONS_DIR', 'app/static/images/packicons')
+
+    # ----------------------------------------------------------
+    # Game-Panel: Whitelist sync interval (minutes)
+    # ----------------------------------------------------------
+    WHITELIST_SYNC_INTERVAL = int(os.getenv('WHITELIST_SYNC_INTERVAL', 60))
+
     # ── Server Creation Defaults ───────────────────────────────────────────
     # These values are pre-filled in the create server wizard.
     # Override any of them in your .env file.

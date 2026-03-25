@@ -1,0 +1,36 @@
+{% extends 'panel_base.html' %}
+{% block title %}Edit rules.md{% endblock %}
+{% block head %}
+  <style>
+    textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h4 m-0">Edit rules.md</h1>
+      <div>
+        <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-outline-secondary btn-sm">← Back</a>
+        <form method="post" action="{{ url_for('admin_panel.logout') }}" style="display:inline;">
+          <button class="btn btn-outline-warning btn-sm ms-2" type="submit">Log out</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card" style="background: var(--surface); color: var(--text); border: 1px solid var(--muted-border);">
+      <div class="card-body">
+        <p class="text-secondary">Edit server rules in Markdown format. Changes appear on the /rules page.</p>
+        <form method="post">
+          <div class="mb-3">
+            <label for="content" class="form-label">rules.md</label>
+            <textarea id="content" name="content" rows="20" class="form-control">{{ content }}</textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="{{ url_for('panel.rules') }}" class="btn btn-outline-light" target="_blank">Preview Rules Page</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}

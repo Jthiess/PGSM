@@ -1,0 +1,116 @@
+{% extends 'panel_base.html' %}
+{% block title %}Admin Panel{% endblock %}
+{% block head %}
+  <style>
+    .module-card { background: var(--surface); border:1px solid var(--muted-border); color: var(--text); transition:transform .12s ease, background-color .12s; }
+    .module-card:hover { transform:translateY(-2px); background: var(--card-bg); }
+    .module-card .module-icon { color: var(--accent); }
+    .module-card p { color: var(--muted) !important; }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h4 m-0">Admin Panel</h1>
+      <form method="post" action="{{ url_for('admin_panel.logout') }}">
+        <button class="btn btn-outline-warning btn-sm" type="submit">Log out</button>
+      </form>
+    </div>
+
+    <div class="row g-3">
+      <!-- Messages module -->
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a class="text-decoration-none" href="{{ url_for('admin_panel.messages') }}">
+          <div class="card module-card h-100">
+            <div class="card-body d-flex flex-column">
+              <div class="module-icon mb-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <h2 class="h5">Messages</h2>
+              <p class="small mb-0">Edit the random welcome messages shown on the homepage.</p>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Rules module -->
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a class="text-decoration-none" href="{{ url_for('admin_panel.rules_edit') }}">
+          <div class="card module-card h-100">
+            <div class="card-body d-flex flex-column">
+              <div class="module-icon mb-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              </div>
+              <h2 class="h5">Rules</h2>
+              <p class="small mb-0">Edit server rules in Markdown format.</p>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Active Servers module -->
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a class="text-decoration-none" href="{{ url_for('admin_panel.servers') }}">
+          <div class="card module-card h-100">
+            <div class="card-body d-flex flex-column">
+              <div class="module-icon mb-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+              </div>
+              <h2 class="h5">Active Servers</h2>
+              <p class="small mb-0">Add, edit, or remove active game servers shown on the homepage.</p>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Archived Servers module -->
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a class="text-decoration-none" href="{{ url_for('admin_panel.archived_servers') }}">
+          <div class="card module-card h-100">
+            <div class="card-body d-flex flex-column">
+              <div class="module-icon mb-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+              </div>
+              <h2 class="h5">Archived Servers</h2>
+              <p class="small mb-0">Manage retired servers displayed in the archives section.</p>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Whitelist module -->
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a class="text-decoration-none" href="{{ url_for('whitelist_panel.admin') }}">
+          <div class="card module-card h-100">
+            <div class="card-body d-flex flex-column">
+              <div class="module-icon mb-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <h2 class="h5">Whitelist</h2>
+              <p class="small mb-0">Review and approve whitelist applications from players.</p>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <!-- PGSM Server Manager module -->
+      <div class="col-12 col-sm-6 col-lg-4">
+        <a class="text-decoration-none" href="{{ url_for('dashboard.index') }}">
+          <div class="card module-card h-100">
+            <div class="card-body d-flex flex-column">
+              <div class="module-icon mb-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+              </div>
+              <h2 class="h5">PGSM Server Manager</h2>
+              <p class="small mb-0">Manage Minecraft servers on Proxmox containers.</p>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <a href="{{ url_for('panel.index') }}" class="link-light">← Back to site</a>
+    </div>
+  </div>
+{% endblock %}

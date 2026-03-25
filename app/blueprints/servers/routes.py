@@ -1,18 +1,21 @@
 import os
 
 from flask import render_template, request, redirect, url_for, flash, current_app
+from app.auth import require_admin
 from app.blueprints.servers import bp
 from app.models.server import GameServer
 from app.extensions import db
 
 
 @bp.route('/')
+@require_admin
 def list_servers():
     servers = GameServer.query.order_by(GameServer.created_at.desc()).all()
     return render_template('servers/list.html', servers=servers)
 
 
 @bp.route('/create', methods=['GET', 'POST'])
+@require_admin
 def create_server():
     from app.services.proxmox import ProxmoxService
     from app.services.ssh import SSHManager
@@ -159,6 +162,7 @@ def create_server():
 
 
 @bp.route('/<server_id>')
+@require_admin
 def detail(server_id):
     server = GameServer.query.get_or_404(server_id)
     active_tab = request.args.get('tab', 'info')
@@ -166,6 +170,7 @@ def detail(server_id):
 
 
 @bp.route('/<server_id>/start', methods=['POST'])
+@require_admin
 def start(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
@@ -178,6 +183,7 @@ def start(server_id):
 
 
 @bp.route('/<server_id>/stop', methods=['POST'])
+@require_admin
 def stop(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
@@ -190,6 +196,7 @@ def stop(server_id):
 
 
 @bp.route('/<server_id>/power_off', methods=['POST'])
+@require_admin
 def power_off(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
@@ -202,6 +209,7 @@ def power_off(server_id):
 
 
 @bp.route('/<server_id>/restart', methods=['POST'])
+@require_admin
 def restart(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
@@ -214,6 +222,7 @@ def restart(server_id):
 
 
 @bp.route('/<server_id>/resources', methods=['POST'])
+@require_admin
 def update_resources(server_id):
     server = GameServer.query.get_or_404(server_id)
     form = request.form
@@ -266,6 +275,7 @@ def update_resources(server_id):
 
 
 @bp.route('/<server_id>/settings', methods=['POST'])
+@require_admin
 def update_settings(server_id):
     server = GameServer.query.get_or_404(server_id)
     form = request.form
@@ -391,6 +401,7 @@ def _rewrite_systemd_unit(server, ssh_mgr):
 
 
 @bp.route('/<server_id>/delete', methods=['POST'])
+@require_admin
 def delete(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services.proxmox import ProxmoxService

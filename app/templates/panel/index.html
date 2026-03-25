@@ -1,0 +1,199 @@
+{% extends 'panel_base.html' %}
+{% block title %}Jack's Game Servers{% endblock %}
+{% block content %}
+    <div class="container py-4">
+      <!-- =========================
+           Top Section
+           ========================= -->
+      <header class="section section-top text-center p-4 mb-4">
+        <h1 class="display-6">Welcome!</h1>
+        <p class="lead">{{ message }}</p>
+        <p class="mt-3">
+          <a class="btn btn-primary btn-sm" href="{{ url_for('whitelist_panel.index') }}">Apply to the whitelist!</a>
+          <a class="btn btn-primary btn-sm" href="{{ url_for('panel.rules') }}">View Server Rules</a>
+        </p>
+      </header>
+
+      <!-- =========================
+           Middle Section: Active Servers Carousel
+           ========================= -->
+      <section class="section section-middle mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="carousel-title">Active Servers</h2>
+        </div>
+
+        <!-- Horizontal scrollable carousel for active servers -->
+        <div class="carousel-row" id="carousel-middle">
+          {% for server in servers %}
+          <article class="carousel-card"
+            data-modded="{{ server['modded']|default(false)|lower }}"
+            data-ip="{{ server['ip']|default('') }}"
+            data-game="{{ server['game']|default('') }}"
+            data-server-name="{{ server['name'] }}"
+            {% if server['modded'] %}
+            data-pack-name="{{ server['pack_name']|default('') }}"
+            data-pack-desc="{{ server['pack_desc']|default('') }}"
+            data-pack-link="{{ server['pack_link']|default('') }}"
+            data-pack-img-id="{{ server['pack_img_id']|default('') }}"
+            data-pack-version="{{ server['pack_version']|default('') }}"
+            {% endif %}>
+            <div class="card-image">
+              <img src="{{ url_for('static', filename='images/cards/' + server['game'] + '.jpg') }}" alt="{{ server['name'] }} image">
+            </div>
+            <div class="card-body">
+              <!-- Server status (Online/Offline) -->
+              <div class="status-badge {% if server['online'] %}status-online{% else %}status-offline{% endif %}">
+                {% if server['online'] %}Online{% else %}Offline{% endif %}
+              </div>
+              <!-- Server name and MOTD -->
+              <div class="server-header">
+                <h5 class="card-title">{{ server['name'] }}</h5>
+                <p class="card-motd">{{ server['motd'] }}</p>
+              </div>
+              <!-- Info sections -->
+              <div class="info-section">
+                <div class="info-block">
+                  <h6>Players</h6>
+                  <p>{{ server['playing_now'] }}/{{ server['playing_max'] }}</p>
+                </div>
+                <div class="divider"></div>
+                <div class="info-block">
+                  <h6>Version</h6>
+                  <p>{{ server['version'] }}</p>
+                </div>
+              </div>
+              <!-- Server description -->
+              <div class="description-section">
+                <p class="card-text">{{ server['description'] }}</p>
+              </div>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!-- =========================
+           Bottom Section: Archived Servers Carousel
+           ========================= -->
+      <section class="section section-bottom">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="carousel-title">Archived Servers</h2>
+        </div>
+
+        <!-- Horizontal scrollable carousel for archived servers -->
+        <div class="carousel-row" id="carousel-bottom">
+          {% for server in archived %}
+          <article class="carousel-card"
+            data-modded="{{ server['modded']|default(false)|lower }}"
+            data-game="{{ server['game']|default('') }}"
+            data-world-link="{{ server['world_link']|default('') }}"
+            data-server-name="{{ server['name'] }}"
+            {% if server['modded'] %}
+            data-pack-name="{{ server['pack_name']|default('') }}"
+            data-pack-desc="{{ server['pack_desc']|default('') }}"
+            data-pack-link="{{ server['pack_link']|default('') }}"
+            data-pack-img-id="{{ server['pack_img_id']|default('') }}"
+            data-pack-version="{{ server['pack_version']|default('') }}"
+            {% endif %}>
+            <div class="card-image">
+              <img src="{{ url_for('static', filename='images/cards/' + server['game'] + '.jpg') }}" alt="{{ server['name'] }} image">
+            </div>
+            <div class="card-body">
+              <!-- Server status badge -->
+              <div class="status-badge status-archived">
+                Archived
+              </div>
+              <!-- Server name and MOTD -->
+              <div class="server-header">
+                <h5 class="card-title">{{ server['name'] }}</h5>
+                <p class="card-motd">{{ server['motd'] }}</p>
+              </div>
+              <!-- Info sections -->
+              <div class="info-section">
+                <div class="info-block">
+                  <h6>File Size</h6>
+                  <p>{{ server['file_size'] }}</p>
+                </div>
+                <div class="divider"></div>
+                <div class="info-block">
+                  <h6>Version</h6>
+                  <p>{{ server['version'] }}</p>
+                </div>
+              </div>
+              <div class="info-block">
+                <h6>Archival Date:</h6>
+                <p>{{ server['retirement_date'] }}</p>
+              </div>
+              <!-- Server description -->
+              <div class="description-section">
+                <p class="card-text">{{ server['description'] }}</p>
+              </div>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Fullscreen Panel -->
+    <!-- Note: carousel.js sets panel-image src dynamically using /static/images/headers/<game>.jpg -->
+    <div id="fullscreen-panel" class="fullscreen-panel">
+      <button id="close-panel" class="close-panel" aria-label="Close panel">×</button>
+      <div class="panel-content">
+        <div class="panel-header">
+          <img id="panel-image" src="" alt="Server image">
+          <div class="panel-status">
+            <div id="panel-status-badge" class="status-badge"></div>
+          </div>
+        </div>
+        <div class="panel-body-with-mod">
+          <div class="panel-body">
+            <h2 id="panel-title"></h2>
+            <p id="panel-motd" class="panel-motd"></p>
+            <div class="panel-info-grid">
+              <div class="panel-info-block">
+                <h6>Players</h6>
+                <p id="panel-players"></p>
+              </div>
+              <div class="panel-info-block">
+                <h6>Version</h6>
+                <p id="panel-version"></p>
+              </div>
+              <div class="panel-info-block">
+                <h6>Status</h6>
+                <p id="panel-status"></p>
+              </div>
+            </div>
+
+            <div class="panel-description">
+              <h6>Description</h6>
+              <p id="panel-description"></p>
+            </div>
+            <button id="copy-ip-btn" class="copy-ip-button" style="display:none;">
+              <span id="ip-text"></span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/>
+                <path d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </button>
+            <a>By joining this server, you agree to our <a href="{{ url_for('panel.rules') }}">server rules</a>.</a>
+          </div>
+          <aside id="modpack-section" class="modpack-section" style="display:none;">
+            <div class="modpack-icon" id="modpack-icon"></div>
+            <div class="modpack-details">
+              <h4 id="modpack-name"></h4>
+              <p id="modpack-version" class="modpack-version" style="display:none;"></p>
+              <p id="modpack-description"></p>
+              <a id="modpack-link" href="#" target="_blank" class="modpack-link">View Modpack</a>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+  <!-- Custom JS for carousel behavior -->
+  <!-- Note: carousel.js contains hardcoded /static/images/ paths for runtime header images -->
+  <script src="{{ url_for('static', filename='js/carousel.js') }}"></script>
+{% endblock %}

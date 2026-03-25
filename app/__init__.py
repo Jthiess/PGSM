@@ -8,32 +8,82 @@ def create_app(config_class=Config):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_class)
 
-    # Ensure instance folder exists
+    # Ensure instance folder and static image dirs exist
     os.makedirs(app.instance_path, exist_ok=True)
+    os.makedirs(os.path.join(app.root_path, 'static', 'images', 'packicons'), exist_ok=True)
+    os.makedirs(os.path.join(app.root_path, 'static', 'images', 'cards'), exist_ok=True)
+    os.makedirs(os.path.join(app.root_path, 'static', 'images', 'headers'), exist_ok=True)
 
     # Init extensions
     db.init_app(app)
     socketio.init_app(app, async_mode='eventlet', cors_allowed_origins='*')
 
-    # Register blueprints
+    # Register PGSM management blueprints (all require admin auth)
     from app.blueprints.dashboard import bp as dashboard_bp
     from app.blueprints.servers import bp as servers_bp
     from app.blueprints.console import bp as console_bp
     from app.blueprints.files import bp as files_bp
     from app.blueprints.api import bp as api_bp
 
-    app.register_blueprint(dashboard_bp)
-    app.register_blueprint(servers_bp, url_prefix='/servers')
-    app.register_blueprint(console_bp, url_prefix='/console')
-    app.register_blueprint(files_bp, url_prefix='/files')
+    app.register_blueprint(dashboard_bp, url_prefix='/manage')
+    app.register_blueprint(servers_bp, url_prefix='/manage/servers')
+    app.register_blueprint(console_bp, url_prefix='/manage/console')
+    app.register_blueprint(files_bp, url_prefix='/manage/files')
     app.register_blueprint(api_bp, url_prefix='/api')
+
+    # Register public-facing Game Panel blueprints
+    from app.blueprints.panel.routes import bp as panel_bp
+    from app.blueprints.admin_panel.routes import bp as admin_panel_bp
+    from app.blueprints.whitelist_panel.routes import bp as whitelist_panel_bp
+
+    app.register_blueprint(panel_bp)
+    app.register_blueprint(admin_panel_bp, url_prefix='/admin')
+    app.register_blueprint(whitelist_panel_bp, url_prefix='/whitelist')
 
     with app.app_context():
         db.create_all()
         _apply_migrations(db)
         _migrate_extra_ports_format()
 
+    # Initialize panel PostgreSQL tables (graceful — app works without panel DB)
+    try:
+        with app.app_context():
+            from app.services.panel_db import init_db_tables
+            init_db_tables()
+    except Exception as e:
+        app.logger.warning("Panel DB init skipped (PostgreSQL may not be configured): %s", e)
+
+    # Start background scheduler for panel jobs
+    _start_scheduler(app)
+
     return app
+
+
+def _start_scheduler(app):
+    """Start APScheduler for panel background jobs (server status updates)."""
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+
+        def _make_job(func, _app):
+            def job():
+                with _app.app_context():
+                    func()
+            return job
+
+        scheduler = BackgroundScheduler(daemon=True)
+
+        try:
+            from app.services.panel_db import update_all_server_statuses
+            scheduler.add_job(
+                _make_job(update_all_server_statuses, app),
+                'interval', minutes=10, id='panel_server_status',
+            )
+        except Exception as e:
+            app.logger.warning("Could not add server status job: %s", e)
+
+        scheduler.start()
+    except Exception as e:
+        app.logger.warning("APScheduler not started: %s", e)
 
 
 def _migrate_extra_ports_format():

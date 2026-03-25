@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#161616">
+    <title>{% block title %}Game Panel{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Panel styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
+    <meta property="og:title" content="Game Servers">
+    <meta property="og:description" content="A central hub for all game servers hosted by Jack Thiess.">
+    <meta property="og:image" content="{{ url_for('static', filename='images/EmbedImage.png', _external=True) }}">
+    <meta property="og:type" content="website">
+
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    <!-- Theme toggle (light / dark) -->
+    <button id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+      <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="currentColor" />
+      </svg>
+      <span class="label visually-hidden">Toggle theme</span>
+    </button>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="container pt-3">
+          {% for category, msg in messages %}
+            <div class="alert {% if category == 'error' %}alert-danger{% elif category == 'success' %}alert-success{% else %}alert-secondary{% endif %} alert-dismissible fade show" role="alert">
+              {{ msg }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Panel theme toggle script -->
+    <script src="{{ url_for('static', filename='js/panel-theme-toggle.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>
