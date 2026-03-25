@@ -27,4 +27,23 @@
     --term-bg:     #1f2328;
     --term-fg:     #f6f8fa;
     --term-cursor: #0969da;
+
+    /* ── Panel-side aliases ─────────────────────────────────────────────────── */
+    --surface:           var(--bg-card);
+    --card-bg:           var(--bg);
+    --muted:             var(--text-muted);
+    --muted-border:      var(--border);
+    --online:            var(--accent-success);
+    --offline:           var(--text-muted);
+    --archived:          var(--accent);
+    --scroll-thumb:      rgba(0,0,0,0.12);
+    --btn-close-filter:  none;
+
+    /* ── Bootstrap 5 bridge ─────────────────────────────────────────────────── */
+    --bs-primary:       var(--accent);
+    --bs-body-bg:       var(--bg);
+    --bs-body-color:    var(--text);
+    --bs-link-color:    var(--accent);
+    --bs-border-color:  var(--border);
+    --bs-body-font-family: var(--font);
 }

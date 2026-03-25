@@ -1,17 +1,15 @@
 {% extends 'panel_base.html' %}
 {% block title %}Whitelist Signup{% endblock %}
 {% block head %}
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Poppins', sans-serif; }
-    .wl-wrapper { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 80px); padding: 1em; }
-    .wl-card { background: var(--surface); padding: 2em; border-radius: 12px; box-shadow: 0 4px 12px rgba(2,6,23,0.5); width: 100%; max-width: 420px; color: var(--text); border: 1px solid var(--muted-border); }
+    .wl-wrapper { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - var(--nav-height, 58px)); padding: 1em; }
+    .wl-card { background: var(--surface); padding: 2em; border-radius: var(--radius, 12px); box-shadow: var(--shadow-card); width: 100%; max-width: 420px; color: var(--text); border: 1px solid var(--muted-border); }
     .wl-card h1 { margin-bottom: 1em; font-size: 1.75rem; color: var(--accent); text-align: center; }
     .wl-card form label { display: block; margin-bottom: 0.75em; font-weight: 500; }
     .wl-card input { width: 100%; padding: 0.75em; margin-top: 0.25em; border: 1px solid var(--muted-border); border-radius: 6px; background: var(--card-bg); color: var(--text); font-size: 0.95rem; transition: border 0.2s, box-shadow 0.2s; }
-    .wl-card input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(124,58,237,0.25); }
+    .wl-card input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
     .wl-card .submit-btn { width: 100%; padding: 0.75em; margin-top: 1em; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-    .wl-card .submit-btn:hover { background: #6d28d9; }
+    .wl-card .submit-btn:hover { background: var(--accent-hover); }
     .nav-links-row { display: flex; gap: 0.75em; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap; }
     .nav-links-row a { display: inline-block; padding: 0.6em 1.25em; background: var(--surface); color: var(--text); border: 1px solid var(--muted-border); border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: background 0.2s, border-color 0.2s; }
     .nav-links-row a:hover { border-color: var(--accent); color: var(--accent); }

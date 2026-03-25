@@ -2,9 +2,13 @@
 {% block title %}Manage Archived Servers{% endblock %}
 {% block head %}
   <style>
-    .table-dark { --bs-table-bg: var(--surface); --bs-table-border-color: var(--muted-border); }
     .badge { font-size: 0.75rem; }
     .server-icon { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+    .badge-game    { background: var(--accent-glow); color: var(--accent); }
+    .badge-date    { background: var(--accent-warning-bg, rgba(210,153,34,0.12)); color: var(--accent-warning); font-family: monospace; }
+    .badge-modded  { background: var(--accent-warning-bg, rgba(210,153,34,0.12)); color: var(--accent-warning); }
+    .badge-vanilla { background: var(--bg-hover, rgba(255,255,255,0.04)); color: var(--muted); }
+    .text-info { color: var(--accent-info) !important; }
   </style>
 {% endblock %}
 {% block content %}
@@ -19,7 +23,7 @@
 
     {% if servers %}
     <div class="table-responsive">
-      <table class="table table-dark table-hover">
+      <table class="table table-hover">
         <thead>
           <tr>
             <th>ID</th>
@@ -55,24 +59,24 @@
                 <small class="text-info">MOTD: {{ server.motd[:40] }}{% if server.motd|length > 40 %}...{% endif %}</small>
               {% endif %}
             </td>
-            <td><span class="badge bg-info">{{ server.game }}</span></td>
+            <td><span class="badge badge-game">{{ server.game }}</span></td>
             <td>{{ server.version or '-' }}</td>
             <td>{{ server.file_size or '-' }}</td>
             <td>
               {% if server.retirement_date %}
-                <span class="badge bg-warning text-dark">{{ server.retirement_date }}</span>
+                <span class="badge badge-date">{{ server.retirement_date }}</span>
               {% else %}
                 <span class="text-muted">-</span>
               {% endif %}
             </td>
             <td>
               {% if server.modded %}
-                <span class="badge bg-warning text-dark">Modded</span>
+                <span class="badge badge-modded">Modded</span>
                 {% if server.pack_name %}
                   <br><small class="text-muted">{{ server.pack_name }}</small>
                 {% endif %}
               {% else %}
-                <span class="badge bg-secondary">Vanilla</span>
+                <span class="badge badge-vanilla">Vanilla</span>
               {% endif %}
             </td>
             <td>

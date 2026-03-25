@@ -3,13 +3,19 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#161616">
+    <meta name="theme-color" content="#0d1117">
     <title>{% block title %}Game Panel{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+
+    <!-- PGSM theme system: load saved theme before paint to prevent flash -->
+    <link id="theme-link" rel="stylesheet" href="{{ url_for('static', filename='css/themes/theme-default.css') }}">
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Panel styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
+
     <meta property="og:title" content="Game Servers">
     <meta property="og:description" content="A central hub for all game servers hosted by Jack Thiess.">
     <meta property="og:image" content="{{ url_for('static', filename='images/EmbedImage.png', _external=True) }}">
@@ -18,13 +24,60 @@
     {% block head %}{% endblock %}
   </head>
   <body>
-    <!-- Theme toggle (light / dark) -->
-    <button id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
-      <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="currentColor" />
-      </svg>
-      <span class="label visually-hidden">Toggle theme</span>
-    </button>
+    <!-- Shared nav — mirrors base.html for visual consistency -->
+    <nav class="panel-nav">
+      <a class="panel-nav-brand" href="{{ url_for('panel.index') }}">Game Panel</a>
+
+      <ul class="panel-nav-links">
+        <li><a href="{{ url_for('panel.index') }}">Servers</a></li>
+        <li><a href="{{ url_for('panel.rules') }}">Rules</a></li>
+        <li><a href="{{ url_for('whitelist_panel.index') }}">Whitelist</a></li>
+        {% if session.get('admin_auth') %}
+        <li><a href="{{ url_for('admin_panel.panel') }}">Admin</a></li>
+        <li><a href="{{ url_for('dashboard.index') }}" class="panel-nav-btn">PGSM</a></li>
+        {% endif %}
+      </ul>
+
+      <!-- Theme switcher (same as base.html) -->
+      <div class="theme-switcher">
+        <button class="theme-toggle-btn" onclick="toggleThemeMenu()" title="Switch theme" aria-label="Switch theme">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          Theme
+        </button>
+        <div class="theme-menu" id="theme-menu" role="menu">
+          <button class="theme-menu-item" data-theme="default" onclick="setTheme('default')" role="menuitem">
+            <span class="theme-swatch" style="background:#4f8ef7"></span>PGSM Dark
+          </button>
+          <button class="theme-menu-item" data-theme="light" onclick="setTheme('light')" role="menuitem">
+            <span class="theme-swatch" style="background:#0969da;border-color:rgba(0,0,0,0.15)"></span>Light
+          </button>
+          <button class="theme-menu-item" data-theme="nord" onclick="setTheme('nord')" role="menuitem">
+            <span class="theme-swatch" style="background:#88c0d0"></span>Nord
+          </button>
+          <button class="theme-menu-item" data-theme="catppuccin-mocha" onclick="setTheme('catppuccin-mocha')" role="menuitem">
+            <span class="theme-swatch" style="background:#cba6f7"></span>Catppuccin
+          </button>
+          <button class="theme-menu-item" data-theme="gruvbox" onclick="setTheme('gruvbox')" role="menuitem">
+            <span class="theme-swatch" style="background:#d79921"></span>Gruvbox
+          </button>
+          <button class="theme-menu-item" data-theme="discord" onclick="setTheme('discord')" role="menuitem">
+            <span class="theme-swatch" style="background:#5865f2"></span>Discord
+          </button>
+          <button class="theme-menu-item" data-theme="midnight-purple" onclick="setTheme('midnight-purple')" role="menuitem">
+            <span class="theme-swatch" style="background:#a855f7"></span>Midnight Purple
+          </button>
+          <button class="theme-menu-item" data-theme="high-contrast" onclick="setTheme('high-contrast')" role="menuitem">
+            <span class="theme-swatch" style="background:#ffff00;border-color:rgba(255,255,255,0.3)"></span>High Contrast
+          </button>
+          <button class="theme-menu-item" data-theme="dracula" onclick="setTheme('dracula')" role="menuitem">
+            <span class="theme-swatch" style="background:#bd93f9"></span>Dracula
+          </button>
+          <button class="theme-menu-item" data-theme="tokyo-night" onclick="setTheme('tokyo-night')" role="menuitem">
+            <span class="theme-swatch" style="background:#7aa2f7"></span>Tokyo Night
+          </button>
+        </div>
+      </div>
+    </nav>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -43,8 +96,6 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Panel theme toggle script -->
-    <script src="{{ url_for('static', filename='js/panel-theme-toggle.js') }}"></script>
     {% block scripts %}{% endblock %}
   </body>
 </html>
