@@ -1,38 +1,252 @@
 {% extends 'panel_base.html' %}
 {% block title %}Whitelist Admin{% endblock %}
 
+{% block head %}
+<style>
+/* ── Stats grid ─────────────────────────────────────────────────────────── */
+.wla-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+}
+
+.wla-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+}
+
+.wla-stat-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.375rem;
+}
+
+.wla-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-heading);
+    letter-spacing: -0.03em;
+}
+
+.wla-stat-value.is-warning { color: var(--accent-warning); }
+.wla-stat-value.is-success { color: var(--accent-success); }
+
+/* ── Add server tabs ────────────────────────────────────────────────────── */
+.wla-add-server {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.wla-add-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+}
+
+.wla-mode-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    width: fit-content;
+}
+
+.wla-mode-tab {
+    padding: 0.3rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.wla-mode-tab:not(:last-child) {
+    border-right: 1px solid var(--border);
+}
+
+.wla-mode-tab.active {
+    background: var(--bg-hover);
+    color: var(--text-heading);
+    font-weight: 600;
+}
+
+.wla-mode-tab:hover:not(.active) {
+    background: var(--bg-hover);
+    color: var(--text);
+}
+
+.wla-mode-panel { display: none; }
+.wla-mode-panel.active { display: block; }
+
+.wla-form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.wla-form-row .form-group {
+    margin: 0;
+    flex: 1;
+    min-width: 180px;
+}
+
+.wla-form-row .form-group:first-child { flex: 0 0 auto; min-width: 220px; }
+.wla-form-row .form-group.flex-grow { flex: 2; min-width: 240px; }
+
+/* ── Pending row highlight ──────────────────────────────────────────────── */
+.wla-row-pending td:first-child {
+    border-left: 3px solid var(--accent-warning);
+}
+
+/* Offset the left padding to compensate for the added border */
+.wla-row-pending td:first-child {
+    padding-left: calc(1rem - 3px);
+}
+
+.badge-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    background: var(--accent-warning-bg);
+    color: var(--accent-warning);
+}
+
+.badge-pending::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-warning);
+    flex-shrink: 0;
+}
+
+/* ── UUID truncation ───────────────────────────────────────────────────── */
+.wla-uuid {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+}
+
+/* ── Legend subtitle ────────────────────────────────────────────────────── */
+.wla-legend-sub {
+    font-size: 0.8125rem;
+    color: var(--accent-warning);
+    font-weight: 500;
+    margin-bottom: 1rem;
+    margin-top: -0.25rem;
+}
+
+/* ── Not-in-PGSM chip ───────────────────────────────────────────────────── */
+.wla-unlinked {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+</style>
+{% endblock %}
+
 {% block content %}
+{% set sorted_entries = (entries|selectattr('approved', 'equalto', false)|list) + (entries|selectattr('approved')|list) %}
+
 <div class="admin-page">
+
+    <!-- ── Header ──────────────────────────────────────────────────────── -->
     <div class="admin-page-header">
         <h1 class="admin-page-title">Whitelist Admin</h1>
         <div class="admin-page-actions">
-            <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-primary btn-sm">Hub</a>
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                Dashboard
+            </a>
+            <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-secondary btn-sm">Hub</a>
             <form method="post" action="{{ url_for('admin_panel.logout') }}" style="display:inline;">
                 <button class="btn btn-warning btn-sm" type="submit">Log out</button>
             </form>
         </div>
     </div>
 
-    <!-- PGSM Servers -->
+    <!-- ── Stats ───────────────────────────────────────────────────────── -->
+    <div class="wla-stats">
+        <div class="wla-stat">
+            <div class="wla-stat-label">Total Requests</div>
+            <div class="wla-stat-value">{{ total }}</div>
+        </div>
+        <div class="wla-stat">
+            <div class="wla-stat-label">Pending Approval</div>
+            <div class="wla-stat-value {% if pending > 0 %}is-warning{% endif %}">{{ pending }}</div>
+        </div>
+        <div class="wla-stat">
+            <div class="wla-stat-label">Approved</div>
+            <div class="wla-stat-value {% if approved > 0 %}is-success{% endif %}">{{ approved }}</div>
+        </div>
+        <div class="wla-stat">
+            <div class="wla-stat-label">Sync Targets</div>
+            <div class="wla-stat-value">{{ servers|length }}</div>
+        </div>
+    </div>
+
+    <!-- ── Sync Targets ─────────────────────────────────────────────────── -->
     <fieldset>
-        <legend>PGSM Servers (Whitelist Sync Targets)</legend>
+        <legend>Whitelist Sync Targets</legend>
+
         <div class="pub-table-wrap">
             <table class="pub-table">
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <th>Name</th>
-                        <th>Server UUID</th>
-                        <th>Sync Enabled</th>
-                        <th>Action</th>
+                        <th>PGSM Server</th>
+                        <th>Status</th>
+                        <th>Sync</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for server in servers %}
+                    {% set gs = game_servers_map.get(server['server_id']) %}
                     <tr>
-                        <td class="text-muted text-mono" style="font-size: 0.8rem;">{{ server['id'] }}</td>
                         <td style="font-weight: 600;">{{ server['name'] }}</td>
-                        <td class="text-mono text-muted" style="font-size: 0.78rem;">{{ server['server_id'] }}</td>
+                        <td>
+                            {% if gs %}
+                                {{ gs.name }}
+                            {% else %}
+                                <span class="wla-uuid" title="{{ server['server_id'] }}">{{ server['server_id'] }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if gs %}
+                                <span class="badge {{ gs.status_badge_class }}">{{ gs.status|title }}</span>
+                            {% else %}
+                                <span class="wla-unlinked">Not in PGSM</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if server['enabled'] %}
                                 <span class="status-yes">&#10003; Enabled</span>
@@ -41,75 +255,158 @@
                             {% endif %}
                         </td>
                         <td>
-                            <form class="inline" action="{{ url_for('whitelist_panel.toggle_server', id=server['id']) }}" method="post">
-                                <button class="btn btn-sm {% if server['enabled'] %}btn-secondary{% else %}btn-success{% endif %}" type="submit">
-                                    {{ 'Disable' if server['enabled'] else 'Enable' }}
-                                </button>
-                            </form>
+                            <div class="flex gap-1 items-center">
+                                <form class="inline" action="{{ url_for('whitelist_panel.toggle_server', id=server['id']) }}" method="post">
+                                    <button class="btn btn-xs {% if server['enabled'] %}btn-secondary{% else %}btn-success{% endif %}" type="submit">
+                                        {{ 'Disable' if server['enabled'] else 'Enable' }}
+                                    </button>
+                                </form>
+                                <form class="inline" action="{{ url_for('whitelist_panel.delete_server', id=server['id']) }}" method="post">
+                                    <button class="btn btn-xs btn-danger" type="submit"
+                                            onclick="return confirm('Remove sync target \u201c{{ server['name'] }}\u201d?')">Delete</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="text-muted" style="text-align: center; padding: 1.5rem;">No servers configured.</td>
+                        <td colspan="5" class="text-muted" style="text-align: center; padding: 1.75rem;">
+                            No sync targets configured.
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
-        <!-- Add server form -->
-        <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--muted-border);">
-            <form method="post" action="{{ url_for('whitelist_panel.add_server') }}" class="flex flex-wrap gap-1 items-center">
-                <div class="form-group" style="margin: 0; flex: 1; min-width: 180px;">
-                    <label class="form-label" for="server-name">Server Name</label>
-                    <input type="text" id="server-name" name="name" placeholder="e.g. Survival SMP" required>
-                </div>
-                <div class="form-group" style="margin: 0; flex: 2; min-width: 260px;">
-                    <label class="form-label" for="server-uuid">PGSM Server UUID</label>
-                    <input type="text" id="server-uuid" name="server_id" placeholder="UUID from PGSM" required>
-                </div>
-                <div style="align-self: flex-end; padding-bottom: 1.125rem;">
-                    <button type="submit" class="btn btn-primary btn-sm">Add Server</button>
+        <!-- Add Server -->
+        <div class="wla-add-server">
+            <div class="wla-add-label">Add Sync Target</div>
+
+            {% if available_game_servers %}
+            <div class="wla-mode-tabs" role="tablist" aria-label="Add server mode">
+                <button class="wla-mode-tab active" role="tab" aria-selected="true"
+                        aria-controls="wla-panel-pick" id="wla-tab-pick"
+                        onclick="switchAddMode('pick')">Pick from PGSM</button>
+                <button class="wla-mode-tab" role="tab" aria-selected="false"
+                        aria-controls="wla-panel-manual" id="wla-tab-manual"
+                        onclick="switchAddMode('manual')">Manual entry</button>
+            </div>
+
+            <!-- Mode: pick from PGSM -->
+            <div class="wla-mode-panel active" id="wla-panel-pick" role="tabpanel" aria-labelledby="wla-tab-pick">
+                <form method="post" action="{{ url_for('whitelist_panel.add_server') }}" id="wla-form-pick">
+                    <div class="wla-form-row">
+                        <div class="form-group" style="flex: 2; min-width: 240px;">
+                            <label class="form-label" for="wla-pick-select">Server</label>
+                            <select id="wla-pick-select" onchange="populateFromSelect(this)">
+                                <option value="">— select a server —</option>
+                                {% for gs in available_game_servers %}
+                                <option value="{{ gs.id }}"
+                                        data-name="{{ gs.name }}"
+                                        data-status="{{ gs.status }}">{{ gs.name }} ({{ gs.status }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 180px;">
+                            <label class="form-label" for="wla-pick-name">Display Name</label>
+                            <input type="text" id="wla-pick-name" name="name" placeholder="Auto-filled from selection" required>
+                        </div>
+                        <input type="hidden" id="wla-pick-uuid" name="server_id">
+                        <div style="padding-bottom: 1.125rem;">
+                            <button type="submit" class="btn btn-primary btn-sm">Add Server</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Mode: manual -->
+            <div class="wla-mode-panel" id="wla-panel-manual" role="tabpanel" aria-labelledby="wla-tab-manual">
+                <form method="post" action="{{ url_for('whitelist_panel.add_server') }}" id="wla-form-manual">
+                    <div class="wla-form-row">
+                        <div class="form-group" style="flex: 1; min-width: 180px;">
+                            <label class="form-label" for="wla-manual-name">Display Name</label>
+                            <input type="text" id="wla-manual-name" name="name" placeholder="e.g. Survival SMP" required>
+                        </div>
+                        <div class="form-group flex-grow">
+                            <label class="form-label" for="wla-manual-uuid">PGSM Server UUID</label>
+                            <input type="text" id="wla-manual-uuid" name="server_id"
+                                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                   pattern="[0-9a-fA-F\-]{36}" required>
+                        </div>
+                        <div style="padding-bottom: 1.125rem;">
+                            <button type="submit" class="btn btn-primary btn-sm">Add Server</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            {% else %}
+            <!-- No available servers: show manual entry only -->
+            <form method="post" action="{{ url_for('whitelist_panel.add_server') }}">
+                <div class="wla-form-row">
+                    <div class="form-group" style="flex: 1; min-width: 180px;">
+                        <label class="form-label" for="wla-manual-name-only">Display Name</label>
+                        <input type="text" id="wla-manual-name-only" name="name" placeholder="e.g. Survival SMP" required>
+                    </div>
+                    <div class="form-group flex-grow">
+                        <label class="form-label" for="wla-manual-uuid-only">PGSM Server UUID</label>
+                        <input type="text" id="wla-manual-uuid-only" name="server_id"
+                               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                               pattern="[0-9a-fA-F\-]{36}" required>
+                    </div>
+                    <div style="padding-bottom: 1.125rem;">
+                        <button type="submit" class="btn btn-primary btn-sm">Add Server</button>
+                    </div>
                 </div>
             </form>
+            {% endif %}
         </div>
     </fieldset>
 
-    <!-- Whitelist Requests -->
+    <!-- ── Whitelist Requests ────────────────────────────────────────────── -->
     <fieldset>
         <legend>Whitelist Requests</legend>
-        <div class="pub-table-wrap" style="overflow-x: auto;">
+        {% if pending > 0 %}
+        <p class="wla-legend-sub">{{ pending }} pending approval</p>
+        {% endif %}
+
+        <div class="pub-table-wrap">
             <table class="pub-table">
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <th>MC Username</th>
-                        <th>UUID</th>
                         <th>Discord</th>
+                        <th>UUID</th>
                         <th>IP</th>
-                        <th>Approved</th>
+                        <th>Status</th>
                         <th>Submitted</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for entry in entries|sort(attribute='id', reverse=True) %}
-                    <tr>
-                        <td class="text-muted text-mono" style="font-size: 0.78rem;">{{ entry['id'] }}</td>
+                    {% for entry in sorted_entries %}
+                    <tr {% if not entry['approved'] %}class="wla-row-pending"{% endif %}>
                         <td style="font-weight: 600;">{{ entry['username'] }}</td>
-                        <td class="text-mono text-muted" style="font-size: 0.75rem;">{{ entry['player_uuid'] }}</td>
-                        <td>{{ entry['discord_username'] }}</td>
-                        <td class="text-mono text-muted" style="font-size: 0.8rem;">{{ entry['client_ip'] }}</td>
+                        <td>{{ entry['discord_username'] or '—' }}</td>
+                        <td>
+                            <span class="wla-uuid" title="{{ entry['player_uuid'] }}">{{ entry['player_uuid'] }}</span>
+                        </td>
+                        <td class="text-mono text-muted" style="font-size: 0.8rem; white-space: nowrap;">
+                            {{ entry['client_ip'] or '—' }}
+                        </td>
                         <td>
                             {% if entry['approved'] %}
                                 <span class="status-yes">&#10003; Approved</span>
                             {% else %}
-                                <span class="status-no">Pending</span>
+                                <span class="badge-pending">Pending</span>
                             {% endif %}
                         </td>
-                        <td class="text-muted" style="font-size: 0.78rem; white-space: nowrap;">{{ entry['created_at'] }}</td>
+                        <td class="text-muted" style="font-size: 0.78rem; white-space: nowrap;">
+                            {{ entry['created_at'] }}
+                        </td>
                         <td>
-                            <div class="flex gap-1">
+                            <div class="flex gap-1 items-center">
                                 <form class="inline" action="{{ url_for('whitelist_panel.toggle', id=entry['id']) }}" method="post">
                                     <button class="btn btn-xs {% if entry['approved'] %}btn-secondary{% else %}btn-success{% endif %}" type="submit">
                                         {{ 'Revoke' if entry['approved'] else 'Approve' }}
@@ -117,14 +414,16 @@
                                 </form>
                                 <form class="inline" action="{{ url_for('whitelist_panel.delete_entry', id=entry['id']) }}" method="post">
                                     <button class="btn btn-xs btn-danger" type="submit"
-                                            onclick="return confirm('Delete this entry?')">Delete</button>
+                                            onclick="return confirm('Delete whitelist entry for \u201c{{ entry['username'] }}\u201d?')">Delete</button>
                                 </form>
                             </div>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="text-muted" style="text-align: center; padding: 1.5rem;">No whitelist requests yet.</td>
+                        <td colspan="7" class="text-muted" style="text-align: center; padding: 1.75rem;">
+                            No whitelist requests yet.
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -135,5 +434,40 @@
     <div class="nav-back">
         <a href="{{ url_for('panel.index') }}">Back to Game Panel</a>
     </div>
+
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchAddMode(mode) {
+    const tabs   = document.querySelectorAll('.wla-mode-tab');
+    const panels = document.querySelectorAll('.wla-mode-panel');
+
+    tabs.forEach(function(tab) {
+        const active = tab.id === 'wla-tab-' + mode;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+
+    panels.forEach(function(panel) {
+        const active = panel.id === 'wla-panel-' + mode;
+        panel.classList.toggle('active', active);
+    });
+}
+
+function populateFromSelect(select) {
+    const opt      = select.options[select.selectedIndex];
+    const nameInput = document.getElementById('wla-pick-name');
+    const uuidInput = document.getElementById('wla-pick-uuid');
+
+    if (opt.value) {
+        nameInput.value = opt.dataset.name || '';
+        uuidInput.value = opt.value;
+    } else {
+        nameInput.value = '';
+        uuidInput.value = '';
+    }
+}
+</script>
 {% endblock %}

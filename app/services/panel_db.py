@@ -979,6 +979,28 @@ def toggle_pgsm_server(server_db_id: int) -> bool:
             conn.close()
 
 
+def delete_pgsm_server(server_db_id: int) -> None:
+    """Delete a pgsm_server row by primary key.
+
+    Args:
+        server_db_id: The integer primary key in pgsm_servers.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM pgsm_servers WHERE id = %s", (server_db_id,))
+        conn.commit()
+    except Exception:
+        if conn:
+            conn.rollback()
+        log.exception("panel_db.delete_pgsm_server failed")
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+
 # ============================================================
 # Data file helpers (messages.txt / rules.md)
 # ============================================================

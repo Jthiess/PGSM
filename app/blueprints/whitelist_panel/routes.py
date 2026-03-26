@@ -15,6 +15,7 @@ from flask import (
 
 from app.auth import is_admin
 from app.blueprints.whitelist_panel import bp
+from app.models.server import GameServer
 from app.services import panel_db
 
 log = logging.getLogger(__name__)
@@ -184,7 +185,7 @@ def admin():
     Requires full admin session; redirects to login if absent.
 
     Returns:
-        Rendered whitelist_panel/admin.html with entries and servers.
+        Rendered whitelist_panel/admin.html with entries, servers, and stats.
     """
     if not is_admin():
         return redirect(url_for('admin_panel.login', next=request.path))
@@ -192,10 +193,24 @@ def admin():
     entries = panel_db.get_whitelist_entries()
     pgsm_servers = panel_db.get_pgsm_servers()
 
+    all_game_servers = GameServer.query.order_by(GameServer.name).all()
+    game_servers_map = {gs.id: gs for gs in all_game_servers}
+    synced_ids = {s['server_id'] for s in pgsm_servers}
+    available_game_servers = [gs for gs in all_game_servers if gs.id not in synced_ids]
+
+    total = len(entries)
+    pending = sum(1 for e in entries if not e['approved'])
+    approved = total - pending
+
     return render_template(
         'whitelist_panel/admin.html',
         entries=entries,
         servers=pgsm_servers,
+        game_servers_map=game_servers_map,
+        available_game_servers=available_game_servers,
+        total=total,
+        pending=pending,
+        approved=approved,
     )
 
 
@@ -272,6 +287,29 @@ def add_server():
             flash('Failed to add server.', 'error')
     else:
         flash('Both name and server ID are required.', 'error')
+
+    return redirect(url_for('whitelist_panel.admin'))
+
+
+@bp.route('/admin/servers/delete/<int:id>', methods=['POST'])
+def delete_server(id: int):
+    """Remove a PGSM server from the whitelist sync target list.
+
+    Args:
+        id: The pgsm_servers primary key.
+
+    Returns:
+        Redirect to /whitelist/admin.
+    """
+    if not is_admin():
+        return redirect(url_for('admin_panel.login', next=request.path))
+
+    try:
+        panel_db.delete_pgsm_server(id)
+        flash('Server removed from sync targets.', 'success')
+    except Exception:
+        log.exception("Failed to delete pgsm_server %s", id)
+        flash('Failed to remove server.', 'error')
 
     return redirect(url_for('whitelist_panel.admin'))
 
