@@ -90,7 +90,7 @@ def login():
         if password == admin_pw:
             session['admin_auth'] = True
             session.pop('messages_auth', None)
-            next_url = request.args.get('next') or url_for('admin_panel.panel')
+            next_url = request.args.get('next') or url_for('dashboard.index')
             flash('Logged in as admin.', 'success')
             return redirect(next_url)
 
@@ -125,44 +125,12 @@ def logout():
 @bp.route('/panel')
 @require_admin
 def panel():
-    """Admin hub — links to all admin modules.
+    """Backwards-compatible redirect — old admin hub URL now forwards to the unified dashboard.
 
     Returns:
-        Rendered admin_panel/panel.html with a modules list.
+        Redirect to dashboard.index.
     """
-    modules = [
-        {
-            'name': 'Messages',
-            'description': 'Edit rotating homepage messages (messages.txt).',
-            'url': url_for('admin_panel.messages'),
-        },
-        {
-            'name': 'Rules',
-            'description': 'Edit server rules page (rules.md).',
-            'url': url_for('admin_panel.rules_edit'),
-        },
-        {
-            'name': 'Active Servers',
-            'description': 'Create and edit active server info cards.',
-            'url': url_for('admin_panel.servers'),
-        },
-        {
-            'name': 'Archived Servers',
-            'description': 'Create and edit archived server info cards.',
-            'url': url_for('admin_panel.archived_servers'),
-        },
-        {
-            'name': 'Whitelist',
-            'description': 'Approve or manage whitelist entries and servers.',
-            'url': url_for('whitelist_panel.admin'),
-        },
-        {
-            'name': 'PGSM Management',
-            'description': 'Manage Proxmox-hosted game server containers.',
-            'url': url_for('dashboard.index'),
-        },
-    ]
-    return render_template('admin_panel/panel.html', modules=modules)
+    return redirect(url_for('dashboard.index'))
 
 
 # ------------------------------------------------------------

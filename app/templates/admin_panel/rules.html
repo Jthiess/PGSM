@@ -1,16 +1,11 @@
-{% extends 'panel_base.html' %}
+{% extends 'base.html' %}
 {% block title %}Edit rules.md{% endblock %}
+{% block breadcrumb %}<span>›</span> <a href="{{ url_for('admin_panel.rules_edit') }}">Rules</a>{% endblock %}
 
 {% block content %}
 <div class="admin-page">
     <div class="admin-page-header">
         <h1 class="admin-page-title">Edit rules.md</h1>
-        <div class="admin-page-actions">
-            <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-secondary btn-sm">Back</a>
-            <form method="post" action="{{ url_for('admin_panel.logout') }}" style="display:inline;">
-                <button class="btn btn-warning btn-sm" type="submit">Log out</button>
-            </form>
-        </div>
     </div>
 
     <div class="pub-form-card">

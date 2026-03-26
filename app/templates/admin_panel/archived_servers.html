@@ -1,5 +1,6 @@
-{% extends 'panel_base.html' %}
+{% extends 'base.html' %}
 {% block title %}Manage Archived Servers{% endblock %}
+{% block breadcrumb %}<span>›</span> <a href="{{ url_for('admin_panel.archived_servers') }}">Archived Servers</a>{% endblock %}
 
 {% block content %}
 <div class="admin-page">
@@ -7,7 +8,6 @@
         <h1 class="admin-page-title">Manage Archived Servers</h1>
         <div class="admin-page-actions">
             <a href="{{ url_for('admin_panel.archived_server_new') }}" class="btn btn-success btn-sm">+ New Archived Server</a>
-            <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-secondary btn-sm">Back</a>
         </div>
     </div>
 

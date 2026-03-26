@@ -40,9 +40,7 @@
             <li><a href="{{ url_for('whitelist_panel.index') }}"
                    {% if request.blueprint == 'whitelist_panel' %}class="active" aria-current="page"{% endif %}>Whitelist</a></li>
             {% if session.get('admin_auth') %}
-            <li><a href="{{ url_for('admin_panel.panel') }}"
-                   {% if request.blueprint == 'admin_panel' %}class="active" aria-current="page"{% endif %}>Admin</a></li>
-            <li><a href="{{ url_for('dashboard.index') }}" class="panel-nav-btn">PGSM</a></li>
+            <li><a href="{{ url_for('dashboard.index') }}" class="panel-nav-btn">Admin</a></li>
             {% endif %}
         </ul>
 
@@ -116,9 +114,7 @@
                 Whitelist
             </a></li>
             {% if session.get('admin_auth') %}
-            <li><a href="{{ url_for('admin_panel.panel') }}"
-                   {% if request.blueprint == 'admin_panel' %}class="active"{% endif %} onclick="closeMobileNav()">Admin</a></li>
-            <li><a href="{{ url_for('dashboard.index') }}" onclick="closeMobileNav()">PGSM</a></li>
+            <li><a href="{{ url_for('dashboard.index') }}" onclick="closeMobileNav()">Admin</a></li>
             {% endif %}
         </ul>
     </nav>

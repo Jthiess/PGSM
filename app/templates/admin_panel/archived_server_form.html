@@ -1,5 +1,6 @@
-{% extends 'panel_base.html' %}
+{% extends 'base.html' %}
 {% block title %}{% if server %}Edit Archived Server{% else %}New Archived Server{% endif %}{% endblock %}
+{% block breadcrumb %}<span>›</span> <a href="{{ url_for('admin_panel.archived_servers') }}">Archived Servers</a> <span>›</span> <span>{% if server %}Edit{% else %}New{% endif %}</span>{% endblock %}
 
 {% block content %}
 <div class="admin-page">
