@@ -41,11 +41,11 @@
                 data-server-name="{{ server['name'] }}"
                 data-header-img="{{ url_for('static', filename=header_image_path(server['game'])) }}"
                 {% if server['modded'] %}
-                data-pack-name="{{ server['pack_name']|default('') }}"
-                data-pack-desc="{{ server['pack_desc']|default('') }}"
-                data-pack-link="{{ server['pack_link']|default('') }}"
-                data-pack-img-id="{{ server['pack_img_id']|default('') }}"
-                data-pack-version="{{ server['pack_version']|default('') }}"
+                data-pack-name="{{ server['pack-name']|default('') }}"
+                data-pack-desc="{{ server['pack-desc']|default('') }}"
+                data-pack-link="{{ server['pack-link']|default('') }}"
+                data-pack-img-id="{{ server['pack-img-id']|default('') }}"
+                data-pack-version="{{ server['pack-version']|default('') }}"
                 {% endif %}>
 
                 <div class="card-image">
@@ -123,11 +123,11 @@
                 data-server-name="{{ server['name'] }}"
                 data-header-img="{{ url_for('static', filename=header_image_path(server['game'])) }}"
                 {% if server['modded'] %}
-                data-pack-name="{{ server['pack_name']|default('') }}"
-                data-pack-desc="{{ server['pack_desc']|default('') }}"
-                data-pack-link="{{ server['pack_link']|default('') }}"
-                data-pack-img-id="{{ server['pack_img_id']|default('') }}"
-                data-pack-version="{{ server['pack_version']|default('') }}"
+                data-pack-name="{{ server['pack-name']|default('') }}"
+                data-pack-desc="{{ server['pack-desc']|default('') }}"
+                data-pack-link="{{ server['pack-link']|default('') }}"
+                data-pack-img-id="{{ server['pack-img-id']|default('') }}"
+                data-pack-version="{{ server['pack-version']|default('') }}"
                 {% endif %}>
 
                 <div class="card-image">
