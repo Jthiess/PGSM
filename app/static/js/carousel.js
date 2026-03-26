@@ -1,271 +1,268 @@
-// Simple horizontal scroll buttons for each carousel
+// carousel.js — Server card click-to-detail and horizontal scroll logic
 document.addEventListener('DOMContentLoaded', function () {
-  // Fullscreen panel functionality
-  const panel = document.getElementById('fullscreen-panel');
-  const closePanel = document.getElementById('close-panel');
-  
-  // Close panel when clicking the close button
-  closePanel.addEventListener('click', () => {
-    panel.classList.remove('active');
-    document.body.style.overflow = 'auto';
-  });
 
-  // Handle escape key to close panel
-  document.addEventListener('keydown', (e) => {
+  // ── Detail panel elements ─────────────────────────────────────────────────
+  const panel   = document.getElementById('fullscreen-panel');
+  const closeBtn = document.getElementById('close-panel');
+  const backdrop = document.getElementById('detail-panel-backdrop');
+
+  function openPanel() {
+    panel.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closePanel() {
+    panel.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  closeBtn.addEventListener('click', closePanel);
+  if (backdrop) backdrop.addEventListener('click', closePanel);
+
+  document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && panel.classList.contains('active')) {
-      panel.classList.remove('active');
-      document.body.style.overflow = 'auto';
+      closePanel();
     }
   });
 
-  // Add click handlers to all carousel cards
-  document.querySelectorAll('.carousel-card').forEach(card => {
-    card.addEventListener('click', () => {
-      // Get card data
-      const modded = card.dataset.modded === 'true';
-      const packName = card.dataset.packName || '';
-      const serverName = card.dataset.serverName || '';
-      // For modded servers, use pack name; otherwise use server name
-      const title = modded && packName ? packName : serverName;
-      const motd = card.querySelector('.card-motd').textContent;
-      const description = card.querySelector('.card-text').textContent;
-      const statusBadge = card.querySelector('.status-badge');
-      const status = statusBadge.textContent.trim();
-      const isOnline = statusBadge.classList.contains('status-online');
-      const isArchived = statusBadge.classList.contains('status-archived');
-      const serverIp = card.dataset.ip || '';
-      const game = card.dataset.game || '';
-      
-      // Get info fields - different for active vs archived servers
-      let field1Label = 'Players';
-      let field1Value = '';
-      let field2Label = 'Version';
-      let field2Value = '';
-      let field3Label = 'Status';
-      let field3Value = status;
-      
-      const infoBlocks = card.querySelectorAll('.info-block');
-      
-      if (isArchived) {
-        // For archived servers: File Size, Version, Archival Date
-        field1Label = 'File Size';
-        field3Label = 'Archival Date';
-        
-        infoBlocks.forEach(block => {
-          const label = block.querySelector('h6').textContent.toLowerCase();
-          if (label === 'file size') {
-            field1Value = block.querySelector('p').textContent;
-          } else if (label === 'version') {
-            field2Value = block.querySelector('p').textContent;
-          } else if (label === 'archival date:') {
-            field3Value = block.querySelector('p').textContent;
-          }
-        });
-      } else {
-        // For active servers: Players, Version, Status
-        infoBlocks.forEach(block => {
-          const label = block.querySelector('h6').textContent.toLowerCase();
-          if (label === 'players') {
-            field1Value = block.querySelector('p').textContent;
-          } else if (label === 'version') {
-            field2Value = block.querySelector('p').textContent;
-          }
-        });
+  // ── Card click handlers ───────────────────────────────────────────────────
+  document.querySelectorAll('.carousel-card').forEach(function (card) {
+    // Support both click and keyboard activation (Enter / Space)
+    card.addEventListener('click', () => activateCard(card));
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activateCard(card);
       }
+    });
+  });
 
-      // Update panel content with header image based on game
-      const headerImageName = game.toLowerCase().replace(/\s+/g, '-');
-      document.getElementById('panel-image').src = `/static/images/headers/${headerImageName}.jpg`;
-      document.getElementById('panel-title').textContent = title;
-      document.getElementById('panel-motd').textContent = motd;
-      document.getElementById('panel-description').textContent = description;
-      
-      // Update panel info blocks with appropriate labels and values
-      const panelInfoBlocks = document.querySelectorAll('.panel-info-block');
-      if (panelInfoBlocks.length >= 3) {
-        panelInfoBlocks[0].querySelector('h6').textContent = field1Label;
-        panelInfoBlocks[0].querySelector('p').textContent = field1Value || 'N/A';
-        
-        panelInfoBlocks[1].querySelector('h6').textContent = field2Label;
-        panelInfoBlocks[1].querySelector('p').textContent = field2Value || 'N/A';
-        
-        panelInfoBlocks[2].querySelector('h6').textContent = field3Label;
-        panelInfoBlocks[2].querySelector('p').textContent = field3Value || 'N/A';
+  function activateCard(card) {
+    const modded     = card.dataset.modded === 'true';
+    const packName   = card.dataset.packName  || '';
+    const serverName = card.dataset.serverName || '';
+    const title      = modded && packName ? packName : serverName;
+    const motd       = card.querySelector('.card-motd') ? card.querySelector('.card-motd').textContent : '';
+    const descEl     = card.querySelector('.card-desc');
+    const description = descEl ? descEl.textContent : '';
+    const statusBadge = card.querySelector('.status-badge');
+    const status      = statusBadge.textContent.trim();
+    const isOnline    = statusBadge.classList.contains('status-online');
+    const isArchived  = statusBadge.classList.contains('status-archived');
+    const serverIp    = card.dataset.ip   || '';
+    const game        = card.dataset.game || '';
+
+    // ── Determine info field labels / values ───────────────────────────────
+    let field1Label = 'Players';
+    let field1Value = '';
+    let field2Label = 'Version';
+    let field2Value = '';
+    let field3Label = 'Status';
+    let field3Value = status;
+
+    if (isArchived) {
+      field1Label = 'File Size';
+      field3Label = 'Archived';
+
+      const statsEl = card.querySelector('.card-stats');
+      if (statsEl) {
+        const statItems = statsEl.querySelectorAll('.stat-item');
+        statItems.forEach(function (item) {
+          const lbl = item.querySelector('.stat-label');
+          const val = item.querySelector('.stat-value');
+          if (!lbl || !val) return;
+          const labelText = lbl.textContent.toLowerCase().trim();
+          if (labelText === 'size')    field1Value = val.textContent;
+          if (labelText === 'version') field2Value = val.textContent;
+        });
       }
-      
-      // Handle IP copy button (only for active servers)
-      const copyIpBtn = document.getElementById('copy-ip-btn');
-      const ipText = document.getElementById('ip-text');
-      
-      if (isArchived) {
-        // For archived servers, repurpose button as world download link
-        const worldLink = card.dataset.worldLink || '';
-        if (worldLink) {
-          copyIpBtn.style.display = 'flex';
-          copyIpBtn.onclick = (e) => {
-            e.stopPropagation();
-            window.open(worldLink, '_blank');
-          };
-          ipText.textContent = 'Download World';
-          // Change icon to download icon
-          const svgIcon = copyIpBtn.querySelector('svg');
-          if (svgIcon) {
-            svgIcon.innerHTML = '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-            svgIcon.setAttribute('viewBox', '0 0 24 24');
-          }
-        } else {
-          copyIpBtn.style.display = 'none';
-        }
-      } else if (serverIp) {
-        // For active servers, show IP copy button
+      const archiveDateEl = card.querySelector('.card-archive-date .stat-value');
+      if (archiveDateEl) field3Value = archiveDateEl.textContent;
+    } else {
+      const statsEl = card.querySelector('.card-stats');
+      if (statsEl) {
+        statsEl.querySelectorAll('.stat-item').forEach(function (item) {
+          const lbl = item.querySelector('.stat-label');
+          const val = item.querySelector('.stat-value');
+          if (!lbl || !val) return;
+          const labelText = lbl.textContent.toLowerCase().trim();
+          if (labelText === 'players') field1Value = val.textContent;
+          if (labelText === 'version') field2Value = val.textContent;
+        });
+      }
+    }
+
+    // ── Populate panel content ─────────────────────────────────────────────
+    const headerImageName = game.toLowerCase().replace(/\s+/g, '-');
+    document.getElementById('panel-image').src = '/static/images/headers/' + headerImageName + '.jpg';
+    document.getElementById('panel-title').textContent       = title;
+    document.getElementById('panel-motd').textContent        = motd;
+    document.getElementById('panel-description').textContent = description;
+
+    const panelInfoBlocks = document.querySelectorAll('.panel-info-block');
+    if (panelInfoBlocks.length >= 3) {
+      panelInfoBlocks[0].querySelector('.panel-info-label').textContent = field1Label;
+      panelInfoBlocks[0].querySelector('.panel-info-value').textContent = field1Value || 'N/A';
+
+      panelInfoBlocks[1].querySelector('.panel-info-label').textContent = field2Label;
+      panelInfoBlocks[1].querySelector('.panel-info-value').textContent = field2Value || 'N/A';
+
+      panelInfoBlocks[2].querySelector('.panel-info-label').textContent = field3Label;
+      panelInfoBlocks[2].querySelector('.panel-info-value').textContent = field3Value || 'N/A';
+    }
+
+    // ── IP / world download button ─────────────────────────────────────────
+    const copyIpBtn = document.getElementById('copy-ip-btn');
+    const ipTextEl  = document.getElementById('ip-text');
+
+    if (isArchived) {
+      const worldLink = card.dataset.worldLink || '';
+      if (worldLink) {
         copyIpBtn.style.display = 'flex';
-        ipText.textContent = serverIp;
-        // Reset to copy functionality
-        copyIpBtn.onclick = async (e) => {
+        copyIpBtn.onclick = function (e) {
           e.stopPropagation();
-          try {
-            await navigator.clipboard.writeText(serverIp);
-            const originalText = copyIpBtn.innerHTML;
-            copyIpBtn.classList.add('copied');
-            copyIpBtn.innerHTML = '<span>Copied!</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-            
-            setTimeout(() => {
-              copyIpBtn.classList.remove('copied');
-              copyIpBtn.innerHTML = originalText;
-            }, 2000);
-          } catch (err) {
-            console.error('Failed to copy IP:', err);
-          }
+          window.open(worldLink, '_blank', 'noopener');
         };
-        // Reset icon to copy icon
+        ipTextEl.textContent = 'Download World';
         const svgIcon = copyIpBtn.querySelector('svg');
         if (svgIcon) {
-          svgIcon.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5" stroke="currentColor" stroke-width="2"/>';
+          svgIcon.innerHTML = '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
           svgIcon.setAttribute('viewBox', '0 0 24 24');
         }
       } else {
         copyIpBtn.style.display = 'none';
       }
-      
-      // Update status badge
-      const panelBadge = document.getElementById('panel-status-badge');
-      panelBadge.textContent = status;
-      panelBadge.className = 'status-badge';
-      if (isOnline) {
-        panelBadge.classList.add('status-online');
-      } else if (isArchived) {
-        panelBadge.classList.add('status-archived');
+    } else if (serverIp) {
+      copyIpBtn.style.display = 'flex';
+      ipTextEl.textContent    = serverIp;
+      copyIpBtn.onclick = async function (e) {
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(serverIp);
+          const origHTML = copyIpBtn.innerHTML;
+          copyIpBtn.classList.add('copied');
+          copyIpBtn.innerHTML = '<span>Copied!</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+          setTimeout(function () {
+            copyIpBtn.classList.remove('copied');
+            copyIpBtn.innerHTML = origHTML;
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy IP:', err);
+        }
+      };
+      const svgIcon = copyIpBtn.querySelector('svg');
+      if (svgIcon) {
+        svgIcon.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5" stroke="currentColor" stroke-width="2"/>';
+        svgIcon.setAttribute('viewBox', '0 0 24 24');
+      }
+    } else {
+      copyIpBtn.style.display = 'none';
+    }
+
+    // ── Status badge ───────────────────────────────────────────────────────
+    const panelBadge = document.getElementById('panel-status-badge');
+    panelBadge.textContent = status;
+    panelBadge.className   = 'status-badge';
+    if (isOnline)        panelBadge.classList.add('status-online');
+    else if (isArchived) panelBadge.classList.add('status-archived');
+    else                 panelBadge.classList.add('status-offline');
+
+    // ── Modpack sidebar ────────────────────────────────────────────────────
+    const modpackSection = document.getElementById('modpack-section');
+    if (modded) {
+      modpackSection.style.display = '';
+
+      const packDesc    = card.dataset.packDesc    || '';
+      const packLink    = card.dataset.packLink    || '';
+      const packImgId   = card.dataset.packImgId   || '';
+      const packVersion = card.dataset.packVersion || '';
+      const displayName = packName || serverName;
+
+      const iconEl = document.getElementById('modpack-icon');
+      if (packImgId) {
+        iconEl.innerHTML = '<img src="/static/images/packicons/' + packImgId + '" alt="' + displayName + '" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">';
       } else {
-        panelBadge.classList.add('status-offline');
+        iconEl.textContent = '\uD83D\uDEE0\uFE0F'; // 🛠️
       }
 
-      // Modpack section logic
-      const modpackSection = document.getElementById('modpack-section');
-      // modded already declared at the start of the function
-      
-      if (modded) {
-        modpackSection.style.display = '';
-        const packNameForModSection = packName || 'title';
-        const packDesc = card.dataset.packDesc || '';
-        const packLink = card.dataset.packLink || '';
-        const packImgId = card.dataset.packImgId || '';
-        const packVersion = card.dataset.packVersion || '';
-        
-        // If pack-img-id exists, try to load the image, otherwise use emoji
-        const modpackIconEl = document.getElementById('modpack-icon');
-        if (packImgId) {
-          modpackIconEl.innerHTML = `<img src="/static/images/packicons/${packImgId}" alt="${packNameForModSection}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 16px;">`;
-        } else {
-          modpackIconEl.textContent = '🛠️';
-        }
-        
-        // Set pack name without version
-        document.getElementById('modpack-name').textContent = packNameForModSection;
-        
-        // Set pack version as separate element if it exists
-        const versionEl = document.getElementById('modpack-version');
-        if (packVersion) {
-          versionEl.textContent = `Version ${packVersion}`;
-          versionEl.style.display = '';
-        } else {
-          versionEl.style.display = 'none';
-        }
-        
-        document.getElementById('modpack-description').textContent = packDesc;
-        
-        const linkEl = document.getElementById('modpack-link');
-        if (packLink) {
-          linkEl.href = packLink;
-          linkEl.style.display = '';
-        } else {
-          linkEl.style.display = 'none';
-        }
-      } else {
-        modpackSection.style.display = 'none';
-      }
-      
-      // Show panel
-      panel.classList.add('active');
-      document.body.style.overflow = 'hidden';
-    });
-  });
-  const buttons = document.querySelectorAll('.carousel-btn');
-  buttons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetId = btn.getAttribute('data-target') === 'middle' ? 'carousel-middle' : 'carousel-bottom';
-      const dir = btn.getAttribute('data-dir');
-      const container = document.getElementById(targetId);
-      if (!container) return;
-      const amount = Math.round(container.clientWidth * 0.8);
-      container.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
-    });
-  });
+      document.getElementById('modpack-name').textContent = displayName;
 
-  // Enable mouse drag to scroll horizontally and handle wheel events
-  const draggables = document.querySelectorAll('.carousel-row');
-  draggables.forEach(drag => {
-    let isDown = false;
+      const versionEl = document.getElementById('modpack-version');
+      if (packVersion) {
+        versionEl.textContent  = 'Version ' + packVersion;
+        versionEl.style.display = '';
+      } else {
+        versionEl.style.display = 'none';
+      }
+
+      document.getElementById('modpack-description').textContent = packDesc;
+
+      const linkEl = document.getElementById('modpack-link');
+      if (packLink) {
+        linkEl.href           = packLink;
+        linkEl.style.display  = '';
+      } else {
+        linkEl.style.display  = 'none';
+      }
+    } else {
+      modpackSection.style.display = 'none';
+    }
+
+    openPanel();
+
+    // Move focus into the panel for accessibility
+    const panelTitle = document.getElementById('panel-title');
+    if (panelTitle) panelTitle.focus({ preventScroll: true });
+  }
+
+  // ── Mouse-drag horizontal scroll ─────────────────────────────────────────
+  document.querySelectorAll('.carousel-row').forEach(function (row) {
+    let isDown    = false;
     let startX, scrollLeft;
+    let didDrag   = false;
 
-    // Prevent text selection while dragging
-    drag.style.userSelect = 'none';
-    drag.style.webkitUserSelect = 'none';
-    drag.style.msUserSelect = 'none';
+    row.style.userSelect       = 'none';
+    row.style.webkitUserSelect = 'none';
 
-    // Prevent images inside the carousel from starting native drag operations
-    // This avoids the browser drag ghost when the user is trying to drag-scroll the carousel.
-    const imgs = drag.querySelectorAll('img');
-    imgs.forEach(img => {
-      try { img.draggable = false; } catch (err) { /* ignore */ }
-      img.addEventListener('dragstart', (ev) => ev.preventDefault());
-    });
-    drag.addEventListener('mousedown', (e) => {
-      isDown = true;
-      drag.classList.add('dragging');
-      startX = e.pageX - drag.offsetLeft;
-      scrollLeft = drag.scrollLeft;
+    row.querySelectorAll('img').forEach(function (img) {
+      img.draggable = false;
+      img.addEventListener('dragstart', function (e) { e.preventDefault(); });
     });
 
-    window.addEventListener('mouseup', () => {
+    row.addEventListener('mousedown', function (e) {
+      isDown     = true;
+      didDrag    = false;
+      startX     = e.pageX - row.offsetLeft;
+      scrollLeft = row.scrollLeft;
+      row.classList.add('dragging');
+    });
+
+    window.addEventListener('mouseup', function () {
       isDown = false;
-      drag.classList.remove('dragging');
+      row.classList.remove('dragging');
     });
 
-    drag.addEventListener('mousemove', (e) => {
+    row.addEventListener('mousemove', function (e) {
       if (!isDown) return;
       e.preventDefault();
-      const x = e.pageX - drag.offsetLeft;
-      const walk = (x - startX) * 1; // scroll-fast multiplier
-      drag.scrollLeft = scrollLeft - walk;
+      const x    = e.pageX - row.offsetLeft;
+      const walk = x - startX;
+      if (Math.abs(walk) > 4) didDrag = true;
+      row.scrollLeft = scrollLeft - walk;
     });
 
-    // Handle wheel events for horizontal scrolling
-    drag.addEventListener('wheel', (e) => {
-      e.preventDefault(); // Prevent vertical scrolling
-      drag.scrollBy({
-        left: e.deltaY * 3, // Increased multiplier for faster scrolling
-        behavior: 'smooth'
-      });
-    });
+    // Suppress card activation when the user was dragging
+    row.addEventListener('click', function (e) {
+      if (didDrag) {
+        e.stopPropagation();
+        didDrag = false;
+      }
+    }, true);
+
+    // Horizontal scroll via mouse wheel
+    row.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      row.scrollBy({ left: e.deltaY * 2.5, behavior: 'smooth' });
+    }, { passive: false });
   });
 });
