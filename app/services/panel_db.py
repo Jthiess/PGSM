@@ -923,12 +923,13 @@ def get_pgsm_servers() -> list:
             conn.close()
 
 
-def create_pgsm_server(name: str, server_id: str) -> None:
-    """Insert a new pgsm_server row with enabled=True.
+def create_pgsm_server(name: str, server_id: str, enabled: bool = False) -> None:
+    """Insert a new pgsm_server row.
 
     Args:
         name: Human-readable server name.
         server_id: The PGSM server UUID string.
+        enabled: Whether whitelist sync is enabled; defaults to False.
     """
     conn = None
     try:
@@ -936,7 +937,7 @@ def create_pgsm_server(name: str, server_id: str) -> None:
         with conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO pgsm_servers (name, server_id, enabled) VALUES (%s, %s, %s)",
-                (name, server_id, True),
+                (name, server_id, enabled),
             )
         conn.commit()
     except Exception:

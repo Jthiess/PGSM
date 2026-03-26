@@ -180,23 +180,34 @@ def index():
 
 @bp.route('/admin')
 def admin():
-    """Whitelist admin — list all entries and PGSM server sync targets.
+    """Whitelist admin — list all entries and sync status for every PGSM server.
+
+    Auto-registers any new GameServers in pgsm_servers (disabled by default) so
+    every server always appears in the sync targets table without manual setup.
 
     Requires full admin session; redirects to login if absent.
 
     Returns:
-        Rendered whitelist_panel/admin.html with entries, servers, and stats.
+        Rendered whitelist_panel/admin.html with entries, game_servers, pgsm_servers, and stats.
     """
     if not is_admin():
         return redirect(url_for('admin_panel.login', next=request.path))
 
     entries = panel_db.get_whitelist_entries()
-    pgsm_servers = panel_db.get_pgsm_servers()
 
     all_game_servers = GameServer.query.order_by(GameServer.name).all()
-    game_servers_map = {gs.id: gs for gs in all_game_servers}
-    synced_ids = {s['server_id'] for s in pgsm_servers}
-    available_game_servers = [gs for gs in all_game_servers if gs.id not in synced_ids]
+    existing_map = {s['server_id']: s for s in panel_db.get_pgsm_servers()}
+
+    # Auto-register any GameServer not yet in pgsm_servers (disabled by default)
+    for gs in all_game_servers:
+        if gs.id not in existing_map:
+            try:
+                panel_db.create_pgsm_server(gs.name, gs.id, enabled=False)
+            except Exception:
+                log.exception("Failed to auto-register server %s", gs.id)
+
+    # Re-fetch after potential auto-registration
+    pgsm_servers = {s['server_id']: s for s in panel_db.get_pgsm_servers()}
 
     total = len(entries)
     pending = sum(1 for e in entries if not e['approved'])
@@ -205,9 +216,8 @@ def admin():
     return render_template(
         'whitelist_panel/admin.html',
         entries=entries,
-        servers=pgsm_servers,
-        game_servers_map=game_servers_map,
-        available_game_servers=available_game_servers,
+        game_servers=all_game_servers,
+        pgsm_servers=pgsm_servers,
         total=total,
         pending=pending,
         approved=approved,
@@ -257,59 +267,6 @@ def delete_entry(id: int):
     except Exception:
         log.exception("Failed to delete whitelist entry %s", id)
         flash('Failed to delete entry.', 'error')
-
-    return redirect(url_for('whitelist_panel.admin'))
-
-
-@bp.route('/admin/servers', methods=['POST'])
-def add_server():
-    """Add a PGSM server to the whitelist sync target list.
-
-    POST params:
-        name (str): Human-readable server name.
-        server_id (str): PGSM server UUID.
-
-    Returns:
-        Redirect to /whitelist/admin.
-    """
-    if not is_admin():
-        return redirect(url_for('admin_panel.login', next=request.path))
-
-    name = (request.form.get('name') or '').strip()
-    server_id = (request.form.get('server_id') or '').strip()
-
-    if name and server_id:
-        try:
-            panel_db.create_pgsm_server(name, server_id)
-            flash(f"Added server '{name}'.", 'success')
-        except Exception:
-            log.exception("Failed to add pgsm_server")
-            flash('Failed to add server.', 'error')
-    else:
-        flash('Both name and server ID are required.', 'error')
-
-    return redirect(url_for('whitelist_panel.admin'))
-
-
-@bp.route('/admin/servers/delete/<int:id>', methods=['POST'])
-def delete_server(id: int):
-    """Remove a PGSM server from the whitelist sync target list.
-
-    Args:
-        id: The pgsm_servers primary key.
-
-    Returns:
-        Redirect to /whitelist/admin.
-    """
-    if not is_admin():
-        return redirect(url_for('admin_panel.login', next=request.path))
-
-    try:
-        panel_db.delete_pgsm_server(id)
-        flash('Server removed from sync targets.', 'success')
-    except Exception:
-        log.exception("Failed to delete pgsm_server %s", id)
-        flash('Failed to remove server.', 'error')
 
     return redirect(url_for('whitelist_panel.admin'))
 
