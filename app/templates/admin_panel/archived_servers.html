@@ -72,8 +72,8 @@
                     </td>
                     <td>
                         <div class="flex gap-1">
-                            <a href="{{ url_for('admin_panel.archived_server_edit', server_id=server.id) }}" class="btn btn-primary btn-xs">Edit</a>
-                            <form method="post" action="{{ url_for('admin_panel.archived_server_delete', server_id=server.id) }}"
+                            <a href="{{ url_for('admin_panel.archived_server_edit', id=server.id) }}" class="btn btn-primary btn-xs">Edit</a>
+                            <form method="post" action="{{ url_for('admin_panel.archived_server_delete', id=server.id) }}"
                                   style="display:inline;" onsubmit="return confirm('Delete this archived server?');">
                                 <button type="submit" class="btn btn-danger btn-xs">Delete</button>
                             </form>
