@@ -53,6 +53,19 @@ def create_app(config_class=Config):
     except Exception as e:
         app.logger.warning("Panel DB init skipped (PostgreSQL may not be configured): %s", e)
 
+    # Jinja2 global: resolve card/header image path with PNG support
+    _IMAGE_EXTS = ('png', 'jpg', 'jpeg', 'webp')
+
+    def _resolve_static_image(subdir: str, name: str) -> str:
+        base = os.path.join(app.root_path, 'static', 'images', subdir)
+        for ext in _IMAGE_EXTS:
+            if os.path.exists(os.path.join(base, f'{name}.{ext}')):
+                return f'images/{subdir}/{name}.{ext}'
+        return f'images/{subdir}/default.jpg'
+
+    app.jinja_env.globals['card_image_path'] = lambda game: _resolve_static_image('cards', game)
+    app.jinja_env.globals['header_image_path'] = lambda game: _resolve_static_image('headers', game)
+
     # Start background scheduler for panel jobs
     _start_scheduler(app)
 

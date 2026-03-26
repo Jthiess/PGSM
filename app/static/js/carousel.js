@@ -93,8 +93,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ── Populate panel content ─────────────────────────────────────────────
-    const headerImageName = game.toLowerCase().replace(/\s+/g, '-');
-    document.getElementById('panel-image').src = '/static/images/headers/' + headerImageName + '.jpg';
+    document.getElementById('panel-image').src = card.dataset.headerImg || '';
     document.getElementById('panel-title').textContent       = title;
     document.getElementById('panel-motd').textContent        = motd;
     document.getElementById('panel-description').textContent = description;

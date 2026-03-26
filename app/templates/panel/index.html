@@ -39,6 +39,7 @@
                 data-ip="{{ server['ip']|default('') }}"
                 data-game="{{ server['game']|default('') }}"
                 data-server-name="{{ server['name'] }}"
+                data-header-img="{{ url_for('static', filename=header_image_path(server['game'])) }}"
                 {% if server['modded'] %}
                 data-pack-name="{{ server['pack_name']|default('') }}"
                 data-pack-desc="{{ server['pack_desc']|default('') }}"
@@ -48,7 +49,7 @@
                 {% endif %}>
 
                 <div class="card-image">
-                    <img src="{{ url_for('static', filename='images/cards/' + server['game'] + '.jpg') }}"
+                    <img src="{{ url_for('static', filename=card_image_path(server['game'])) }}"
                          alt="{{ server['game'] }} server art"
                          draggable="false">
                     <div class="card-image-overlay"></div>
@@ -120,6 +121,7 @@
                 data-game="{{ server['game']|default('') }}"
                 data-world-link="{{ server['world_link']|default('') }}"
                 data-server-name="{{ server['name'] }}"
+                data-header-img="{{ url_for('static', filename=header_image_path(server['game'])) }}"
                 {% if server['modded'] %}
                 data-pack-name="{{ server['pack_name']|default('') }}"
                 data-pack-desc="{{ server['pack_desc']|default('') }}"
@@ -129,7 +131,7 @@
                 {% endif %}>
 
                 <div class="card-image">
-                    <img src="{{ url_for('static', filename='images/cards/' + server['game'] + '.jpg') }}"
+                    <img src="{{ url_for('static', filename=card_image_path(server['game'])) }}"
                          alt="{{ server['game'] }} server art"
                          draggable="false">
                     <div class="card-image-overlay card-image-overlay--archived"></div>
