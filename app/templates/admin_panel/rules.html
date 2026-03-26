@@ -1,36 +1,30 @@
 {% extends 'panel_base.html' %}
 {% block title %}Edit rules.md{% endblock %}
-{% block head %}
-  <style>
-    textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-  </style>
-{% endblock %}
+
 {% block content %}
-  <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="h4 m-0">Edit rules.md</h1>
-      <div>
-        <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-outline-secondary btn-sm">← Back</a>
-        <form method="post" action="{{ url_for('admin_panel.logout') }}" style="display:inline;">
-          <button class="btn btn-outline-warning btn-sm ms-2" type="submit">Log out</button>
-        </form>
-      </div>
+<div class="admin-page">
+    <div class="admin-page-header">
+        <h1 class="admin-page-title">Edit rules.md</h1>
+        <div class="admin-page-actions">
+            <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-secondary btn-sm">Back</a>
+            <form method="post" action="{{ url_for('admin_panel.logout') }}" style="display:inline;">
+                <button class="btn btn-warning btn-sm" type="submit">Log out</button>
+            </form>
+        </div>
     </div>
 
-    <div class="card" style="background: var(--surface); color: var(--text); border: 1px solid var(--muted-border);">
-      <div class="card-body">
-        <p class="text-secondary">Edit server rules in Markdown format. Changes appear on the /rules page.</p>
+    <div class="pub-form-card">
+        <p class="form-hint" style="margin-bottom: 1rem;">Edit server rules in Markdown format. Changes appear on the /rules page.</p>
         <form method="post">
-          <div class="mb-3">
-            <label for="content" class="form-label">rules.md</label>
-            <textarea id="content" name="content" rows="20" class="form-control">{{ content }}</textarea>
-          </div>
-          <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a href="{{ url_for('panel.rules') }}" class="btn btn-outline-light" target="_blank">Preview Rules Page</a>
-          </div>
+            <div class="form-group">
+                <label class="form-label" for="content">rules.md</label>
+                <textarea id="content" name="content" rows="22" style="font-family: var(--mono); font-size: 0.875rem; resize: vertical;">{{ content }}</textarea>
+            </div>
+            <div class="flex gap-1 items-center" style="margin-top: 0.75rem;">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a href="{{ url_for('panel.rules') }}" class="btn btn-secondary" target="_blank" rel="noopener">Preview Rules Page</a>
+            </div>
         </form>
-      </div>
     </div>
-  </div>
+</div>
 {% endblock %}

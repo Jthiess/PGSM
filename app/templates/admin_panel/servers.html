@@ -1,95 +1,95 @@
 {% extends 'panel_base.html' %}
 {% block title %}Manage Active Servers{% endblock %}
-{% block head %}
-  <style>
-    .badge { font-size: 0.75rem; }
-    .server-icon { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
-    .badge-game    { background: var(--accent-glow); color: var(--accent); }
-    .badge-online  { background: var(--accent-success-bg, rgba(63,185,80,0.12)); color: var(--online); }
-    .badge-offline { background: var(--bg-hover, rgba(255,255,255,0.04)); color: var(--muted); }
-    .badge-modded  { background: var(--accent-warning-bg, rgba(210,153,34,0.12)); color: var(--accent-warning); }
-    .badge-vanilla { background: var(--bg-hover, rgba(255,255,255,0.04)); color: var(--muted); }
-  </style>
-{% endblock %}
+
 {% block content %}
-  <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h1 class="h4 m-0">Manage Active Servers</h1>
-      <div>
-        <a href="{{ url_for('admin_panel.server_new') }}" class="btn btn-success btn-sm">+ New Server</a>
-        <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-outline-secondary btn-sm ms-2">← Back</a>
-      </div>
+<div class="admin-page">
+    <div class="admin-page-header">
+        <h1 class="admin-page-title">Manage Active Servers</h1>
+        <div class="admin-page-actions">
+            <a href="{{ url_for('admin_panel.server_new') }}" class="btn btn-success btn-sm">+ New Server</a>
+            <a href="{{ url_for('admin_panel.panel') }}" class="btn btn-secondary btn-sm">Back</a>
+        </div>
     </div>
 
     {% if servers %}
-    <div class="table-responsive">
-      <table class="table table-hover">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Icon</th>
-            <th>Name</th>
-            <th>Game</th>
-            <th>Version</th>
-            <th>IP</th>
-            <th>Status</th>
-            <th>Modded</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for server in servers %}
-          <tr>
-            <td>{{ server.id }}</td>
-            <td>
-              {% if server.modded and server.pack_img_id %}
-                <img src="{{ url_for('static', filename='images/packicons/' + server.pack_img_id) }}" alt="{{ server.pack_name }}" class="server-icon">
-              {% else %}
-                <div class="server-icon bg-secondary d-flex align-items-center justify-content-center">
-                  🎮
-                </div>
-              {% endif %}
-            </td>
-            <td>
-              <strong>{{ server.name }}</strong>
-              <br>
-              <small class="text-muted">{{ server.description[:50] }}{% if server.description|length > 50 %}...{% endif %}</small>
-            </td>
-            <td><span class="badge badge-game">{{ server.game }}</span></td>
-            <td>{{ server.version or '-' }}</td>
-            <td><code>{{ server.ip or '-' }}</code></td>
-            <td>
-              {% if server.online %}
-                <span class="badge badge-online">Online</span>
-              {% else %}
-                <span class="badge badge-offline">Offline</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if server.modded %}
-                <span class="badge badge-modded">Modded</span>
-                {% if server.pack_name %}
-                  <br><small class="text-muted">{{ server.pack_name }}</small>
-                {% endif %}
-              {% else %}
-                <span class="badge badge-vanilla">Vanilla</span>
-              {% endif %}
-            </td>
-            <td>
-              <a href="{{ url_for('admin_panel.server_edit', id=server.id) }}" class="btn btn-sm btn-primary">Edit</a>
-              <form method="post" action="{{ url_for('admin_panel.server_delete', id=server.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this server?');">
-                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="pub-table-wrap">
+        <table class="pub-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Icon</th>
+                    <th>Name</th>
+                    <th>Game</th>
+                    <th>Version</th>
+                    <th>IP</th>
+                    <th>Status</th>
+                    <th>Modded</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for server in servers %}
+                <tr>
+                    <td class="text-muted text-mono" style="font-size: 0.8rem;">{{ server.id }}</td>
+                    <td>
+                        {% if server.modded and server.pack_img_id %}
+                            <img src="{{ url_for('static', filename='images/packicons/' + server.pack_img_id) }}"
+                                 alt="{{ server.pack_name }}" class="server-thumb">
+                        {% else %}
+                            <div class="server-thumb-placeholder">🎮</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="font-weight: 600; color: var(--text-heading);">{{ server.name }}</div>
+                        <div class="text-muted" style="font-size: 0.78rem; margin-top: 0.15rem;">
+                            {{ server.description[:50] if server.description else '' }}{% if server.description and server.description|length > 50 %}…{% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-creating" style="text-transform: none;">{{ server.game }}</span>
+                    </td>
+                    <td class="text-mono text-muted" style="font-size: 0.82rem;">{{ server.version or '—' }}</td>
+                    <td><code>{{ server.ip or '—' }}</code></td>
+                    <td>
+                        {% if server.online %}
+                            <span class="badge badge-running">Online</span>
+                        {% else %}
+                            <span class="badge badge-stopped">Offline</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if server.modded %}
+                            <span class="badge badge-creating" style="text-transform: none;">Modded</span>
+                            {% if server.pack_name %}
+                                <div class="text-muted" style="font-size: 0.75rem; margin-top: 0.2rem;">{{ server.pack_name }}</div>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge badge-stopped" style="text-transform: none;">Vanilla</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <a href="{{ url_for('admin_panel.server_edit', id=server.id) }}" class="btn btn-primary btn-xs">Edit</a>
+                            <form method="post" action="{{ url_for('admin_panel.server_delete', id=server.id) }}"
+                                  style="display:inline;" onsubmit="return confirm('Delete this server?');">
+                                <button type="submit" class="btn btn-danger btn-xs">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% else %}
-    <div class="alert alert-secondary text-center" role="alert">
-      No servers found. <a href="{{ url_for('admin_panel.server_new') }}" class="alert-link">Create your first server</a>
+    <div class="pub-form-card">
+        <div class="empty-state">
+            <div class="empty-state-icon">🖥️</div>
+            <h3>No servers yet</h3>
+            <p>Create the first active server to display it on the homepage.</p>
+            <a href="{{ url_for('admin_panel.server_new') }}" class="btn btn-success">+ New Server</a>
+        </div>
     </div>
     {% endif %}
-  </div>
+</div>
 {% endblock %}

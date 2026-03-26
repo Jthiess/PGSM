@@ -6,91 +6,226 @@
     <title>PGSM {% block title %}{% endblock %}</title>
     <!-- Theme loaded first; id allows theme.js to swap it without reload -->
     <link id="theme-link" rel="stylesheet" href="{{ url_for('static', filename='css/themes/theme-default.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pgsm.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
     <!-- Load theme.js in <head> so theme is applied before paint (prevents flash) -->
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar">
-        <a class="nav-brand" href="{{ url_for('dashboard.index') }}">
-            PGSM
+<div class="admin-shell">
+
+    <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+
+        <!-- Brand -->
+        <a class="sidebar-brand" href="{{ url_for('dashboard.index') }}">
+            <div class="sidebar-brand-icon">PS</div>
+            <div>
+                <div class="sidebar-brand-name">PGSM</div>
+                <div class="sidebar-brand-sub">Server Manager</div>
+            </div>
         </a>
-        <ul class="nav-links">
-            <li><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
-            <li><a href="{{ url_for('servers.list_servers') }}">Servers</a></li>
-            <li><a href="{{ url_for('servers.create_server') }}" class="btn btn-primary btn-sm">+ New Server</a></li>
-            <li><a href="{{ url_for('admin_panel.panel') }}">Admin Panel</a></li>
-            <li><a href="{{ url_for('panel.index') }}">Public Site</a></li>
-        </ul>
-        <div class="theme-switcher">
-            <button class="theme-toggle-btn" onclick="toggleThemeMenu()" title="Switch theme" aria-label="Switch theme">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                Theme
-            </button>
-            <div class="theme-menu" id="theme-menu" role="menu">
-                <button class="theme-menu-item" data-theme="default" onclick="setTheme('default')" role="menuitem">
-                    <span class="theme-swatch" style="background:#4f8ef7"></span>
-                    PGSM Dark
+
+        <!-- Nav -->
+        <nav class="sidebar-nav" aria-label="Primary">
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Manage</div>
+                <a href="{{ url_for('dashboard.index') }}"
+                   class="sidebar-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <span class="sidebar-link-label">Dashboard</span>
+                </a>
+                <a href="{{ url_for('servers.list_servers') }}"
+                   class="sidebar-link {% if request.endpoint in ['servers.list_servers'] %}active{% endif %}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                    <span class="sidebar-link-label">Servers</span>
+                </a>
+                <a href="{{ url_for('servers.create_server') }}"
+                   class="sidebar-link {% if request.endpoint == 'servers.create_server' %}active{% endif %}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    <span class="sidebar-link-label">New Server</span>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Public Site</div>
+                <a href="{{ url_for('admin_panel.panel') }}"
+                   class="sidebar-link {% if request.blueprint == 'admin_panel' %}active{% endif %}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span class="sidebar-link-label">Admin Panel</span>
+                </a>
+                <a href="{{ url_for('panel.index') }}" class="sidebar-link" target="_blank" rel="noopener">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    <span class="sidebar-link-label">Public Site</span>
+                </a>
+            </div>
+
+        </nav>
+
+        <!-- Footer -->
+        <div class="sidebar-footer">
+            <!-- Theme switcher -->
+            <div class="theme-switcher" style="flex:1;">
+                <button class="theme-toggle-btn" onclick="toggleThemeMenu()" title="Switch theme" aria-label="Switch theme" aria-expanded="false" aria-controls="theme-menu">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <span class="sidebar-link-label">Theme</span>
                 </button>
-                <button class="theme-menu-item" data-theme="light" onclick="setTheme('light')" role="menuitem">
-                    <span class="theme-swatch" style="background:#0969da;border-color:rgba(0,0,0,0.15)"></span>
-                    Light
-                </button>
-                <button class="theme-menu-item" data-theme="nord" onclick="setTheme('nord')" role="menuitem">
-                    <span class="theme-swatch" style="background:#88c0d0"></span>
-                    Nord
-                </button>
-                <button class="theme-menu-item" data-theme="catppuccin-mocha" onclick="setTheme('catppuccin-mocha')" role="menuitem">
-                    <span class="theme-swatch" style="background:#cba6f7"></span>
-                    Catppuccin
-                </button>
-                <button class="theme-menu-item" data-theme="gruvbox" onclick="setTheme('gruvbox')" role="menuitem">
-                    <span class="theme-swatch" style="background:#d79921"></span>
-                    Gruvbox
-                </button>
-                <button class="theme-menu-item" data-theme="discord" onclick="setTheme('discord')" role="menuitem">
-                    <span class="theme-swatch" style="background:#5865f2"></span>
-                    Discord
-                </button>
-                <button class="theme-menu-item" data-theme="midnight-purple" onclick="setTheme('midnight-purple')" role="menuitem">
-                    <span class="theme-swatch" style="background:#a855f7"></span>
-                    Midnight Purple
-                </button>
-                <button class="theme-menu-item" data-theme="high-contrast" onclick="setTheme('high-contrast')" role="menuitem">
-                    <span class="theme-swatch" style="background:#ffff00;border-color:rgba(255,255,255,0.3)"></span>
-                    High Contrast
-                </button>
-                <button class="theme-menu-item" data-theme="dracula" onclick="setTheme('dracula')" role="menuitem">
-                    <span class="theme-swatch" style="background:#bd93f9"></span>
-                    Dracula
-                </button>
-                <button class="theme-menu-item" data-theme="tokyo-night" onclick="setTheme('tokyo-night')" role="menuitem">
-                    <span class="theme-swatch" style="background:#7aa2f7"></span>
-                    Tokyo Night
-                </button>
+                <div class="theme-menu" id="theme-menu" role="menu">
+                    <button class="theme-menu-item" data-theme="default" onclick="setTheme('default')" role="menuitem">
+                        <span class="theme-swatch" style="background:#4f8ef7"></span>PGSM Dark
+                    </button>
+                    <button class="theme-menu-item" data-theme="light" onclick="setTheme('light')" role="menuitem">
+                        <span class="theme-swatch" style="background:#0969da;border-color:rgba(0,0,0,0.15)"></span>Light
+                    </button>
+                    <button class="theme-menu-item" data-theme="nord" onclick="setTheme('nord')" role="menuitem">
+                        <span class="theme-swatch" style="background:#88c0d0"></span>Nord
+                    </button>
+                    <button class="theme-menu-item" data-theme="catppuccin-mocha" onclick="setTheme('catppuccin-mocha')" role="menuitem">
+                        <span class="theme-swatch" style="background:#cba6f7"></span>Catppuccin
+                    </button>
+                    <button class="theme-menu-item" data-theme="gruvbox" onclick="setTheme('gruvbox')" role="menuitem">
+                        <span class="theme-swatch" style="background:#d79921"></span>Gruvbox
+                    </button>
+                    <button class="theme-menu-item" data-theme="discord" onclick="setTheme('discord')" role="menuitem">
+                        <span class="theme-swatch" style="background:#5865f2"></span>Discord
+                    </button>
+                    <button class="theme-menu-item" data-theme="midnight-purple" onclick="setTheme('midnight-purple')" role="menuitem">
+                        <span class="theme-swatch" style="background:#a855f7"></span>Midnight Purple
+                    </button>
+                    <button class="theme-menu-item" data-theme="high-contrast" onclick="setTheme('high-contrast')" role="menuitem">
+                        <span class="theme-swatch" style="background:#ffff00;border-color:rgba(255,255,255,0.3)"></span>High Contrast
+                    </button>
+                    <button class="theme-menu-item" data-theme="dracula" onclick="setTheme('dracula')" role="menuitem">
+                        <span class="theme-swatch" style="background:#bd93f9"></span>Dracula
+                    </button>
+                    <button class="theme-menu-item" data-theme="tokyo-night" onclick="setTheme('tokyo-night')" role="menuitem">
+                        <span class="theme-swatch" style="background:#7aa2f7"></span>Tokyo Night
+                    </button>
+                </div>
             </div>
         </div>
-    </nav>
 
-    <main class="main-content">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-container">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">
-                            <span>{{ message }}</span>
-                            <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Dismiss">&times;</button>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+    </aside>
 
-        {% block content %}{% endblock %}
-    </main>
+    <!-- ── Admin Content ─────────────────────────────────────────────────── -->
+    <div class="admin-content" id="admin-content">
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    {% block scripts %}{% endblock %}
+        <!-- Topbar -->
+        <header class="topbar">
+            <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar" aria-expanded="true" aria-controls="sidebar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <nav class="topbar-breadcrumb" aria-label="Breadcrumb">
+                <a href="{{ url_for('dashboard.index') }}">PGSM</a>
+                {% block breadcrumb %}{% endblock %}
+            </nav>
+            <div class="topbar-actions">
+                {% block topbar_actions %}{% endblock %}
+            </div>
+        </header>
+
+        <!-- Page body -->
+        <main class="page-body" id="main-content">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-container">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                <span>{{ message }}</span>
+                                <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Dismiss">&times;</button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+
+        </main>
+    </div>
+
+<!-- Mobile sidebar overlay -->
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()" aria-hidden="true"></div>
+
+</div><!-- /.admin-shell -->
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+// Sidebar toggle (persisted to localStorage; responsive-aware)
+(function() {
+    var sidebar   = document.getElementById('sidebar');
+    var content   = document.getElementById('admin-content');
+    var toggleBtn = document.getElementById('sidebar-toggle');
+    var isMobile  = window.matchMedia('(max-width: 768px)');
+
+    // Desktop: collapsed state persisted
+    var desktopCollapsed = localStorage.getItem('pgsm-sidebar-collapsed') === 'true';
+
+    function applyDesktop(c) {
+        if (c) {
+            sidebar.classList.add('collapsed');
+            content.classList.add('sidebar-collapsed');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+        } else {
+            sidebar.classList.remove('collapsed');
+            content.classList.remove('sidebar-collapsed');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+        }
+    }
+
+    // Mobile: open state (sidebar starts hidden)
+    var mobileOpen = false;
+
+    function applyMobile(open) {
+        mobileOpen = open;
+        if (open) {
+            sidebar.classList.add('open');
+            var overlay = document.getElementById('sidebar-overlay');
+            if (overlay) overlay.classList.add('open');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+        } else {
+            sidebar.classList.remove('open');
+            var overlay = document.getElementById('sidebar-overlay');
+            if (overlay) overlay.classList.remove('open');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    function init() {
+        if (isMobile.matches) {
+            applyMobile(false);
+        } else {
+            applyDesktop(desktopCollapsed);
+        }
+    }
+
+    window.toggleSidebar = function() {
+        if (isMobile.matches) {
+            applyMobile(!mobileOpen);
+        } else {
+            desktopCollapsed = !desktopCollapsed;
+            localStorage.setItem('pgsm-sidebar-collapsed', desktopCollapsed);
+            applyDesktop(desktopCollapsed);
+        }
+    };
+
+    isMobile.addEventListener('change', init);
+    init();
+})();
+
+// Close theme menu when clicking outside
+document.addEventListener('click', function(e) {
+    var menu = document.getElementById('theme-menu');
+    if (menu && menu.classList.contains('open')) {
+        var switcher = menu.closest('.theme-switcher');
+        if (switcher && !switcher.contains(e.target)) {
+            menu.classList.remove('open');
+        }
+    }
+});
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

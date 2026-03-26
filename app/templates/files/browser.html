@@ -1,20 +1,26 @@
 {% extends 'base.html' %}
 {% block title %}- Files: {{ server.name }}{% endblock %}
 
+{% block breadcrumb %}
+<span class="topbar-breadcrumb-sep">/</span>
+<a href="{{ url_for('servers.list_servers') }}">Servers</a>
+<span class="topbar-breadcrumb-sep">/</span>
+<a href="{{ url_for('servers.detail', server_id=server.id) }}">{{ server.name }}</a>
+<span class="topbar-breadcrumb-sep">/</span>
+<span class="topbar-breadcrumb-current">Files</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="sftp://root@{{ server.ip_address }}/PGSM" class="btn btn-secondary btn-sm" title="Open in SFTP client">SFTP</a>
+<a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-secondary btn-sm">Back to Server</a>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">Files &mdash; {{ server.name }}</h1>
-    <div class="flex gap-1">
-        <a href="sftp://root@{{ server.ip_address }}/PGSM" class="btn btn-secondary btn-sm" title="Open in SFTP client (WinSCP, FileZilla, etc.)">
-            Open in SFTP Client
-        </a>
-        <a href="{{ url_for('servers.detail', server_id=server.id) }}" class="btn btn-secondary btn-sm">
-            &larr; Back to Server
-        </a>
-    </div>
 </div>
 
-<!-- Breadcrumb -->
+<!-- Breadcrumb path -->
 <div class="breadcrumb">
     <a href="{{ url_for('files.browse', server_id=server.id) }}">/</a>
     {% for crumb in breadcrumbs %}
@@ -24,11 +30,11 @@
 </div>
 
 <!-- Upload form -->
-<div class="card" style="margin-bottom: 1rem;">
+<div class="card" style="padding: 1rem; margin-bottom: 1rem;">
     <form method="POST" action="{{ url_for('files.upload', server_id=server.id) }}"
           enctype="multipart/form-data" class="flex gap-1 items-center">
         <input type="hidden" name="path" value="{{ current_path }}">
-        <input type="file" name="file" style="flex:1; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.4rem 0.75rem; color: var(--text); font-size: 0.875rem;">
+        <input type="file" name="file" style="flex:1;">
         <button type="submit" class="btn btn-primary btn-sm">Upload</button>
     </form>
 </div>
@@ -45,10 +51,10 @@
 {% block scripts %}
 <script>
 (function() {
-    var serverId = {{ server.id | tojson }};
+    var serverId    = {{ server.id | tojson }};
     var currentPath = {{ current_path | tojson }};
-    var container = document.getElementById('file-listing');
-    var listUrl = '/files/' + serverId + '/list/' + currentPath.replace(/^\//, '');
+    var container   = document.getElementById('file-listing');
+    var listUrl     = '/files/' + serverId + '/list/' + currentPath.replace(/^\//, '');
 
     var controller = new AbortController();
     var timer = setTimeout(function() { controller.abort(); }, 12000);
@@ -57,8 +63,7 @@
         .then(function(r) { clearTimeout(timer); return r.json(); })
         .then(function(data) {
             if (data.error) {
-                container.innerHTML = '<div class="empty-state"><h3>Connection error</h3><p>' +
-                    escapeHtml(data.error) + '</p></div>';
+                container.innerHTML = '<div class="empty-state"><h3>Connection error</h3><p>' + escapeHtml(data.error) + '</p></div>';
                 return;
             }
             renderEntries(data.entries || []);
@@ -66,8 +71,7 @@
         .catch(function(err) {
             clearTimeout(timer);
             var msg = err.name === 'AbortError' ? 'Request timed out — server may be unreachable.' : err.message;
-            container.innerHTML = '<div class="empty-state"><h3>Could not load files</h3><p>' +
-                escapeHtml(msg) + '</p></div>';
+            container.innerHTML = '<div class="empty-state"><h3>Could not load files</h3><p>' + escapeHtml(msg) + '</p></div>';
         });
 
     function escapeHtml(s) {
@@ -84,14 +88,12 @@
 
     function renderEntries(entries) {
         if (!entries.length) {
-            container.innerHTML = '<div class="empty-state"><h3>Empty directory</h3>' +
-                '<p>Upload files using the form above.</p></div>';
+            container.innerHTML = '<div class="empty-state"><h3>Empty directory</h3><p>Upload files using the form above.</p></div>';
             return;
         }
 
         var html = '<ul class="file-list">';
 
-        // Parent directory link
         if (currentPath !== '/PGSM' && currentPath !== '/') {
             var parts = currentPath.split('/').filter(Boolean);
             parts.pop();
@@ -110,23 +112,23 @@
                 html += '<span class="file-icon">&#128193;</span>' +
                     '<span class="file-name"><a href="/files/' + serverId + '/' + safePath + '">' + safeName + '/</a></span>' +
                     '<span class="file-size"></span>' +
-                    '<div class="flex gap-1">' +
+                    '<div class="file-actions">' +
                     '<form method="POST" action="/files/' + serverId + '/delete_dir" ' +
                     'onsubmit="return confirm(\'Delete directory ' + safeName + ' and ALL its contents? This cannot be undone.\')" style="display:inline">' +
                     '<input type="hidden" name="path" value="' + escapeHtml(e.path) + '">' +
-                    '<button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger)">Delete</button>' +
+                    '<button type="submit" class="btn btn-ghost btn-xs" style="color: var(--accent-danger)">Delete</button>' +
                     '</form></div>';
             } else {
                 html += '<span class="file-icon">&#128196;</span>' +
                     '<span class="file-name"><a href="/files/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '">' + safeName + '</a></span>' +
                     '<span class="file-size">' + formatSize(e.size) + '</span>' +
-                    '<div class="flex gap-1">' +
-                    '<a href="/files/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-sm">Edit</a>' +
-                    '<a href="/files/' + serverId + '/download?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-sm">Download</a>' +
+                    '<div class="file-actions">' +
+                    '<a href="/files/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-xs">Edit</a>' +
+                    '<a href="/files/' + serverId + '/download?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-xs">Download</a>' +
                     '<form method="POST" action="/files/' + serverId + '/delete_file" ' +
                     'onsubmit="return confirm(\'Delete ' + safeName + '?\')" style="display:inline">' +
                     '<input type="hidden" name="path" value="' + escapeHtml(e.path) + '">' +
-                    '<button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger)">Delete</button>' +
+                    '<button type="submit" class="btn btn-ghost btn-xs" style="color: var(--accent-danger)">Delete</button>' +
                     '</form></div>';
             }
             html += '</li>';

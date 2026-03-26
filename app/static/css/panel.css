@@ -1,194 +1,20 @@
+/*
+ * panel.css — Game-Panel public/admin styles
+ * ──────────────────────────────────────────────────────────────────────────
+ * Loaded after design-system.css. Provides carousel, fullscreen panel,
+ * and modpack sidebar styles specific to the Game-Panel public site.
+ * All colour values come from theme CSS variables.
+ */
 
-/* =========================
-   panel.css — Game-Panel styles
-   -------------------------
-   All colour variables come from the active PGSM theme file
-   (loaded via <link id="theme-link">). See app/static/css/themes/.
-   Variable aliases (--surface, --card-bg, --muted, etc.) are
-   defined in each theme file alongside the core PGSM variables.
-   ========================= */
-
-/* =========================
-   Bootstrap 5 variable bridge
-   Overrides Bootstrap's own --bs-* defaults with PGSM theme values.
-   This block runs after Bootstrap loads, so it wins the cascade.
-   ========================= */
-:root {
-    --bs-primary:            var(--accent);
-    --bs-body-bg:            var(--bg);
-    --bs-body-color:         var(--text);
-    --bs-link-color:         var(--accent);
-    --bs-link-hover-color:   var(--accent-hover);
-    --bs-border-color:       var(--muted-border);
-    --bs-body-font-family:   var(--font);
-    --bs-secondary-color:    var(--muted);
-    --bs-tertiary-bg:        var(--card-bg);
-    --bs-secondary-bg:       var(--surface);
-}
-
-/* Body base — font and background driven by the theme */
+/* ── Body transition on theme swap ─────────────────────────────────────── */
 body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font);
     transition: background-color 200ms ease, color 200ms ease;
-    -webkit-font-smoothing: antialiased;
-}
-
-/* =========================
-   Panel Nav — mirrors the PGSM .navbar component
-   ========================= */
-.panel-nav {
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    padding: 0 1.5rem;
-    height: var(--nav-height, 58px);
-    gap: 1.5rem;
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.panel-nav-brand {
-    color: var(--text-heading);
-    font-weight: 700;
-    font-size: 1.05rem;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    letter-spacing: -0.01em;
-    flex-shrink: 0;
-}
-
-.panel-nav-brand:hover { color: var(--accent); }
-
-.panel-nav-links {
-    display: flex;
-    list-style: none;
-    gap: 0.25rem;
-    align-items: center;
-    margin: 0 0 0 auto;
-    padding: 0;
-}
-
-.panel-nav-links a {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
-    padding: 0.35rem 0.75rem;
-    border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-    white-space: nowrap;
-}
-
-.panel-nav-links a:hover {
-    color: var(--text);
-    background: var(--bg-hover);
-}
-
-.panel-nav-btn {
-    background: var(--accent) !important;
-    color: #fff !important;
-    border-radius: 6px !important;
-    font-weight: 600 !important;
-    font-size: 0.875rem !important;
-    padding: 0.35rem 0.75rem !important;
-    transition: background 0.15s !important;
-}
-
-.panel-nav-btn:hover {
-    background: var(--accent-hover) !important;
-    color: #fff !important;
-}
-
-/* Theme switcher — identical markup to base.html; styles shared via these rules */
-.theme-switcher {
-    position: relative;
-    flex-shrink: 0;
-}
-
-.theme-toggle-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 0.3rem 0.6rem;
-    font-size: 0.875rem;
-    line-height: 1;
-    transition: color 0.15s, background 0.15s, border-color 0.15s;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font);
-}
-
-.theme-toggle-btn:hover {
-    color: var(--text);
-    background: var(--bg-hover);
-    border-color: var(--text-muted);
-}
-
-.theme-menu {
-    display: none;
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 10px);
-    box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25));
-    min-width: 160px;
-    padding: 0.4rem;
-    z-index: 300;
-}
-
-.theme-menu.open { display: block; }
-
-.theme-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-radius: 6px;
-    color: var(--text);
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-family: var(--font);
-    padding: 0.5rem 0.6rem;
-    text-align: left;
-    transition: background 0.12s, color 0.12s;
-    white-space: nowrap;
-}
-
-.theme-menu-item:hover { background: var(--bg-hover); }
-
-.theme-menu-item.active {
-    background: var(--accent-glow);
-    color: var(--accent);
-    font-weight: 600;
-}
-
-.theme-swatch {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    border: 1.5px solid rgba(255,255,255,0.15);
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 8px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb, rgba(255,255,255,0.1)); border-radius: 8px; }
 
 /* ── Sections ───────────────────────────────────────────────────────────── */
 .section {
@@ -197,9 +23,7 @@ body {
     border-radius: 16px;
 }
 
-/* =========================
-   Carousel Styles
-   ========================= */
+/* ── Carousel ───────────────────────────────────────────────────────────── */
 .carousel-row {
     display: flex;
     gap: 3rem;
@@ -213,13 +37,20 @@ body {
 
 .carousel-row::-webkit-scrollbar { height: 10px; }
 .carousel-row::-webkit-scrollbar-thumb {
-    background: var(--scroll-thumb);
+    background: var(--scroll-thumb, rgba(255,255,255,0.1));
     border-radius: 8px;
 }
 
-/* =========================
-   Carousel Card Styles
-   ========================= */
+.carousel-title {
+    margin-top: 1rem;
+    margin-left: 1rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.01em;
+}
+
+/* ── Carousel Card ──────────────────────────────────────────────────────── */
 .carousel-card {
     flex: 0 0 260px;
     min-width: 260px;
@@ -233,7 +64,6 @@ body {
 
 .carousel-card:hover { transform: translateY(-5px); }
 
-/* Card image */
 .card-image {
     position: absolute;
     left: calc(-2 * var(--accent-shift));
@@ -258,7 +88,6 @@ body {
     border-bottom-left-radius: 20px;
 }
 
-/* Card body */
 .card-body {
     position: relative;
     padding: 1.5rem 1rem;
@@ -274,12 +103,7 @@ body {
     box-shadow: var(--shadow-card);
 }
 
-.carousel-title {
-    margin-top: 1rem;
-    margin-left: 1rem;
-}
-
-/* Status badges */
+/* Status badges on carousel cards */
 .status-badge {
     position: absolute;
     top: 5px;
@@ -290,16 +114,17 @@ body {
     font-weight: 600;
 }
 
-.status-online  { background: var(--online);   color: #fff; }
-.status-offline { background: var(--offline);  color: var(--bg); }
-.status-archived { background: var(--archived); color: var(--bg); }
+.status-online   { background: var(--online, var(--accent-success)); color: #fff; }
+.status-offline  { background: var(--offline, var(--text-muted)); color: var(--bg); }
+.status-archived { background: var(--archived, var(--accent)); color: #fff; }
 
-/* Server header */
 .server-header { text-align: center; margin-top: 0.5rem; }
 
 .card-title {
     font-size: 1.5rem;
+    font-weight: 700;
     margin-bottom: 0.5rem;
+    color: var(--text-heading);
 }
 
 .card-motd {
@@ -308,7 +133,6 @@ body {
     margin-bottom: 0;
 }
 
-/* Info section */
 .info-section {
     display: flex;
     align-items: stretch;
@@ -325,6 +149,7 @@ body {
     font-size: 0.8rem;
     color: var(--muted);
     margin-bottom: 0.3rem;
+    font-weight: 600;
 }
 
 .info-block p {
@@ -339,7 +164,6 @@ body {
     margin: 0 1rem;
 }
 
-/* Description */
 .description-section { flex: 1; overflow: hidden; }
 
 .description-section p {
@@ -355,9 +179,7 @@ body {
     text-overflow: ellipsis;
 }
 
-/* =========================
-   Fullscreen Panel Styles
-   ========================= */
+/* ── Fullscreen Panel ───────────────────────────────────────────────────── */
 .fullscreen-panel {
     position: fixed;
     top: 0;
@@ -412,7 +234,6 @@ body {
 }
 
 .panel-header img { width: 100%; height: 100%; object-fit: cover; }
-
 .panel-status { position: absolute; top: 20px; right: 20px; }
 
 .panel-body {
@@ -437,14 +258,8 @@ body {
 }
 
 .panel-info-block { text-align: center; }
-
-.panel-info-block h6 {
-    color: var(--muted);
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-}
-
-.panel-info-block p { font-size: 1.1rem; font-weight: 600; margin: 0; }
+.panel-info-block h6 { color: var(--muted); margin-bottom: 0.5rem; font-size: 0.9rem; }
+.panel-info-block p  { font-size: 1.1rem; font-weight: 600; margin: 0; }
 
 .panel-description {
     padding: 1.5rem;
@@ -454,9 +269,8 @@ body {
 }
 
 .panel-description h6 { color: var(--muted); margin-bottom: 1rem; }
-.panel-description p { line-height: 1.6; margin: 0; }
+.panel-description p  { line-height: 1.6; margin: 0; }
 
-/* Copy IP Button */
 .copy-ip-button {
     width: 100%;
     padding: 0.75rem 1.5rem;
@@ -472,23 +286,15 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    transition: background 0.15s, transform 0.15s;
+    font-family: var(--font);
+    transition: background 0.15s;
 }
 
-.copy-ip-button:hover {
-    background: var(--accent-hover);
-    transform: translateY(-2px);
-}
-
-.copy-ip-button:active { transform: translateY(0); }
-
-.copy-ip-button.copied { background: var(--online); }
-
+.copy-ip-button:hover { background: var(--accent-hover); }
+.copy-ip-button.copied { background: var(--online, var(--accent-success)); }
 .copy-ip-button svg { flex-shrink: 0; }
 
-/* =========================
-   Modpack Section Styles
-   ========================= */
+/* ── Modpack sidebar ────────────────────────────────────────────────────── */
 .panel-body-with-mod {
     display: flex;
     flex-direction: row;
@@ -533,6 +339,13 @@ body {
     text-align: center;
 }
 
+.modpack-version {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
 .modpack-details p {
     color: var(--muted);
     font-size: 0.95rem;
@@ -542,7 +355,7 @@ body {
 }
 
 .modpack-link {
-    display: inline-block;
+    display: block;
     color: var(--accent);
     text-decoration: none;
     font-weight: 600;
@@ -560,144 +373,411 @@ body {
     color: #fff;
 }
 
-/* =========================
-   Links and buttons
-   ========================= */
-a { color: var(--accent); }
-a:hover { color: var(--accent-hover); }
-
-.btn-primary {
-    background-color: var(--accent);
-    border-color: var(--accent);
-}
-.btn-primary:hover {
-    background-color: var(--accent-hover);
-    border-color: var(--accent-hover);
+/* ── Admin module cards (admin_panel/panel.html) ─────────────────────────── */
+.module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
 }
 
-.link-light { color: var(--muted); }
-.link-light:hover { color: var(--text); }
-
-/* Admin panel module cards */
 .module-card {
     background: var(--surface);
     border: 1px solid var(--muted-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    text-decoration: none;
     color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     transition: transform 0.12s ease, background 0.12s;
 }
 
 .module-card:hover {
     transform: translateY(-2px);
     background: var(--card-bg);
-}
-
-.module-card .module-icon { color: var(--accent); }
-.module-card p { color: var(--muted) !important; }
-
-/* Bootstrap form control theming */
-.form-control,
-.form-select {
-    background: var(--card-bg);
-    border-color: var(--muted-border);
     color: var(--text);
 }
 
-.form-control:focus,
-.form-select:focus {
-    background: var(--card-bg);
-    border-color: var(--accent);
-    color: var(--text);
-    box-shadow: 0 0 0 3px var(--accent-glow);
+.module-icon { color: var(--accent); }
+
+.module-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-heading);
+    letter-spacing: -0.01em;
 }
 
-.form-label { color: var(--text); }
-
-.form-check-input {
-    background-color: var(--card-bg);
-    border-color: var(--muted-border);
+.module-desc {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.4;
 }
 
-.form-check-input:checked {
-    background-color: var(--accent);
-    border-color: var(--accent);
+/* ── Admin content container ─────────────────────────────────────────────── */
+.admin-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
 }
 
-/* Bootstrap card theming */
-.card {
+.admin-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.admin-page-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.02em;
+}
+
+.admin-page-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ── Pub admin table ─────────────────────────────────────────────────────── */
+.pub-table-wrap {
+    border: 1px solid var(--muted-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    overflow-x: auto;
     background: var(--surface);
-    border-color: var(--muted-border);
-    color: var(--text);
 }
 
-/* Bootstrap table theming — overrides table-dark so it adapts to all themes */
-.table {
-    --bs-table-bg: var(--surface);
-    --bs-table-border-color: var(--muted-border);
-    --bs-table-color: var(--text);
-    --bs-table-hover-bg: var(--bg-hover, rgba(255,255,255,0.04));
-    --bs-table-striped-bg: rgba(255,255,255,0.02);
-    color: var(--text);
-    border-color: var(--muted-border);
+.pub-table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.table th {
+.pub-table th {
     background: var(--card-bg);
     color: var(--muted);
-    font-size: 0.78rem;
-    font-weight: 600;
+    font-size: 0.68rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-color: var(--muted-border);
+    letter-spacing: 0.08em;
+    padding: 0.625rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--muted-border);
+    white-space: nowrap;
 }
 
-.table td { border-color: var(--muted-border); }
-.table-dark { --bs-table-bg: var(--surface); --bs-table-border-color: var(--muted-border); }
+.pub-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--muted-border);
+    font-size: 0.875rem;
+    color: var(--text);
+    vertical-align: middle;
+}
 
-/* Bootstrap alert theming */
-.alert-secondary {
+.pub-table tr:last-child td { border-bottom: none; }
+.pub-table tr:hover td      { background: var(--bg-hover); }
+
+/* ── Status indicators ───────────────────────────────────────────────────── */
+.status-yes { color: var(--accent-success); font-weight: 600; }
+.status-no  { color: var(--text-muted); }
+
+/* ── Server image thumb ──────────────────────────────────────────────────── */
+.server-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--muted-border);
+}
+
+.server-thumb-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    border: 1px solid var(--muted-border);
+    background: var(--card-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+/* ── Form section heading ────────────────────────────────────────────────── */
+.form-section-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-warning);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--muted-border);
+}
+
+/* ── Two column form row ─────────────────────────────────────────────────── */
+.two-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.three-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+}
+
+/* ── Fieldset ────────────────────────────────────────────────────────────── */
+fieldset {
     background: var(--surface);
-    border-color: var(--muted-border);
+    border: 1px solid var(--muted-border);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+legend {
+    font-weight: 700;
+    color: var(--accent);
+    padding: 0 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* ── Image preview ───────────────────────────────────────────────────────── */
+.img-preview {
+    max-width: 200px;
+    max-height: 200px;
+    margin-top: 0.5rem;
+    border: 1px solid var(--muted-border);
+    border-radius: 6px;
+}
+
+/* ── Toggle (modded switch) ──────────────────────────────────────────────── */
+.toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.toggle-label {
+    font-size: 0.875rem;
+    font-weight: 600;
     color: var(--text);
 }
 
-/* hr */
-hr { border-color: var(--muted-border); opacity: 1; }
-
-/* Bootstrap btn-close — invert on dark themes so it's always visible */
-.btn-close {
-    filter: var(--btn-close-filter, invert(1) grayscale(1) brightness(0.8));
+/* ── Pub page form card ──────────────────────────────────────────────────── */
+.pub-form-card {
+    background: var(--surface);
+    border: 1px solid var(--muted-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
-/* On light theme the filter is unset (default black X is fine) */
+/* ── Whitelist card ──────────────────────────────────────────────────────── */
+.wl-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - var(--nav-height, 58px));
+    padding: 1.5rem;
+}
 
-/* small / muted text */
-.text-muted, .text-secondary { color: var(--muted) !important; }
+.wl-card {
+    background: var(--surface);
+    border: 1px solid var(--muted-border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    width: 100%;
+    max-width: 440px;
+}
 
-/* code elements */
+.wl-card-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.02em;
+}
+
+/* ── Rules page ──────────────────────────────────────────────────────────── */
+.rules-page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+.rules-header {
+    text-align: center;
+    padding: 2rem 0 1.5rem;
+}
+
+.rules-header h1 {
+    font-size: 2.25rem;
+    color: var(--accent);
+    letter-spacing: -0.03em;
+}
+
+.rules-content {
+    background: var(--surface);
+    border: 1px solid var(--muted-border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    line-height: 1.7;
+    color: var(--text);
+    margin-bottom: 2rem;
+}
+
+.rules-content h1,
+.rules-content h2,
+.rules-content h3 { color: var(--accent); margin-top: 1.5rem; margin-bottom: 0.75rem; }
+.rules-content h1 { font-size: 1.7rem; }
+.rules-content h2 { font-size: 1.4rem; }
+.rules-content h3 { font-size: 1.15rem; }
+.rules-content p  { margin-bottom: 1rem; }
+.rules-content ul, .rules-content ol { margin-left: 2rem; margin-bottom: 1rem; }
+.rules-content li { margin-bottom: 0.4rem; }
+.rules-content blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1rem 0; font-style: italic; color: var(--muted); }
+.rules-content hr { border: none; border-top: 1px solid var(--muted-border); margin: 2rem 0; }
+
+/* ── Nav back link ───────────────────────────────────────────────────────── */
+.nav-back { text-align: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--muted-border); }
+
+/* ── Nav links row (whitelist) ───────────────────────────────────────────── */
+.nav-links-row {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.nav-links-row a {
+    display: inline-block;
+    padding: 0.5rem 1.125rem;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--muted-border);
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: border-color 0.12s, color 0.12s;
+}
+
+.nav-links-row a:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ── Inline form ─────────────────────────────────────────────────────────── */
+form.inline { display: inline; }
+
+/* ── code / mono ─────────────────────────────────────────────────────────── */
 code {
     background: var(--card-bg);
     color: var(--accent);
     padding: 0.15em 0.4em;
     border-radius: 4px;
     font-size: 0.88em;
+    font-family: var(--mono);
 }
 
-.text-light { color: var(--text) !important; }
+/* ── hr ──────────────────────────────────────────────────────────────────── */
+hr {
+    border: none;
+    border-top: 1px solid var(--muted-border);
+    margin: 1.5rem 0;
+}
 
-/* =========================
-   Responsive
-   ========================= */
+/* ── Top nav ─────────────────────────────────────────────────────────────── */
+.panel-nav {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    height: var(--nav-height, 58px);
+    gap: 1.25rem;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+}
+
+.panel-nav-brand {
+    color: var(--text-heading);
+    font-weight: 700;
+    font-size: 1rem;
+    text-decoration: none;
+    flex-shrink: 0;
+    letter-spacing: -0.01em;
+}
+.panel-nav-brand:hover { color: var(--accent); }
+
+.panel-nav-links {
+    display: flex;
+    list-style: none;
+    gap: 0.25rem;
+    align-items: center;
+    margin: 0 0 0 auto;
+    padding: 0;
+}
+
+.panel-nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    transition: color 0.12s, background 0.12s;
+}
+.panel-nav-links a:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+}
+.panel-nav-links a.active {
+    color: var(--accent);
+    background: var(--bg-hover);
+}
+
+.panel-nav-btn {
+    background: var(--accent);
+    color: #fff !important;
+    border-radius: 6px;
+    padding: 0.3rem 0.75rem !important;
+}
+.panel-nav-btn:hover {
+    background: var(--accent-hover) !important;
+}
+
+/* ── Public page layout ──────────────────────────────────────────────────── */
+.pub-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
     .panel-body-with-mod {
         flex-direction: column;
         gap: 1rem;
     }
     .modpack-section {
-        margin-left: 0;
-        margin-top: 1rem;
         width: 100%;
         max-width: none;
     }
+    .admin-page { padding: 1.5rem 1rem; }
+    .pub-container { padding: 1.5rem 1rem; }
 }
 
 @media (max-width: 576px) {
@@ -705,4 +785,20 @@ code {
     .panel-body { padding: 1rem; }
     .panel-header { height: 200px; }
     .panel-info-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .module-grid { grid-template-columns: 1fr; }
+    .two-col, .three-col { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+    .panel-nav {
+        gap: 0.5rem;
+        padding: 0 1rem;
+    }
+    .panel-nav-links {
+        gap: 0;
+    }
+    .panel-nav-links a {
+        padding: 0.3rem 0.4rem;
+        font-size: 0.8rem;
+    }
 }

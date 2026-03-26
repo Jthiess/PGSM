@@ -1,44 +1,18 @@
 {% extends 'panel_base.html' %}
 {% block title %}Rules{% endblock %}
-{% block head %}
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    .rules-wrapper { display: flex; flex-direction: column; min-height: calc(100vh - var(--nav-height, 58px)); padding: 2em; max-width: 900px; margin: 0 auto; }
-    .rules-header { text-align: center; padding: 2em 0; }
-    .rules-header h1 { font-size: 2.5rem; color: var(--accent); margin-bottom: 0.5em; }
-    .rules-content { background: var(--surface); padding: 2em; border-radius: var(--radius, 12px); box-shadow: var(--shadow-card); color: var(--text); border: 1px solid var(--muted-border); flex-grow: 1; line-height: 1.6; }
-    .rules-content h1, .rules-content h2, .rules-content h3 { color: var(--accent); margin-top: 1.5em; margin-bottom: 0.75em; }
-    .rules-content h1 { font-size: 1.75rem; }
-    .rules-content h2 { font-size: 1.5rem; }
-    .rules-content h3 { font-size: 1.25rem; }
-    .rules-content p { margin-bottom: 1em; }
-    .rules-content ul, .rules-content ol { margin-left: 2em; margin-bottom: 1em; }
-    .rules-content li { margin-bottom: 0.5em; }
-    .rules-content code { background: var(--card-bg); padding: 0.2em 0.4em; border-radius: 4px; font-family: var(--mono); }
-    .rules-content pre { background: var(--card-bg); padding: 1em; border-radius: 6px; overflow-x: auto; margin-bottom: 1em; font-family: var(--mono); }
-    .rules-content blockquote { border-left: 4px solid var(--accent); padding-left: 1em; margin: 1em 0; font-style: italic; color: var(--muted); }
-    .rules-content a { color: var(--accent); text-decoration: none; }
-    .rules-content a:hover { color: var(--accent-hover); text-decoration: underline; }
-    .rules-content strong { font-weight: 600; }
-    .rules-content em { font-style: italic; }
-    .rules-content hr { border: none; border-top: 1px solid var(--muted-border); margin: 2em 0; }
-    .nav-back { text-align: center; margin-top: 2em; padding: 1em; }
-    .nav-back a { color: var(--accent); text-decoration: none; font-weight: 500; }
-    .nav-back a:hover { color: var(--accent-hover); text-decoration: underline; }
-  </style>
-{% endblock %}
+
 {% block content %}
-  <div class="rules-wrapper">
+<div class="rules-page">
     <div class="rules-header">
-      <h1>Rules</h1>
+        <h1>Rules</h1>
     </div>
 
     <div class="rules-content">
-      {{ rules_html|safe }}
+        {{ rules_html|safe }}
     </div>
 
     <div class="nav-back">
-      <a href="{{ url_for('panel.index') }}">← Back to Game Panel</a>
+        <a href="{{ url_for('panel.index') }}">Back to Game Panel</a>
     </div>
-  </div>
+</div>
 {% endblock %}

@@ -1,13 +1,28 @@
 {% extends 'base.html' %}
 {% block title %}- {{ server.name }}{% endblock %}
 
+{% block breadcrumb %}
+<span class="topbar-breadcrumb-sep">/</span>
+<a href="{{ url_for('servers.list_servers') }}">Servers</a>
+<span class="topbar-breadcrumb-sep">/</span>
+<span class="topbar-breadcrumb-current">{{ server.name }}</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{{ url_for('console.console', server_id=server.id) }}" class="btn btn-primary btn-sm">Console</a>
+<a href="{{ url_for('files.browse', server_id=server.id) }}" class="btn btn-secondary btn-sm">Files</a>
+{% endblock %}
+
 {% block content %}
+<!-- Detail header -->
 <div class="detail-header">
     <div>
         <div class="detail-title">{{ server.name }}</div>
         <div class="detail-subtitle">
-            {{ server.server_type | capitalize }} &bull;
-            {{ server.game_version }} &bull;
+            {{ server.server_type | capitalize }}
+            <span class="detail-subtitle-sep">&bull;</span>
+            {{ server.game_version }}
+            <span class="detail-subtitle-sep">&bull;</span>
             CT {{ server.ct_id }} on {{ server.proxmox_node }}
         </div>
     </div>
@@ -37,14 +52,13 @@
                     <button class="btn btn-danger btn-sm">&#9866; Power Off</button>
                 </form>
             {% else %}
-                <button class="btn btn-secondary btn-sm" disabled>Provisioning...</button>
+                <button class="btn btn-secondary btn-sm" disabled>Provisioning…</button>
             {% endif %}
-            <a href="{{ url_for('console.console', server_id=server.id) }}" class="btn btn-primary btn-sm">Console</a>
-            <a href="{{ url_for('files.browse', server_id=server.id) }}" class="btn btn-secondary btn-sm">Files</a>
         </div>
     </div>
 </div>
 
+<!-- Quick fields -->
 <div class="detail-grid">
     <div class="detail-field">
         <div class="detail-field-label">IP Address</div>
@@ -80,6 +94,7 @@
     </div>
 </div>
 
+<!-- Tabs -->
 <div class="tabs">
     <a class="tab {% if active_tab == 'info' %}active{% endif %}" data-tab="info" href="#">Info</a>
     <a class="tab {% if active_tab == 'game-settings' %}active{% endif %}" data-tab="game-settings" href="#">Game Settings</a>
@@ -88,8 +103,9 @@
     <a class="tab {% if active_tab == 'monitoring' %}active{% endif %}" data-tab="monitoring" href="#">Monitoring</a>
 </div>
 
+<!-- Info tab -->
 <div id="tab-info" class="tab-panel" {% if active_tab != 'info' %}style="display:none"{% endif %}>
-    <div class="card">
+    <div class="card" style="padding: 1.375rem;">
         <div class="detail-grid">
             <div class="detail-field">
                 <div class="detail-field-label">MOTD</div>
@@ -122,17 +138,18 @@
             </div>
             {% endif %}
             {% if server.custom_startup_command %}
-            <div class="detail-field">
+            <div class="detail-field" style="grid-column: 1 / -1;">
                 <div class="detail-field-label">Startup Command</div>
-                <div class="detail-field-value" style="font-family: monospace; font-size: 0.82rem; word-break: break-all;">{{ server.custom_startup_command }}</div>
+                <div class="detail-field-value" style="word-break: break-all; font-size: 0.8rem;">{{ server.custom_startup_command }}</div>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
 
+<!-- Game Settings tab -->
 <div id="tab-game-settings" class="tab-panel" {% if active_tab != 'game-settings' %}style="display:none"{% endif %}>
-    <div class="card">
+    <div class="card" style="padding: 1.375rem;">
         <form method="POST" action="{{ url_for('servers.update_settings', server_id=server.id) }}">
             <div class="form-row">
                 <div class="form-group">
@@ -185,26 +202,23 @@
                 <label for="custom_startup_command">Custom Startup Command</label>
                 <input type="text" id="custom_startup_command" name="custom_startup_command"
                        value="{{ server.custom_startup_command or '' }}"
-                       placeholder="Leave blank to use default (e.g. /opt/java/java21/bin/java -jar server.jar)">
-                <span class="text-muted" style="font-size: 0.78rem;">Overrides the server launch command in the systemd unit. Leave blank for default.</span>
+                       placeholder="Leave blank to use default">
+                <div class="form-hint">Overrides the server launch command in the systemd unit. Leave blank for default.</div>
             </div>
             {% endif %}
             <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem;">
                 <button type="submit" class="btn btn-primary btn-sm">Save Settings</button>
-                <span class="text-muted" style="font-size: 0.8rem;">
-                    A server restart is required for changes to take effect.
-                </span>
+                <span class="text-muted" style="font-size: 0.8rem;">A server restart is required for changes to take effect.</span>
             </div>
         </form>
     </div>
 </div>
 
+<!-- Resources tab -->
 <div id="tab-resources" class="tab-panel" {% if active_tab != 'resources' %}style="display:none"{% endif %}>
-    <div class="card">
+    <div class="card" style="padding: 1.375rem;">
         <h3 class="section-title" style="margin-bottom: 0.5rem;">CPU &amp; Memory Allocation</h3>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-            Changes are applied immediately to the Proxmox container.
-        </p>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">Changes are applied immediately to the Proxmox container.</p>
         <form method="POST" action="{{ url_for('servers.update_resources', server_id=server.id) }}">
             <div class="form-row">
                 <div class="form-group">
@@ -218,21 +232,19 @@
                            value="{{ server.memory_mb }}" min="128" max="1048576" step="128">
                 </div>
             </div>
-            <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem;">
-                <button type="submit" class="btn btn-primary btn-sm">Update Resources</button>
-            </div>
+            <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 0.5rem;">Update Resources</button>
         </form>
     </div>
 </div>
 
+<!-- Ports tab -->
 <div id="tab-ports" class="tab-panel" {% if active_tab != 'ports' %}style="display:none"{% endif %}>
-    <div class="card">
+    <div class="card" style="padding: 1.375rem;">
         <h3 class="section-title" style="margin-bottom: 0.5rem;">Port Management</h3>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-            All ports are proxied via nginx on the controller. The primary port is also used for Minecraft status pings.
+            All ports are proxied via nginx. The primary port is used for Minecraft status pings.
         </p>
 
-        <!-- Port list -->
         <table style="margin-bottom: 1.25rem;">
             <thead>
                 <tr>
@@ -251,8 +263,8 @@
                         <span id="primary-port-edit-btn">
                             <button class="btn btn-ghost btn-sm" onclick="startEditPrimaryPort()">Edit</button>
                         </span>
-                        <span id="primary-port-edit-form" style="display:none;">
-                            <input type="number" id="primary-port-input" min="1024" max="65535" style="width:110px;">
+                        <span id="primary-port-edit-form" style="display:none; display: none;">
+                            <input type="number" id="primary-port-input" min="1024" max="65535" style="width:100px; display: inline-block;">
                             <button class="btn btn-primary btn-sm" onclick="savePrimaryPort()">Save</button>
                             <button class="btn btn-ghost btn-sm" onclick="cancelEditPrimaryPort()">Cancel</button>
                         </span>
@@ -274,23 +286,23 @@
             </tbody>
         </table>
 
-        <!-- Add port -->
-        <div class="flex gap-1 items-center" style="flex-wrap: wrap;">
+        <div class="flex gap-1 items-center flex-wrap">
             <input type="number" id="new-port-input" placeholder="Port (1024–65535)"
-                   min="1024" max="65535" style="width: 200px;">
-            <select id="new-port-protocol" style="width: 110px;">
+                   min="1024" max="65535" style="width: 180px;">
+            <select id="new-port-protocol" style="width: 100px;">
                 <option value="tcp">TCP</option>
                 <option value="udp">UDP</option>
                 <option value="both">Both</option>
             </select>
             <button class="btn btn-primary btn-sm" onclick="addPort()">Add Port</button>
-            <span id="ports-feedback" style="font-size: 0.82rem; color: var(--accent-danger); display:none;"></span>
+            <span id="ports-feedback" style="font-size: 0.82rem; display:none;"></span>
         </div>
     </div>
 </div>
 
+<!-- Monitoring tab -->
 <div id="tab-monitoring" class="tab-panel" {% if active_tab != 'monitoring' %}style="display:none"{% endif %}>
-    <div class="card">
+    <div class="card" style="padding: 1.375rem;">
         {% if server.status == 'running' %}
         <div class="monitor-grid">
             <div class="monitor-metric">
@@ -314,16 +326,15 @@
             </div>
         </div>
         <div style="margin-top: 0.75rem; font-size: 0.75rem; color: var(--text-muted);" id="metrics-last-updated">
-            Waiting for first update...
+            Waiting for first update…
         </div>
         {% else %}
-        <p class="text-muted" style="font-size: 0.875rem;">
-            Start the server to view live metrics.
-        </p>
+        <p class="text-muted" style="font-size: 0.875rem;">Start the server to view live metrics.</p>
         {% endif %}
     </div>
 </div>
 
+<!-- Danger zone -->
 <div class="danger-zone">
     <h3>Danger Zone</h3>
     <p>Permanently delete this server and its Proxmox container. This cannot be undone.</p>
@@ -336,7 +347,6 @@
 
 {% block scripts %}
 <script>
-// Fetch with a timeout so unreachable servers don't block the UI
 function fetchWithTimeout(url, opts, ms) {
     ms = ms || 10000;
     var controller = new AbortController();
@@ -357,12 +367,11 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     });
 });
 
-// Sync status with Proxmox periodically; reload page if status changes
+// Status sync
 const badge = document.getElementById('status-badge');
 const currentStatus = badge ? badge.textContent.trim() : '';
 
 if (currentStatus === 'creating') {
-    // Poll DB status frequently while provisioning
     const interval = setInterval(function() {
         fetchWithTimeout('/api/servers/{{ server.id }}/status', {}, 8000)
             .then(r => r.json())
@@ -378,22 +387,18 @@ if (currentStatus === 'creating') {
             .catch(() => {});
     }, 5000);
 } else {
-    // Sync with Proxmox every 30s; reload if status changed externally
     setInterval(function() {
         fetchWithTimeout('/api/servers/{{ server.id }}/sync', { method: 'POST' }, 10000)
             .then(r => r.json())
-            .then(data => {
-                if (data.changed) location.reload();
-            })
+            .then(data => { if (data.changed) location.reload(); })
             .catch(() => {});
     }, 30000);
 }
 
 {% if server.status == 'running' %}
-// Live metrics polling - 2s interval for responsiveness
 (function() {
     var netSamples = [];
-    var MAX_SAMPLES = 5;  // Average last 5 samples (10 seconds at 2s polling)
+    var MAX_SAMPLES = 5;
 
     function fmtBytes(b) {
         if (b === null || b === undefined || isNaN(b)) return '--';
@@ -412,66 +417,46 @@ if (currentStatus === 'creating') {
 
     function pollMetrics() {
         fetchWithTimeout('/api/servers/{{ server.id }}/metrics', {}, 10000)
-            .then(function(r) { return r.json(); })
+            .then(r => r.json())
             .then(function(data) {
-                // CPU
                 if (data.cpu_percent !== null) {
                     updateBar(document.getElementById('cpu-bar'), data.cpu_percent);
                     document.getElementById('cpu-value').textContent = data.cpu_percent.toFixed(1) + '%';
                 }
-
-                // Memory
                 if (data.memory_used_mb !== null && data.memory_total_mb !== null) {
                     var pct = Math.round(data.memory_used_mb / data.memory_total_mb * 100);
                     updateBar(document.getElementById('mem-bar'), pct);
-                    document.getElementById('mem-value').textContent =
-                        data.memory_used_mb + ' / ' + data.memory_total_mb + ' MB';
+                    document.getElementById('mem-value').textContent = data.memory_used_mb + ' / ' + data.memory_total_mb + ' MB';
                 }
-
-                // Network - average over last N samples for smoother display
                 var netEl = document.getElementById('net-value');
                 if (data.net_rx_bytes !== null) {
-                    netSamples.push({
-                        rx: data.net_rx_bytes,
-                        tx: data.net_tx_bytes,
-                        time: Date.now()
-                    });
-
-                    if (netSamples.length > MAX_SAMPLES) {
-                        netSamples.shift();
-                    }
-
+                    netSamples.push({ rx: data.net_rx_bytes, tx: data.net_tx_bytes, time: Date.now() });
+                    if (netSamples.length > MAX_SAMPLES) netSamples.shift();
                     if (netSamples.length >= 2) {
-                        var oldest = netSamples[0];
-                        var newest = netSamples[netSamples.length - 1];
+                        var oldest = netSamples[0], newest = netSamples[netSamples.length - 1];
                         var dt = (newest.time - oldest.time) / 1000;
                         if (dt > 0) {
-                            var avgRxRate = (newest.rx - oldest.rx) / dt;
-                            var avgTxRate = (newest.tx - oldest.tx) / dt;
-                            netEl.innerHTML = fmtBytes(avgRxRate) + '/s &darr;&nbsp;&nbsp;' + fmtBytes(avgTxRate) + '/s &uarr;';
+                            netEl.innerHTML = fmtBytes((newest.rx - oldest.rx) / dt) + '/s &darr;&nbsp;&nbsp;' +
+                                              fmtBytes((newest.tx - oldest.tx) / dt) + '/s &uarr;';
                         }
                     } else {
-                        netEl.textContent = 'Measuring...';
+                        netEl.textContent = 'Measuring…';
                     }
                 }
-
-                // Player count in header
                 var onlineEl = document.getElementById('players-online');
                 var maxEl = document.getElementById('players-max');
                 if (onlineEl && data.players_online !== null) {
                     onlineEl.textContent = data.players_online;
                     maxEl.textContent = data.players_max;
                 }
-
-                // Last updated
                 var lu = document.getElementById('metrics-last-updated');
                 if (lu) lu.textContent = 'Updated: ' + new Date().toLocaleTimeString();
             })
-            .catch(function() {});
+            .catch(() => {});
     }
 
     pollMetrics();
-    setInterval(pollMetrics, 2000);  // Poll every 2 seconds for responsiveness
+    setInterval(pollMetrics, 2000);
 })();
 {% endif %}
 
@@ -491,37 +476,28 @@ function addPort() {
     var input = document.getElementById('new-port-input');
     var protocol = document.getElementById('new-port-protocol').value;
     var port = parseInt(input.value, 10);
-    if (!port || port < 1024 || port > 65535) {
-        showPortFeedback('Port must be between 1024 and 65535.', true);
-        return;
-    }
+    if (!port || port < 1024 || port > 65535) { showPortFeedback('Port must be between 1024 and 65535.', true); return; }
     fetch('/api/servers/' + SERVER_ID + '/ports/add', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({port: port, protocol: protocol}),
     })
-    .then(function(r) { return r.json(); })
+    .then(r => r.json())
     .then(function(data) {
         if (data.error) { showPortFeedback(data.error, true); return; }
         input.value = '';
-        // Add row to table
         var tbody = document.getElementById('ports-table-body');
         var tr = document.createElement('tr');
         tr.id = 'port-row-' + port;
-        tr.innerHTML =
-            '<td class="text-mono">' + port + '</td>' +
+        tr.innerHTML = '<td class="text-mono">' + port + '</td>' +
             '<td><span class="text-mono" style="font-size:0.82rem;">' + protocol.toUpperCase() + '</span></td>' +
             '<td><span class="badge badge-stopped" style="font-size:0.7rem;">Extra</span></td>' +
             '<td><button class="btn btn-ghost btn-sm" style="color:var(--accent-danger);" ' +
             'onclick="removePort(' + port + ')">Remove</button></td>';
         tbody.appendChild(tr);
-        if (data.nginx_warning) {
-            showPortFeedback('Port added, but nginx reload failed: ' + data.nginx_warning, true);
-        } else {
-            showPortFeedback('Port ' + port + ' (' + protocol.toUpperCase() + ') added.', false);
-        }
+        showPortFeedback(data.nginx_warning ? 'Port added, nginx reload failed: ' + data.nginx_warning : 'Port ' + port + ' added.', !!data.nginx_warning);
     })
-    .catch(function() { showPortFeedback('Request failed.', true); });
+    .catch(() => showPortFeedback('Request failed.', true));
 }
 
 function startEditPrimaryPort() {
@@ -538,28 +514,21 @@ function cancelEditPrimaryPort() {
 
 function savePrimaryPort() {
     var port = parseInt(document.getElementById('primary-port-input').value, 10);
-    if (!port || port < 1024 || port > 65535) {
-        showPortFeedback('Port must be between 1024 and 65535.', true);
-        return;
-    }
+    if (!port || port < 1024 || port > 65535) { showPortFeedback('Port must be between 1024 and 65535.', true); return; }
     fetch('/api/servers/' + SERVER_ID + '/ports/primary', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({port: port}),
     })
-    .then(function(r) { return r.json(); })
+    .then(r => r.json())
     .then(function(data) {
         if (data.error) { showPortFeedback(data.error, true); return; }
         PRIMARY_PORT = data.game_port;
         document.getElementById('primary-port-display').textContent = data.game_port;
         cancelEditPrimaryPort();
-        if (data.nginx_warning) {
-            showPortFeedback('Primary port updated, but nginx reload failed: ' + data.nginx_warning, true);
-        } else {
-            showPortFeedback('Primary port changed to ' + data.game_port + '.', false);
-        }
+        showPortFeedback(data.nginx_warning ? 'Port updated, nginx reload failed: ' + data.nginx_warning : 'Primary port changed to ' + data.game_port + '.', !!data.nginx_warning);
     })
-    .catch(function() { showPortFeedback('Request failed.', true); });
+    .catch(() => showPortFeedback('Request failed.', true));
 }
 
 function removePort(port) {
@@ -569,18 +538,14 @@ function removePort(port) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({port: port}),
     })
-    .then(function(r) { return r.json(); })
+    .then(r => r.json())
     .then(function(data) {
         if (data.error) { showPortFeedback(data.error, true); return; }
         var row = document.getElementById('port-row-' + port);
         if (row) row.remove();
-        if (data.nginx_warning) {
-            showPortFeedback('Port removed, but nginx reload failed: ' + data.nginx_warning, true);
-        } else {
-            showPortFeedback('Port ' + port + ' removed.', false);
-        }
+        showPortFeedback(data.nginx_warning ? 'Port removed, nginx reload failed: ' + data.nginx_warning : 'Port ' + port + ' removed.', !!data.nginx_warning);
     })
-    .catch(function() { showPortFeedback('Request failed.', true); });
+    .catch(() => showPortFeedback('Request failed.', true));
 }
 </script>
 {% endblock %}

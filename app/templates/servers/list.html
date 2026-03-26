@@ -1,10 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}- Servers{% endblock %}
 
+{% block breadcrumb %}
+<span class="topbar-breadcrumb-sep">/</span>
+<span class="topbar-breadcrumb-current">Servers</span>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{{ url_for('servers.create_server') }}" class="btn btn-primary btn-sm">+ New Server</a>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">Servers</h1>
-    <a href="{{ url_for('servers.create_server') }}" class="btn btn-primary">+ New Server</a>
+    <a href="{{ url_for('servers.create_server') }}" class="btn btn-primary btn-sm">+ New Server</a>
 </div>
 
 {% if servers %}
@@ -28,7 +37,7 @@
             <tr>
                 <td>
                     <a href="{{ url_for('servers.detail', server_id=server.id) }}"
-                       style="color: var(--text); text-decoration: none; font-weight: 500;">
+                       style="color: var(--text-heading); text-decoration: none; font-weight: 600;">
                         {{ server.name }}
                     </a>
                 </td>
@@ -44,7 +53,7 @@
                     {% if server.status == 'running' %}
                     <span id="players-{{ server.id }}">--</span>
                     {% else %}
-                    <span style="color: var(--border);">&mdash;</span>
+                    <span style="color: var(--border);">—</span>
                     {% endif %}
                 </td>
                 <td>
@@ -59,8 +68,9 @@
     </table>
 </div>
 {% else %}
-<div class="card">
+<div class="card" style="padding: 1.375rem;">
     <div class="empty-state">
+        <div class="empty-state-icon">🖥️</div>
         <h3>No servers yet</h3>
         <p>Create your first game server to get started.</p>
         <a href="{{ url_for('servers.create_server') }}" class="btn btn-primary">Create Server</a>
@@ -71,7 +81,6 @@
 
 {% block scripts %}
 <script>
-// Fetch with a timeout so unreachable servers don't block the UI
 function fetchWithTimeout(url, opts, ms) {
     ms = ms || 10000;
     var controller = new AbortController();
@@ -81,13 +90,11 @@ function fetchWithTimeout(url, opts, ms) {
     return fetch(url, opts).finally(function() { clearTimeout(timer); });
 }
 
-// Poll/sync status for all servers
 document.querySelectorAll('[id^="status-"]').forEach(function(el) {
     var serverId = el.id.replace('status-', '');
     var status = el.textContent.trim();
 
     if (status === 'creating') {
-        // Frequent poll while provisioning
         var interval = setInterval(function() {
             fetchWithTimeout('/api/servers/' + serverId + '/status', {}, 8000)
                 .then(r => r.json())
@@ -99,7 +106,6 @@ document.querySelectorAll('[id^="status-"]').forEach(function(el) {
                 .catch(() => {});
         }, 5000);
     } else {
-        // Sync with Proxmox every 30s for running/stopped servers
         setInterval(function() {
             fetchWithTimeout('/api/servers/' + serverId + '/sync', { method: 'POST' }, 10000)
                 .then(r => r.json())
@@ -114,20 +120,15 @@ document.querySelectorAll('[id^="status-"]').forEach(function(el) {
     }
 });
 
-// Poll player counts for running servers (every 30s)
 document.querySelectorAll('[id^="players-"]').forEach(function(el) {
     var serverId = el.id.replace('players-', '');
     function fetchPlayers() {
         fetchWithTimeout('/api/servers/' + serverId + '/metrics', {}, 10000)
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.players_online !== null) {
-                    el.textContent = data.players_online + '/' + data.players_max;
-                } else {
-                    el.textContent = '--';
-                }
+            .then(r => r.json())
+            .then(data => {
+                el.textContent = data.players_online !== null ? data.players_online + '/' + data.players_max : '--';
             })
-            .catch(function() {});
+            .catch(() => {});
     }
     fetchPlayers();
     setInterval(fetchPlayers, 30000);

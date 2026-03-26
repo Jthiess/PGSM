@@ -1,11 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}- Create Server{% endblock %}
 
+{% block breadcrumb %}
+<span class="topbar-breadcrumb-sep">/</span>
+<a href="{{ url_for('servers.list_servers') }}">Servers</a>
+<span class="topbar-breadcrumb-sep">/</span>
+<span class="topbar-breadcrumb-current">New Server</span>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">Create Server</h1>
 </div>
 
+<!-- Wizard step indicators -->
 <div class="wizard-steps">
     <div class="wizard-step-indicator active" id="step-ind-1"><span class="step-num">1</span> Game Type</div>
     <div class="wizard-step-indicator" id="step-ind-2"><span class="step-num">2</span> Resources</div>
@@ -15,26 +23,25 @@
 <form method="POST" action="{{ url_for('servers.create_server') }}" id="create-form" enctype="multipart/form-data">
 
     <!-- Step 1: Game type + version -->
-    <div class="wizard-panel active card" id="panel-1">
+    <div class="wizard-panel active card" id="panel-1" style="padding: 1.375rem;">
         <h2 class="section-title">Game Type &amp; Version</h2>
         <div class="form-group">
             <label for="server_type">Server Type</label>
             <select name="server_type" id="server_type">
-                <option value="vanilla" {% if defaults.server_type == 'vanilla' %}selected{% endif %}>Minecraft Java - Vanilla</option>
-                <option value="paper"   {% if defaults.server_type == 'paper'   %}selected{% endif %}>Minecraft Java - Paper</option>
-                <option value="fabric"  {% if defaults.server_type == 'fabric'  %}selected{% endif %}>Minecraft Java - Fabric</option>
-                <option value="forge"   {% if defaults.server_type == 'forge'   %}selected{% endif %}>Minecraft Java - Forge</option>
-                <option value="bedrock" {% if defaults.server_type == 'bedrock' %}selected{% endif %}>Minecraft Bedrock</option>
+                <option value="vanilla"  {% if defaults.server_type == 'vanilla'  %}selected{% endif %}>Minecraft Java - Vanilla</option>
+                <option value="paper"    {% if defaults.server_type == 'paper'    %}selected{% endif %}>Minecraft Java - Paper</option>
+                <option value="fabric"   {% if defaults.server_type == 'fabric'   %}selected{% endif %}>Minecraft Java - Fabric</option>
+                <option value="forge"    {% if defaults.server_type == 'forge'    %}selected{% endif %}>Minecraft Java - Forge</option>
+                <option value="bedrock"  {% if defaults.server_type == 'bedrock'  %}selected{% endif %}>Minecraft Bedrock</option>
                 <option value="import">Minecraft - Import</option>
             </select>
         </div>
 
-        <!-- Version picker (hidden for import type) -->
         <div id="version-section">
             <div class="form-group">
                 <label for="game_version">Game Version</label>
                 <select name="game_version" id="game_version" disabled>
-                    <option value="latest">Loading versions...</option>
+                    <option value="latest">Loading versions…</option>
                 </select>
                 <div class="checkbox-row" style="margin-top: 0.5rem;">
                     <input type="checkbox" id="show_snapshots">
@@ -46,26 +53,21 @@
             </div>
         </div>
 
-        <!-- Fabric: optional loader version -->
         <div class="form-group" id="fabric-options" style="display:none">
             <label for="fabric_loader_version">Fabric Loader Version</label>
             <input type="text" name="fabric_loader_version" id="fabric_loader_version" placeholder="latest">
             <div class="form-hint">Leave blank to use the latest stable Fabric loader.</div>
         </div>
 
-        <!-- Forge: version (auto-fetched from Forge promotions API) -->
         <div class="form-group" id="forge-options" style="display:none">
             <label for="forge_version">Forge Version</label>
             <div style="display:flex; gap:0.5rem; align-items:center;">
                 <input type="text" name="forge_version" id="forge_version" placeholder="Auto (recommended for selected MC version)" style="flex:1">
-                <button type="button" class="btn btn-secondary" id="forge-fetch-btn" onclick="fetchForgeVersion()">Fetch</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="forge-fetch-btn" onclick="fetchForgeVersion()">Fetch</button>
             </div>
-            <div class="form-hint" id="forge-version-hint">
-                Leave blank to automatically use the recommended Forge version for the selected MC version.
-            </div>
+            <div class="form-hint" id="forge-version-hint">Leave blank to automatically use the recommended Forge version.</div>
         </div>
 
-        <!-- Import: archive upload -->
         <div class="form-group" id="import-options" style="display:none">
             <label for="import_archive">Server Archive (.zip)</label>
             <input type="file" name="import_archive" id="import_archive" accept=".zip">
@@ -82,12 +84,12 @@
     </div>
 
     <!-- Step 2: Resources + node -->
-    <div class="wizard-panel card" id="panel-2">
+    <div class="wizard-panel card" id="panel-2" style="padding: 1.375rem;">
         <h2 class="section-title">Resources &amp; Node</h2>
         <div class="form-group">
             <label for="node">Proxmox Node</label>
             <select name="node" id="node" disabled>
-                <option value="">Loading nodes...</option>
+                <option value="">Loading nodes…</option>
             </select>
             <div class="form-hint" id="nodes-hint" style="display:none; color: var(--accent-warning);">
                 Could not load Proxmox nodes. Check your connection settings.
@@ -127,7 +129,7 @@
     </div>
 
     <!-- Step 3: Game settings -->
-    <div class="wizard-panel card" id="panel-3">
+    <div class="wizard-panel card" id="panel-3" style="padding: 1.375rem;">
         <h2 class="section-title">Game Settings</h2>
         <div class="form-row">
             <div class="form-group">
@@ -169,11 +171,10 @@
             </div>
         </div>
 
-        <!-- Import: startup command (required for import type) -->
         <div class="form-group" id="startup-cmd-group" style="display:none">
             <label for="custom_startup_command">
                 Startup Command
-                <span id="startup-cmd-required" style="color:var(--accent-error); display:none"> *</span>
+                <span id="startup-cmd-required" style="color:var(--accent-danger); display:none"> *</span>
             </label>
             <input type="text" name="custom_startup_command" id="custom_startup_command"
                    placeholder="/opt/java/java21/bin/java -jar server.jar">
@@ -208,13 +209,12 @@
     var startupCmdHint   = document.getElementById('startup-cmd-hint');
     var startupCmdInput  = document.getElementById('custom_startup_command');
 
-    // ── Load versions asynchronously ──────────────────────────────────────────
     function loadVersions(includeSnapshots, keepCurrent) {
         var current = keepCurrent ? versionSelect.value : null;
         var url = '/api/minecraft/versions' + (includeSnapshots ? '?snapshots=true' : '');
         versionSelect.disabled = true;
         fetch(url)
-            .then(function(r) { return r.json(); })
+            .then(r => r.json())
             .then(function(versions) {
                 versionSelect.innerHTML = '';
                 versions.forEach(function(v) {
@@ -225,9 +225,7 @@
                     if (current && v.id === current) opt.selected = true;
                     versionSelect.appendChild(opt);
                 });
-                if (!versionSelect.options.length) {
-                    versionSelect.innerHTML = '<option value="latest">latest</option>';
-                }
+                if (!versionSelect.options.length) versionSelect.innerHTML = '<option value="latest">latest</option>';
                 versionSelect.disabled = false;
             })
             .catch(function() {
@@ -236,11 +234,10 @@
             });
     }
 
-    // ── Load nodes asynchronously ──────────────────────────────────────────────
-    var nodeSelect  = document.getElementById('node');
-    var nodesHint   = document.getElementById('nodes-hint');
+    var nodeSelect = document.getElementById('node');
+    var nodesHint  = document.getElementById('nodes-hint');
     fetch('/api/nodes')
-        .then(function(r) { return r.json(); })
+        .then(r => r.json())
         .then(function(nodes) {
             nodeSelect.innerHTML = '';
             if (!nodes.length) throw new Error('no nodes');
@@ -257,12 +254,10 @@
             nodesHint.style.display = '';
         });
 
-    // Load release versions immediately on page load
     loadVersions(false, false);
 
-    // ── Type-specific UI ───────────────────────────────────────────────────────
     function updateTypeUI() {
-        var type = serverTypeSelect.value;
+        var type     = serverTypeSelect.value;
         var isImport = type === 'import';
         var isFabric = type === 'fabric';
         var isForge  = type === 'forge';
@@ -279,11 +274,8 @@
             ? 'Required. The command used to start your server (e.g. /opt/java/java21/bin/java -jar server.jar).'
             : 'Override the default startup command. Leave blank to use the server type default.';
 
-        if (isForge) {
-            versionSelect.addEventListener('change', onMcVersionChangeForForge);
-        } else {
-            versionSelect.removeEventListener('change', onMcVersionChangeForForge);
-        }
+        if (isForge) versionSelect.addEventListener('change', onMcVersionChangeForForge);
+        else versionSelect.removeEventListener('change', onMcVersionChangeForForge);
     }
 
     function onMcVersionChangeForForge() {
@@ -294,7 +286,6 @@
     serverTypeSelect.addEventListener('change', updateTypeUI);
     updateTypeUI();
 
-    // ── Snapshot toggle ────────────────────────────────────────────────────────
     snapshotToggle.addEventListener('change', function() {
         snapshotHint.style.display = snapshotToggle.checked ? '' : 'none';
         loadVersions(snapshotToggle.checked, true);
@@ -310,12 +301,12 @@ function fetchForgeVersion() {
     if (!mcVersion || mcVersion === 'latest') return;
 
     fetchBtn.disabled = true;
-    fetchBtn.textContent = '...';
-    forgeHint.textContent = 'Fetching Forge versions...';
+    fetchBtn.textContent = '…';
+    forgeHint.textContent = 'Fetching Forge versions…';
     forgeHint.style.color = '';
 
     fetch('/api/forge/versions?mc_version=' + encodeURIComponent(mcVersion))
-        .then(function(r) { return r.json(); })
+        .then(r => r.json())
         .then(function(data) {
             if (data.error || (!data.recommended && !data.latest)) {
                 forgeHint.textContent = 'No Forge release found for MC ' + mcVersion + '. Try a different version.';

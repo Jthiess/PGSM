@@ -1,43 +1,29 @@
 {% extends 'panel_base.html' %}
 {% block title %}Whitelist Signup{% endblock %}
-{% block head %}
-  <style>
-    .wl-wrapper { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - var(--nav-height, 58px)); padding: 1em; }
-    .wl-card { background: var(--surface); padding: 2em; border-radius: var(--radius, 12px); box-shadow: var(--shadow-card); width: 100%; max-width: 420px; color: var(--text); border: 1px solid var(--muted-border); }
-    .wl-card h1 { margin-bottom: 1em; font-size: 1.75rem; color: var(--accent); text-align: center; }
-    .wl-card form label { display: block; margin-bottom: 0.75em; font-weight: 500; }
-    .wl-card input { width: 100%; padding: 0.75em; margin-top: 0.25em; border: 1px solid var(--muted-border); border-radius: 6px; background: var(--card-bg); color: var(--text); font-size: 0.95rem; transition: border 0.2s, box-shadow 0.2s; }
-    .wl-card input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
-    .wl-card .submit-btn { width: 100%; padding: 0.75em; margin-top: 1em; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-    .wl-card .submit-btn:hover { background: var(--accent-hover); }
-    .nav-links-row { display: flex; gap: 0.75em; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap; }
-    .nav-links-row a { display: inline-block; padding: 0.6em 1.25em; background: var(--surface); color: var(--text); border: 1px solid var(--muted-border); border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: background 0.2s, border-color 0.2s; }
-    .nav-links-row a:hover { border-color: var(--accent); color: var(--accent); }
-  </style>
-{% endblock %}
+
 {% block content %}
-  <div class="wl-wrapper">
+<div class="wl-page">
     <div class="wl-card">
-      <h1>Join the Whitelist</h1>
+        <h1 class="wl-card-title">Join the Whitelist</h1>
 
-      <form method="post" action="{{ url_for('whitelist_panel.index') }}">
-        <label for="mc_username">
-          Minecraft Username
-          <input type="text" id="mc_username" name="username" placeholder="e.g. Steve" required>
-        </label>
+        <form method="post" action="{{ url_for('whitelist_panel.index') }}">
+            <div class="form-group">
+                <label class="form-label" for="mc_username">Minecraft Username</label>
+                <input type="text" id="mc_username" name="username" placeholder="e.g. Steve" required>
+            </div>
 
-        <label for="discord_username">
-          Discord Username
-          <input type="text" id="discord_username" name="discord_username" placeholder="e.g. steve.mc" required>
-        </label>
+            <div class="form-group">
+                <label class="form-label" for="discord_username">Discord Username</label>
+                <input type="text" id="discord_username" name="discord_username" placeholder="e.g. steve.mc" required>
+            </div>
 
-        <button class="submit-btn" type="submit">Submit Request</button>
-      </form>
+            <button class="btn btn-primary w-full" type="submit" style="margin-top: 0.5rem;">Submit Request</button>
+        </form>
 
-      <div class="nav-links-row">
-        <a href="{{ url_for('panel.rules') }}">View Rules</a>
-        <a href="{{ url_for('panel.index') }}">← Back to Game Panel</a>
-      </div>
+        <div class="nav-links-row">
+            <a href="{{ url_for('panel.rules') }}">View Rules</a>
+            <a href="{{ url_for('panel.index') }}">Back to Game Panel</a>
+        </div>
     </div>
-  </div>
+</div>
 {% endblock %}

@@ -1,22 +1,27 @@
 {% extends 'panel_base.html' %}
 {% block title %}Admin Login{% endblock %}
+
 {% block content %}
-  <div class="container py-5" style="max-width:520px;">
-    <h1 class="h3 mb-4 text-center">Admin Login</h1>
+<div class="wl-page">
+    <div class="wl-card">
+        <h1 class="wl-card-title">Admin Login</h1>
 
-    <form method="post" action="{{ url_for('admin_panel.login') }}" class="card p-4" style="background: var(--surface); border: 1px solid var(--muted-border); color: var(--text);">
-      {% if request.args.get('next') %}
-        <input type="hidden" name="next" value="{{ request.args.get('next') }}">
-      {% endif %}
-      <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input type="password" class="form-control" id="password" name="password" required autofocus>
-      </div>
-      <button type="submit" class="btn btn-primary w-100">Sign in</button>
-    </form>
+        <form method="post" action="{{ url_for('admin_panel.login') }}">
+            {% if request.args.get('next') %}
+                <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+            {% endif %}
 
-    <div class="text-center mt-3">
-      <a class="link-light" href="{{ url_for('panel.index') }}">← Back to site</a>
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" id="password" name="password" required autofocus>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-full" style="margin-top: 0.5rem;">Sign in</button>
+        </form>
+
+        <div class="nav-links-row">
+            <a href="{{ url_for('panel.index') }}">Back to site</a>
+        </div>
     </div>
-  </div>
+</div>
 {% endblock %}
