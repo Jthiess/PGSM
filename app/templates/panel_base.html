@@ -7,8 +7,8 @@
     <title>{% block title %}Game Panel{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
 
-    <!-- PGSM theme system: load saved theme before paint to prevent flash -->
-    <link id="theme-link" rel="stylesheet" href="{{ url_for('static', filename='css/themes/theme-default.css') }}">
+    <!-- Inline script creates the theme link with the correct saved theme before first paint -->
+    <script>(function(){var t;try{t=localStorage.getItem('pgsm-theme')}catch(e){}var v=['default','light','nord','catppuccin-mocha','gruvbox','discord','midnight-purple','high-contrast','dracula','tokyo-night'];if(!t||v.indexOf(t)===-1)t='default';var l=document.createElement('link');l.id='theme-link';l.rel='stylesheet';l.href='{{ url_for("static", filename="css/themes/theme-default.css") }}'.replace('theme-default','theme-'+t);document.head.appendChild(l)})();</script>
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 
     <!-- Design system (no Bootstrap) -->
