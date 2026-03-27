@@ -890,7 +890,7 @@ body {
     gap: 2rem;
     width: 100%;
     max-width: 860px;
-    align-items: start;
+    align-items: stretch;
 }
 
 /* ── Whitelist context panel ─────────────────────────────────────────────── */
@@ -973,6 +973,8 @@ body {
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 1.75rem;
+    height: 100%;
+    box-sizing: border-box;
 }
 
 .form-label-hint {
