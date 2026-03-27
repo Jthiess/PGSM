@@ -2,8 +2,9 @@
 :root {
     --bg:           #1e1e2e;
     --bg-card:      #313244;
+    --bg-sidebar:   #181825;
     --bg-input:     #1e1e2e;
-    --bg-hover:     rgba(255,255,255,0.05);
+    --bg-hover:     rgba(88, 91, 112, 0.25);
     --border:       #45475a;
     --radius:       10px;
     --shadow:       0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
@@ -36,7 +37,7 @@
     --online:        var(--accent-success);
     --offline:       var(--text-muted);
     --archived:      var(--accent);
-    --scroll-thumb:  rgba(255,255,255,0.08);
+    --scroll-thumb:  rgba(88, 91, 112, 0.5);
 
     /* ── Bootstrap 5 bridge ─────────────────────────────────────────────────── */
     --bs-primary:       var(--accent);

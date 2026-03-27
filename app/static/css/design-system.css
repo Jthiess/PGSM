@@ -80,7 +80,7 @@ code {
 .sidebar {
     width: 240px;
     flex-shrink: 0;
-    background: var(--bg-card);
+    background: var(--bg-sidebar, var(--bg-card));
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -414,7 +414,8 @@ code {
 .theme-menu {
     display: none;
     position: absolute;
-    top: calc(100% + 6px);
+    bottom: calc(100% + 6px);
+    top: auto;
     right: 0;
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -1532,6 +1533,10 @@ input[type="file"] {
         padding: 0.875rem 0;
     }
 
+    .sidebar.collapsed .sidebar-brand > div:not(.sidebar-brand-icon) {
+        display: none;
+    }
+
     .sidebar.collapsed .sidebar-link,
     .sidebar.collapsed .sidebar-submenu-toggle {
         justify-content: center;
@@ -1544,12 +1549,23 @@ input[type="file"] {
     }
 
     .sidebar.collapsed .sidebar-footer {
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
         padding: 0.75rem 0;
+        gap: 0.35rem;
+    }
+
+    .sidebar.collapsed .theme-switcher {
+        flex: none;
     }
 
     .sidebar.collapsed .theme-toggle-btn {
         padding: 0.3rem 0.3rem;
+    }
+
+    .sidebar.collapsed .sidebar-footer form {
+        margin-top: 0;
     }
 
     .admin-content.sidebar-collapsed {
