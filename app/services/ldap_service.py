@@ -183,7 +183,7 @@ def _get_access_level(
     direct_cns: list[str] = []
     conn.search(
         search_base=search_base,
-        search_filter=f'(distinguishedName={ldap3.utils.dn.escape_rdn(user_dn)})',
+        search_filter=f'(distinguishedName={ldap3.utils.conv.escape_filter_chars(user_dn)})',
         search_scope=ldap3.SUBTREE,
         attributes=['memberOf'],
     )
@@ -197,8 +197,8 @@ def _get_access_level(
 
     # --- Check admin group membership (transitive) ---
     if admin_group_dn:
-        escaped_user_dn = ldap3.utils.dn.escape_rdn(user_dn)
-        escaped_group_dn = ldap3.utils.dn.escape_rdn(admin_group_dn)
+        escaped_user_dn = ldap3.utils.conv.escape_filter_chars(user_dn)
+        escaped_group_dn = ldap3.utils.conv.escape_filter_chars(admin_group_dn)
         admin_filter = (
             f'(&(distinguishedName={escaped_user_dn})'
             f'(memberOf:{_MATCHING_RULE_IN_CHAIN}:={escaped_group_dn}))'
@@ -214,8 +214,8 @@ def _get_access_level(
 
     # --- Check messages group membership (transitive) ---
     if messages_group_dn:
-        escaped_user_dn = ldap3.utils.dn.escape_rdn(user_dn)
-        escaped_group_dn = ldap3.utils.dn.escape_rdn(messages_group_dn)
+        escaped_user_dn = ldap3.utils.conv.escape_filter_chars(user_dn)
+        escaped_group_dn = ldap3.utils.conv.escape_filter_chars(messages_group_dn)
         messages_filter = (
             f'(&(distinguishedName={escaped_user_dn})'
             f'(memberOf:{_MATCHING_RULE_IN_CHAIN}:={escaped_group_dn}))'
