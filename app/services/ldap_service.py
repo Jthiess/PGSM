@@ -288,6 +288,7 @@ def authenticate(username: str, password: str) -> dict:
         'username': username,
         'display_name': '',
         'email': '',
+        'minecraft_uuid': None,
         'access_level': None,
         'groups': [],
     }
@@ -313,6 +314,10 @@ def authenticate(username: str, password: str) -> dict:
 
         display_name = _extract_str(attrs.get('displayName', ''))
         email = _extract_str(attrs.get('mail', ''))
+
+        cfg = current_app.config
+        attr_mc = cfg.get('LDAP_ATTR_MINECRAFT_UUID', 'extensionAttribute2')
+        minecraft_uuid = _extract_str(attrs.get(attr_mc)) or None
 
         # --- Step 2: bind as the user to validate their password ---
         try:
@@ -344,6 +349,7 @@ def authenticate(username: str, password: str) -> dict:
             'username': username,
             'display_name': display_name,
             'email': email,
+            'minecraft_uuid': minecraft_uuid,
             'access_level': access_level,
             'groups': groups,
         }

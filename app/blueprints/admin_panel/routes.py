@@ -116,6 +116,7 @@ def login():
                     session['admin_auth'] = True
                     session.pop('messages_auth', None)
                     session['ldap_username'] = display
+                    session['minecraft_uuid'] = result.get('minecraft_uuid')
                     next_url = request.args.get('next') or url_for('dashboard.index')
                     flash(f'Logged in as {display}.', 'success')
                     return redirect(next_url)
@@ -124,6 +125,7 @@ def login():
                     session['messages_auth'] = True
                     session.pop('admin_auth', None)
                     session['ldap_username'] = display
+                    session['minecraft_uuid'] = result.get('minecraft_uuid')
                     flash('Logged in with messages access.', 'success')
                     return redirect(url_for('admin_panel.messages'))
 
@@ -179,6 +181,7 @@ def logout():
     session.pop('admin_auth', None)
     session.pop('messages_auth', None)
     session.pop('ldap_username', None)
+    session.pop('minecraft_uuid', None)
 
     if current_app.config.get('AUTHENTIK_CLIENT_ID'):
         server_url = (current_app.config.get('AUTHENTIK_SERVER_URL') or '').rstrip('/')
@@ -285,6 +288,7 @@ def authentik_callback():
         session['admin_auth'] = True
         session.pop('messages_auth', None)
         session['ldap_username'] = display_name
+        session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
         flash(f'Logged in as {display_name}.', 'success')
         return redirect(next_url or url_for('dashboard.index'))
 
@@ -292,6 +296,7 @@ def authentik_callback():
         session['messages_auth'] = True
         session.pop('admin_auth', None)
         session['ldap_username'] = display_name
+        session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
         flash('Logged in with messages access.', 'success')
         return redirect(url_for('admin_panel.messages'))
 

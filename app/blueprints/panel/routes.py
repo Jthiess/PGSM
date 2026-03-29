@@ -37,12 +37,12 @@ def index():
     # ----------------------------------------------------------
     # Resolve the logged-in user's whitelist profile, if any
     # ----------------------------------------------------------
-    username = session.get('ldap_username')
+    minecraft_uuid = session.get('minecraft_uuid')
     logged_in = bool(session.get('admin_auth') or session.get('messages_auth'))
     current_user_profile = None
 
-    if username:
-        entry = panel_db.get_whitelist_entry_by_username(username)
+    if minecraft_uuid:
+        entry = panel_db.get_whitelist_entry_by_uuid(minecraft_uuid)
         if entry:
             current_user_profile = {
                 'username': entry['username'],

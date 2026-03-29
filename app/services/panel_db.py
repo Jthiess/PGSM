@@ -917,6 +917,36 @@ def count_whitelist_requests_by_discord(discord_username: str) -> int:
             conn.close()
 
 
+def get_whitelist_entry_by_uuid(player_uuid: str) -> dict | None:
+    """Fetch a whitelist entry by Minecraft UUID (case-insensitive).
+
+    Args:
+        player_uuid: The Minecraft UUID to look up.
+
+    Returns:
+        A dict of all whitelist columns, or None if not found.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM whitelist WHERE LOWER(player_uuid) = LOWER(%s)",
+                (player_uuid,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            col_names = [desc[0] for desc in cur.description]
+            return dict(zip(col_names, row))
+    except Exception:
+        log.exception("panel_db.get_whitelist_entry_by_uuid failed")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
 def get_whitelist_entry_by_username(username: str) -> dict | None:
     """Fetch a whitelist entry by Minecraft username (case-insensitive).
 
