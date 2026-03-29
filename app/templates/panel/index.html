@@ -3,60 +3,141 @@
 
 {% block head %}
 <style>
-/* ── Profile search row ──────────────────────────────────────────────────── */
-.profile-search-row {
+/* ── Profile pull tab ────────────────────────────────────────────────────── */
+.profile-pull-tab {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 8999;
+    width: 40px;
+    height: 80px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
     justify-content: center;
-    margin-top: 1rem;
-    flex-wrap: wrap;
+    color: var(--text-muted);
+    box-shadow: -1px 0 4px rgba(0,0,0,0.10);
+    transition: background 0.15s, color 0.15s, transform 0.15s, right 0.25s ease;
 }
-
-.profile-search-input {
-    width: auto !important;
-    max-width: 220px;
-    padding: 0.375rem 0.75rem !important;
-    font-size: 0.8125rem !important;
-    border-radius: 6px;
-    background: var(--bg-card) !important;
-    border: 1px solid var(--border) !important;
-    color: var(--text) !important;
-    font-family: var(--font) !important;
-    transition: border-color 0.12s !important;
-    line-height: 1.5;
-}
-.profile-search-input:focus {
-    outline: none;
-    border-color: var(--accent) !important;
-}
-.profile-search-input::placeholder {
-    color: var(--text-muted) !important;
-}
-
-.profile-search-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.375rem 0.875rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    font-family: var(--font);
-    background: var(--bg-card);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
-    line-height: 1.4;
-}
-.profile-search-btn:hover {
+.profile-pull-tab:hover {
     background: var(--bg-hover);
     color: var(--text-heading);
-    border-color: var(--text-muted);
 }
-.profile-search-btn:focus-visible {
+.profile-pull-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -3px;
+}
+.profile-pull-tab-arrow {
+    transition: transform 0.25s ease;
+    pointer-events: none;
+}
+/* When drawer is open, slide the tab left to sit flush against panel edge */
+.profile-pull-tab.drawer-open {
+    right: 380px;
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+    border-left: 1px solid var(--border);
+    box-shadow: -1px 0 4px rgba(0,0,0,0.10);
+}
+.profile-pull-tab.drawer-open .profile-pull-tab-arrow {
+    transform: rotate(180deg);
+}
+
+/* ── Identify state (no stored username) ─────────────────────────────────── */
+.profile-identify-state {
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.5rem 0;
+}
+.profile-identify-state.visible { display: flex; }
+
+.profile-identify-message {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.profile-identify-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9375rem;
+    font-family: var(--font);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    transition: border-color 0.12s;
+    box-sizing: border-box;
+}
+.profile-identify-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+.profile-identify-input::placeholder {
+    color: var(--text-muted);
+}
+
+.profile-identify-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    font-family: var(--font);
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.profile-identify-btn:hover {
+    background: var(--accent-hover);
+}
+.profile-identify-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.profile-identify-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.profile-identify-error {
+    font-size: 0.875rem;
+    color: var(--accent-danger, #dc3545);
+    margin: 0;
+    display: none;
+}
+.profile-identify-error.visible { display: block; }
+
+/* ── "Not you?" link ─────────────────────────────────────────────────────── */
+.profile-not-you {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    text-align: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-family: var(--font);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color 0.12s;
+}
+.profile-not-you:hover { color: var(--text); }
+.profile-not-you:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
@@ -339,8 +420,10 @@
 .strike-x.empty  { color: var(--text-muted, #6c757d); }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
-@media (max-width: 480px) {
-    .profile-drawer { width: 100vw; border-left: none; border-top: 1px solid var(--border); }
+@media (max-width: 600px) {
+    .profile-drawer { width: 100vw; border-left: none; }
+    .profile-pull-tab { width: 32px; height: 60px; }
+    .profile-pull-tab.drawer-open { right: 100vw; }
 }
 </style>
 {% endblock %}
@@ -361,27 +444,6 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
                 Server Rules
             </a>
-        </div>
-        <div class="profile-search-row" role="search">
-            <input
-                type="text"
-                id="profile-search-input"
-                class="profile-search-input"
-                placeholder="Minecraft username…"
-                aria-label="Minecraft username to look up"
-                autocomplete="off"
-                autocorrect="off"
-                autocapitalize="off"
-                spellcheck="false"
-                maxlength="16">
-            <button
-                id="profile-search-btn"
-                class="profile-search-btn"
-                type="button"
-                aria-label="Look up player profile">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                Check Profile
-            </button>
         </div>
     </header>
 
@@ -548,16 +610,41 @@
 
 </div>
 
+<!-- Profile Pull Tab -->
+<button class="profile-pull-tab" id="profile-pull-tab" aria-label="Open your profile" aria-expanded="false" aria-controls="profile-drawer">
+    <svg class="profile-pull-tab-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15,18 9,12 15,6"/></svg>
+</button>
+
 <!-- Profile Slide-Out Drawer -->
 <div class="profile-drawer-overlay" id="profile-drawer-overlay" aria-hidden="true"></div>
 <div class="profile-drawer" id="profile-drawer" role="dialog" aria-modal="true" aria-labelledby="profile-drawer-title">
     <div class="profile-drawer-header">
-        <p class="profile-drawer-title" id="profile-drawer-title">Player Profile</p>
+        <p class="profile-drawer-title" id="profile-drawer-title">Your Profile</p>
         <button class="profile-drawer-close" id="profile-drawer-close" aria-label="Close profile panel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
     </div>
     <div class="profile-drawer-body" id="profile-drawer-body">
+
+        <!-- Identify state (no stored username) -->
+        <div class="profile-identify-state" id="profile-identify-state">
+            <p class="profile-identify-message">Enter your Minecraft username to see your profile.</p>
+            <input
+                type="text"
+                id="profile-identify-input"
+                class="profile-identify-input"
+                placeholder="Minecraft username"
+                aria-label="Your Minecraft username"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                maxlength="16">
+            <p class="profile-identify-error" id="profile-identify-error">Username not found on our whitelist.</p>
+            <button class="profile-identify-btn" id="profile-identify-btn" type="button">
+                View Profile
+            </button>
+        </div>
 
         <!-- Loading state -->
         <div class="profile-state" id="profile-state-loading" role="status" aria-live="polite">
@@ -609,6 +696,9 @@
                     <!-- populated by JS -->
                 </div>
             </div>
+
+            <!-- Not you? -->
+            <button class="profile-not-you" id="profile-not-you" type="button">Not you? Clear and switch user</button>
 
         </div>
     </div>
@@ -687,54 +777,94 @@
 (function () {
     'use strict';
 
-    var searchInput  = document.getElementById('profile-search-input');
-    var searchBtn    = document.getElementById('profile-search-btn');
-    var drawer       = document.getElementById('profile-drawer');
-    var overlay      = document.getElementById('profile-drawer-overlay');
-    var closeBtn     = document.getElementById('profile-drawer-close');
-    var drawerTitle  = document.getElementById('profile-drawer-title');
+    var LS_KEY = 'pgsm-profile-username';
 
-    var stateLoading  = document.getElementById('profile-state-loading');
-    var stateNotFound = document.getElementById('profile-state-notfound');
-    var stateError    = document.getElementById('profile-state-error');
+    /* ── Element refs ──────────────────────────────────────────────────────── */
+    var pullTab       = document.getElementById('profile-pull-tab');
+    var drawer        = document.getElementById('profile-drawer');
+    var overlay       = document.getElementById('profile-drawer-overlay');
+    var closeBtn      = document.getElementById('profile-drawer-close');
+    var drawerTitle   = document.getElementById('profile-drawer-title');
+
+    /* Identify state */
+    var identifyState = document.getElementById('profile-identify-state');
+    var identifyInput = document.getElementById('profile-identify-input');
+    var identifyBtn   = document.getElementById('profile-identify-btn');
+    var identifyError = document.getElementById('profile-identify-error');
+
+    /* Lookup/profile states */
+    var stateLoading   = document.getElementById('profile-state-loading');
+    var stateNotFound  = document.getElementById('profile-state-notfound');
+    var stateError     = document.getElementById('profile-state-error');
     var profileContent = document.getElementById('profile-content');
 
-    var notFoundMsg     = document.getElementById('profile-notfound-msg');
-    var skinImg         = document.getElementById('profile-skin-img');
-    var mcUsername      = document.getElementById('profile-mc-username');
-    var statusBadge     = document.getElementById('profile-status-badge');
-    var discordRow      = document.getElementById('profile-discord-row');
-    var strikesDisplay  = document.getElementById('profile-strikes-display');
+    var notFoundMsg    = document.getElementById('profile-notfound-msg');
+    var skinImg        = document.getElementById('profile-skin-img');
+    var mcUsername     = document.getElementById('profile-mc-username');
+    var statusBadge    = document.getElementById('profile-status-badge');
+    var discordRow     = document.getElementById('profile-discord-row');
+    var strikesDisplay = document.getElementById('profile-strikes-display');
+    var notYouBtn      = document.getElementById('profile-not-you');
 
+    /* ── Drawer open/close ─────────────────────────────────────────────────── */
     function openDrawer() {
         drawer.classList.add('active');
         overlay.classList.add('active');
+        pullTab.classList.add('drawer-open');
         overlay.removeAttribute('aria-hidden');
         drawer.removeAttribute('aria-hidden');
+        pullTab.setAttribute('aria-expanded', 'true');
+        pullTab.setAttribute('aria-label', 'Close your profile');
         document.body.style.overflow = 'hidden';
-        closeBtn.focus();
+        /* Focus the first focusable element inside the drawer */
+        var firstFocusable = drawer.querySelector('input, button');
+        if (firstFocusable) firstFocusable.focus();
     }
 
     function closeDrawer() {
         drawer.classList.remove('active');
         overlay.classList.remove('active');
+        pullTab.classList.remove('drawer-open');
         overlay.setAttribute('aria-hidden', 'true');
         drawer.setAttribute('aria-hidden', 'true');
+        pullTab.setAttribute('aria-expanded', 'false');
+        pullTab.setAttribute('aria-label', 'Open your profile');
         document.body.style.overflow = '';
-        searchInput.focus();
+        pullTab.focus();
     }
 
-    function showState(state) {
+    function toggleDrawer() {
+        if (drawer.classList.contains('active')) {
+            closeDrawer();
+        } else {
+            openDrawer();
+        }
+    }
+
+    /* ── Panel state machine ───────────────────────────────────────────────── */
+    /*
+     * States:
+     *   'identify'  — no stored username; show the input form
+     *   'loading'   — API fetch in flight
+     *   'notfound'  — API returned 404 / found:false (only used during identify flow)
+     *   'error'     — network/server error
+     *   'content'   — profile successfully loaded
+     */
+    function showPanelState(state) {
+        identifyState.classList.remove('visible');
         stateLoading.classList.remove('visible');
         stateNotFound.classList.remove('visible');
         stateError.classList.remove('visible');
         profileContent.classList.remove('visible');
-        if (state === 'loading')  stateLoading.classList.add('visible');
-        if (state === 'notfound') stateNotFound.classList.add('visible');
-        if (state === 'error')    stateError.classList.add('visible');
-        if (state === 'content')  profileContent.classList.add('visible');
+
+        if (state === 'identify')  identifyState.classList.add('visible');
+        if (state === 'loading')   stateLoading.classList.add('visible');
+        if (state === 'notfound')  stateNotFound.classList.add('visible');
+        if (state === 'error')     stateError.classList.add('visible');
+        if (state === 'content')   profileContent.classList.add('visible');
     }
 
+    /* ── Profile rendering ─────────────────────────────────────────────────── */
     function renderStrikes(count) {
         var html = '';
         for (var i = 0; i < 3; i++) {
@@ -746,17 +876,13 @@
     }
 
     function renderProfile(data) {
-        /* Header title */
         drawerTitle.textContent = data.username;
 
-        /* Skin */
         skinImg.src = 'https://crafatar.com/renders/body/' + encodeURIComponent(data.player_uuid) + '?overlay';
         skinImg.alt = data.username + ' Minecraft skin';
 
-        /* MC username */
         mcUsername.textContent = data.username;
 
-        /* Whitelist status badge */
         statusBadge.className = 'profile-status-badge';
         if (data.approved) {
             statusBadge.classList.add('profile-status-badge--whitelisted');
@@ -766,7 +892,6 @@
             statusBadge.textContent = 'Pending';
         }
 
-        /* Discord */
         discordRow.innerHTML = '';
         if (data.discord_username) {
             if (data.discord_avatar_url) {
@@ -792,10 +917,8 @@
             discordRow.appendChild(unlinked);
         }
 
-        /* Strikes */
         renderStrikes(data.strikes || 0);
-
-        showState('content');
+        showPanelState('content');
     }
 
     function makeDiscordPlaceholder() {
@@ -806,49 +929,117 @@
         return div;
     }
 
-    function lookupPlayer() {
-        var username = searchInput.value.trim();
-        if (!username) {
-            searchInput.focus();
-            return;
-        }
-
-        drawerTitle.textContent = 'Player Profile';
-        showState('loading');
-        openDrawer();
-
+    /* ── API fetch ─────────────────────────────────────────────────────────── */
+    function fetchProfile(username, onSuccess, onNotFound, onError) {
         fetch('/api/user/' + encodeURIComponent(username))
             .then(function (res) {
                 if (res.status === 404) {
-                    return res.json().then(function () {
-                        notFoundMsg.textContent = '\u201c' + username + '\u201d was not found.';
-                        showState('notfound');
-                    });
+                    return res.json().then(function () { onNotFound(); });
                 }
-                if (!res.ok) {
-                    showState('error');
-                    return;
-                }
+                if (!res.ok) { onError(); return; }
                 return res.json().then(function (data) {
                     if (data.found) {
-                        renderProfile(data);
+                        onSuccess(data);
                     } else {
-                        notFoundMsg.textContent = '\u201c' + username + '\u201d was not found.';
-                        showState('notfound');
+                        onNotFound();
                     }
                 });
             })
-            .catch(function () {
-                showState('error');
-            });
+            .catch(function () { onError(); });
     }
 
-    /* Event listeners */
-    searchBtn.addEventListener('click', lookupPlayer);
+    /* ── Identity flow ─────────────────────────────────────────────────────── */
+    function submitIdentify() {
+        var username = identifyInput.value.trim();
+        if (!username) {
+            identifyInput.focus();
+            return;
+        }
 
-    searchInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') lookupPlayer();
+        identifyError.classList.remove('visible');
+        identifyBtn.disabled = true;
+        showPanelState('loading');
+
+        fetchProfile(
+            username,
+            function (data) {
+                /* Found — persist and show profile */
+                localStorage.setItem(LS_KEY, data.username);
+                identifyBtn.disabled = false;
+                renderProfile(data);
+            },
+            function () {
+                /* Not found — back to identify form with error */
+                identifyBtn.disabled = false;
+                showPanelState('identify');
+                identifyError.classList.add('visible');
+                identifyInput.focus();
+            },
+            function () {
+                identifyBtn.disabled = false;
+                showPanelState('error');
+            }
+        );
+    }
+
+    /* ── Load stored profile on open ───────────────────────────────────────── */
+    function loadStoredProfile() {
+        var stored = localStorage.getItem(LS_KEY);
+        if (!stored) {
+            drawerTitle.textContent = 'Your Profile';
+            identifyInput.value = '';
+            identifyError.classList.remove('visible');
+            showPanelState('identify');
+            return;
+        }
+
+        drawerTitle.textContent = stored;
+        showPanelState('loading');
+
+        fetchProfile(
+            stored,
+            function (data) { renderProfile(data); },
+            function () {
+                /* Stored username no longer on whitelist — clear and re-identify */
+                localStorage.removeItem(LS_KEY);
+                drawerTitle.textContent = 'Your Profile';
+                identifyInput.value = '';
+                identifyError.classList.remove('visible');
+                showPanelState('identify');
+            },
+            function () { showPanelState('error'); }
+        );
+    }
+
+    /* ── "Not you?" ────────────────────────────────────────────────────────── */
+    function clearIdentity() {
+        localStorage.removeItem(LS_KEY);
+        drawerTitle.textContent = 'Your Profile';
+        identifyInput.value = '';
+        identifyError.classList.remove('visible');
+        showPanelState('identify');
+        identifyInput.focus();
+    }
+
+    /* ── Event listeners ───────────────────────────────────────────────────── */
+    pullTab.addEventListener('click', function () {
+        if (!drawer.classList.contains('active')) {
+            loadStoredProfile();
+            openDrawer();
+        } else {
+            closeDrawer();
+        }
     });
+
+    identifyBtn.addEventListener('click', submitIdentify);
+
+    identifyInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') submitIdentify();
+        /* Clear inline error as soon as the user types again */
+        if (e.key !== 'Enter') identifyError.classList.remove('visible');
+    });
+
+    notYouBtn.addEventListener('click', clearIdentity);
 
     closeBtn.addEventListener('click', closeDrawer);
     overlay.addEventListener('click', closeDrawer);
@@ -863,21 +1054,17 @@
     drawer.addEventListener('keydown', function (e) {
         if (e.key !== 'Tab') return;
         var focusable = Array.from(drawer.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )).filter(function (el) { return !el.disabled; });
+            'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
+        )).filter(function (el) {
+            return el.offsetParent !== null; /* only visible elements */
+        });
         if (!focusable.length) return;
         var first = focusable[0];
         var last  = focusable[focusable.length - 1];
         if (e.shiftKey) {
-            if (document.activeElement === first) {
-                e.preventDefault();
-                last.focus();
-            }
+            if (document.activeElement === first) { e.preventDefault(); last.focus(); }
         } else {
-            if (document.activeElement === last) {
-                e.preventDefault();
-                first.focus();
-            }
+            if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
         }
     });
 }());
