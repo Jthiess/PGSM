@@ -8,7 +8,7 @@
 import os
 
 from flask import (
-    current_app, flash, redirect, render_template,
+    current_app, flash, jsonify, redirect, render_template,
     request, session, url_for,
 )
 from werkzeug.utils import secure_filename
@@ -69,20 +69,79 @@ def _save_pack_icon(file, label: str) -> str | None:
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """Admin login — supports full admin and messages-only access.
+    """Admin login — supports LDAP authentication or password-only fallback.
 
-    POST params:
+    When LDAP_HOST is configured the route uses ldap_service.authenticate()
+    and maps the returned access_level ('admin' | 'messages') to the
+    appropriate session flags.  When LDAP_HOST is absent the legacy
+    password-only path is used unchanged.
+
+    POST params (LDAP mode):
+        username (str): sAMAccountName / AD login name.
+        password (str): User's AD password.
+
+    POST params (legacy mode):
         password (str): Checked against ADMIN_PASSWORD and MESSAGES_PASSWORD.
-        next (query str): URL to redirect to after successful login.
 
-    On full admin match: sets session['admin_auth'] = True, redirects to /admin/panel.
-    On messages match:   sets session['messages_auth'] = True, redirects to /admin/messages.
-    On failure:          flashes error and re-renders login form.
+    Query params:
+        next (str): URL to redirect to after a successful admin login.
+
+    Session side-effects on success:
+        admin_auth (bool):    set for 'admin' access level.
+        messages_auth (bool): set for 'messages' access level.
+        ldap_username (str):  display name stored when LDAP auth is used.
 
     Returns:
         Redirect on success; rendered admin_panel/login.html on GET or failure.
     """
     if request.method == 'POST':
+        # ----------------------------------------------------------
+        # LDAP authentication path
+        # ----------------------------------------------------------
+        if current_app.config.get('LDAP_HOST'):
+            from app.services import ldap_service
+
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+
+            if not username or not password:
+                flash('Username and password are required.', 'error')
+                return render_template('admin_panel/login.html', ldap_enabled=True)
+
+            result = ldap_service.authenticate(username, password)
+
+            if result['success']:
+                level = result['access_level']
+                display = result.get('display_name') or username
+
+                if level == 'admin':
+                    session['admin_auth'] = True
+                    session.pop('messages_auth', None)
+                    session['ldap_username'] = display
+                    next_url = request.args.get('next') or url_for('dashboard.index')
+                    flash(f'Logged in as {display}.', 'success')
+                    return redirect(next_url)
+
+                elif level == 'messages':
+                    session['messages_auth'] = True
+                    session.pop('admin_auth', None)
+                    session['ldap_username'] = display
+                    flash('Logged in with messages access.', 'success')
+                    return redirect(url_for('admin_panel.messages'))
+
+                else:
+                    flash(
+                        'Access denied. Your account does not have the required group membership.',
+                        'error',
+                    )
+            else:
+                flash(result.get('error') or 'Invalid credentials.', 'error')
+
+            return render_template('admin_panel/login.html', ldap_enabled=True)
+
+        # ----------------------------------------------------------
+        # Legacy password-only path (unchanged)
+        # ----------------------------------------------------------
         password = request.form.get('password', '')
         admin_pw = current_app.config.get('ADMIN_PASSWORD', 'admin')
         messages_pw = current_app.config.get('MESSAGES_PASSWORD')
@@ -102,7 +161,8 @@ def login():
 
         flash('Invalid password.', 'error')
 
-    return render_template('admin_panel/login.html')
+    ldap_enabled = bool(current_app.config.get('LDAP_HOST'))
+    return render_template('admin_panel/login.html', ldap_enabled=ldap_enabled)
 
 
 @bp.route('/logout', methods=['POST'])
@@ -114,6 +174,7 @@ def logout():
     """
     session.pop('admin_auth', None)
     session.pop('messages_auth', None)
+    session.pop('ldap_username', None)
     flash('Logged out.', 'success')
     return redirect(url_for('panel.index'))
 
@@ -554,3 +615,53 @@ def archived_server_delete(id: int):
     except Exception as exc:
         flash(f'Failed to delete archived server: {exc}', 'error')
     return redirect(url_for('admin_panel.archived_servers'))
+
+
+# ------------------------------------------------------------
+# LDAP testing
+# ------------------------------------------------------------
+
+@bp.route('/ldap-test')
+@require_admin
+def ldap_test():
+    """LDAP user lookup testing page. Admin only.
+
+    Renders a form that lets an admin query any username against the
+    configured LDAP server and inspect the returned attributes,
+    group memberships, and resolved access level — without needing
+    to know the user's password.
+
+    Returns:
+        Rendered admin_panel/ldap_test.html with ldap_enabled context var.
+    """
+    ldap_enabled = bool(current_app.config.get('LDAP_HOST'))
+    return render_template('admin_panel/ldap_test.html', ldap_enabled=ldap_enabled)
+
+
+@bp.route('/api/ldap-test/query', methods=['POST'])
+@require_admin
+def ldap_test_query():
+    """AJAX endpoint: query a user from LDAP and return their info as JSON.
+
+    Accepts a JSON body with a 'username' key. Calls ldap_service.query_user()
+    and returns the result directly. No user password required; the service
+    account is used for the lookup.
+
+    Request body (JSON):
+        username (str): sAMAccountName to look up.
+
+    Returns:
+        JSON response from ldap_service.query_user(), or an error dict with
+        HTTP 400 if LDAP is not configured or the username is missing.
+    """
+    from app.services import ldap_service
+
+    if not current_app.config.get('LDAP_HOST'):
+        return jsonify({'error': 'LDAP is not configured.'}), 400
+
+    username = (request.json or {}).get('username', '').strip()
+    if not username:
+        return jsonify({'error': 'Username is required.'}), 400
+
+    result = ldap_service.query_user(username)
+    return jsonify(result)

@@ -45,10 +45,31 @@ class Config:
     )
 
     # ----------------------------------------------------------
-    # Game-Panel: Admin auth
+    # Game-Panel: Admin auth (password fallback)
+    # Used only when LDAP_HOST is not configured.
     # ----------------------------------------------------------
     ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin')
     MESSAGES_PASSWORD = os.getenv('MESSAGES_PASSWORD')
+
+    # ----------------------------------------------------------
+    # LDAP / LDAPS Authentication
+    # Set LDAP_HOST to enable LDAP auth; leave unset to fall back
+    # to password-only login (ADMIN_PASSWORD / MESSAGES_PASSWORD).
+    # ----------------------------------------------------------
+    LDAP_HOST = os.getenv('LDAP_HOST')                          # None = LDAP disabled
+    LDAP_PORT = int(os.getenv('LDAP_PORT', 636))
+    LDAP_USE_SSL = os.getenv('LDAP_USE_SSL', 'true').lower() == 'true'
+    LDAP_TLS_VALIDATE = os.getenv('LDAP_TLS_VALIDATE', 'false').lower() == 'true'  # false = accept self-signed
+    LDAP_CA_CERT_FILE = os.getenv('LDAP_CA_CERT_FILE')         # path to CA bundle, optional
+    LDAP_BIND_DN = os.getenv('LDAP_BIND_DN')                   # service account DN
+    LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD')       # service account password
+    LDAP_BASE_DN = os.getenv('LDAP_BASE_DN')                   # e.g. dc=example,dc=com
+    LDAP_USER_SEARCH_BASE = os.getenv('LDAP_USER_SEARCH_BASE') # e.g. ou=users,dc=example,dc=com
+    LDAP_USER_SEARCH_FILTER = os.getenv('LDAP_USER_SEARCH_FILTER', '(sAMAccountName={username})')
+    LDAP_GROUP_ADMIN = os.getenv('LDAP_GROUP_ADMIN')            # DN of admin group (AL-5)
+    LDAP_GROUP_MESSAGES = os.getenv('LDAP_GROUP_MESSAGES')     # DN of messages group (AL-4)
+    LDAP_ATTR_DISCORD_UUID = os.getenv('LDAP_ATTR_DISCORD_UUID', 'extensionAttribute1')
+    LDAP_ATTR_MINECRAFT_UUID = os.getenv('LDAP_ATTR_MINECRAFT_UUID', 'extensionAttribute2')
 
     # ----------------------------------------------------------
     # Game-Panel: PostgreSQL (public panel DB)

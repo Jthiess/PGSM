@@ -11,10 +11,26 @@
                 <input type="hidden" name="next" value="{{ request.args.get('next') }}">
             {% endif %}
 
-            <div class="form-group">
-                <label class="form-label" for="password">Password</label>
-                <input type="password" id="password" name="password" required autofocus>
-            </div>
+            {% if ldap_enabled %}
+                {# LDAP mode — username + password #}
+                <div class="form-group">
+                    <label class="form-label" for="username">Username</label>
+                    <input type="text" id="username" name="username"
+                           autocomplete="username" required autofocus
+                           value="{{ request.form.get('username', '') }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" name="password"
+                           autocomplete="current-password" required>
+                </div>
+            {% else %}
+                {# Legacy mode — password only #}
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" name="password" required autofocus>
+                </div>
+            {% endif %}
 
             <button type="submit" class="btn btn-primary w-full" style="margin-top: 0.5rem;">Sign in</button>
         </form>

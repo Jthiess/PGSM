@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% block title %}LDAP User Lookup{% endblock %}
+{% block breadcrumb %}<span>›</span> <span>LDAP Test</span>{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-page-header">
+        <h1 class="admin-page-title">LDAP User Lookup</h1>
+    </div>
+
+    {% if not ldap_enabled %}
+    <div class="pub-form-card">
+        <div class="empty-state">
+            <div class="empty-state-icon">⚠</div>
+            <h3>LDAP Not Configured</h3>
+            <p>Set <code>LDAP_HOST</code> in your <code>.env</code> file to enable LDAP authentication.</p>
+        </div>
+    </div>
+    {% else %}
+
+    {# --- Query form --- #}
+    <div class="pub-form-card" style="max-width: 520px; margin-bottom: 1.5rem;">
+        <div class="form-group">
+            <label class="form-label" for="ldap-username">Username (sAMAccountName)</label>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="ldap-username" placeholder="e.g. jsmith"
+                       autocomplete="off" spellcheck="false"
+                       style="flex: 1;">
+                <button id="ldap-query-btn" class="btn btn-primary">Look up</button>
+            </div>
+        </div>
+    </div>
+
+    {# --- Results panel (hidden until a query runs) --- #}
+    <div id="ldap-result-panel" style="display: none;">
+
+        {# -- Not found -- #}
+        <div id="ldap-not-found" class="pub-form-card" style="display: none; max-width: 520px;">
+            <p style="color: var(--danger); margin: 0;">User not found in the directory.</p>
+        </div>
+
+        {# -- Error -- #}
+        <div id="ldap-error-box" class="pub-form-card" style="display: none; max-width: 520px;">
+            <p style="color: var(--danger); margin: 0;">
+                Error: <span id="ldap-error-msg"></span>
+            </p>
+        </div>
+
+        {# -- Success card -- #}
+        <div id="ldap-found-card" style="display: none;">
+            <div class="pub-form-card" style="max-width: 640px; margin-bottom: 1rem;">
+
+                <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-heading);">
+                    <span id="res-display-name"></span>
+                    <small id="res-access-badge" style="margin-left: 0.5rem;"></small>
+                </h3>
+
+                <div class="pub-table-wrap">
+                    <table class="pub-table" style="font-size: 0.875rem;">
+                        <tbody>
+                            <tr>
+                                <td style="width: 160px; color: var(--text-muted);">Username</td>
+                                <td><code id="res-username"></code></td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Email</td>
+                                <td><span id="res-email"></span></td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Distinguished Name</td>
+                                <td><code id="res-dn" style="font-size: 0.78rem; word-break: break-all;"></code></td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Discord UUID</td>
+                                <td><span id="res-discord"></span></td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Minecraft UUID</td>
+                                <td><span id="res-minecraft"></span></td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Access Level</td>
+                                <td><span id="res-access"></span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {# -- Group memberships -- #}
+                <div style="margin-top: 1rem;">
+                    <div style="font-weight: 600; margin-bottom: 0.4rem; color: var(--text-heading);">
+                        Direct Group Memberships
+                    </div>
+                    <div id="res-groups-list"></div>
+                </div>
+            </div>
+
+            {# -- Raw attributes (collapsed by default) -- #}
+            <div class="pub-form-card" style="max-width: 640px;">
+                <details>
+                    <summary style="cursor: pointer; font-weight: 600; color: var(--text-heading);">
+                        Raw LDAP Attributes
+                    </summary>
+                    <pre id="res-raw-attrs"
+                         style="margin-top: 0.75rem; font-size: 0.78rem; overflow-x: auto;
+                                background: var(--bg-card); padding: 0.75rem; border-radius: 6px;
+                                white-space: pre-wrap; word-break: break-all;"></pre>
+                </details>
+            </div>
+        </div>
+        {# end #ldap-found-card #}
+
+    </div>
+    {# end #ldap-result-panel #}
+
+    {% endif %}
+</div>
+
+
+{% if ldap_enabled %}
+<script>
+(function () {
+    'use strict';
+
+    const btn       = document.getElementById('ldap-query-btn');
+    const input     = document.getElementById('ldap-username');
+    const panel     = document.getElementById('ldap-result-panel');
+    const notFound  = document.getElementById('ldap-not-found');
+    const errorBox  = document.getElementById('ldap-error-box');
+    const foundCard = document.getElementById('ldap-found-card');
+
+    // Helper: show only one result sub-panel
+    function showPanel(which) {
+        [notFound, errorBox, foundCard].forEach(el => el.style.display = 'none');
+        panel.style.display = 'block';
+        which.style.display = '';
+    }
+
+    // Helper: render a badge for the access level
+    function accessBadge(level) {
+        if (level === 'admin') {
+            return '<span class="badge badge-running">Admin</span>';
+        }
+        if (level === 'messages') {
+            return '<span class="badge badge-creating">Messages</span>';
+        }
+        return '<span class="badge badge-stopped">No Access</span>';
+    }
+
+    // Populate the found card with API result data
+    function renderFound(data) {
+        document.getElementById('res-display-name').textContent =
+            data.display_name || data.username || '—';
+        document.getElementById('res-access-badge').innerHTML = accessBadge(data.access_level);
+        document.getElementById('res-username').textContent   = data.username || '—';
+        document.getElementById('res-email').textContent      = data.email || '—';
+        document.getElementById('res-dn').textContent         = data.dn || '—';
+        document.getElementById('res-discord').textContent    = data.discord_uuid || '—';
+        document.getElementById('res-minecraft').textContent  = data.minecraft_uuid || '—';
+        document.getElementById('res-access').innerHTML       = accessBadge(data.access_level);
+
+        // Groups
+        const groupsEl = document.getElementById('res-groups-list');
+        if (data.groups && data.groups.length > 0) {
+            groupsEl.innerHTML = data.groups
+                .map(g => `<span class="badge badge-creating" style="margin-right: 0.3rem; margin-bottom: 0.3rem;">${g}</span>`)
+                .join('');
+        } else {
+            groupsEl.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">No groups returned</span>';
+        }
+
+        // Raw attributes
+        document.getElementById('res-raw-attrs').textContent =
+            JSON.stringify(data.raw_attributes || {}, null, 2);
+
+        showPanel(foundCard);
+    }
+
+    async function runQuery() {
+        const username = input.value.trim();
+        if (!username) {
+            input.focus();
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Querying…';
+
+        try {
+            const resp = await fetch('{{ url_for("admin_panel.ldap_test_query") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username }),
+            });
+
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                document.getElementById('ldap-error-msg').textContent =
+                    data.error || `HTTP ${resp.status}`;
+                showPanel(errorBox);
+                return;
+            }
+
+            if (data.error) {
+                document.getElementById('ldap-error-msg').textContent = data.error;
+                showPanel(errorBox);
+                return;
+            }
+
+            if (!data.found) {
+                showPanel(notFound);
+                return;
+            }
+
+            renderFound(data);
+
+        } catch (err) {
+            document.getElementById('ldap-error-msg').textContent = err.message;
+            showPanel(errorBox);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Look up';
+        }
+    }
+
+    btn.addEventListener('click', runQuery);
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') runQuery();
+    });
+}());
+</script>
+{% endif %}
+
+{% endblock %}

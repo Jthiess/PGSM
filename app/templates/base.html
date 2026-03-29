@@ -81,6 +81,15 @@
                 </a>
             </div>
 
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Settings</div>
+                <a href="{{ url_for('admin_panel.ldap_test') }}"
+                   class="sidebar-link {% if request.endpoint == 'admin_panel.ldap_test' %}active{% endif %}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
+                    <span class="sidebar-link-label">LDAP Test</span>
+                </a>
+            </div>
+
         </nav>
 
         <!-- Footer -->
