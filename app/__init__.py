@@ -1,7 +1,11 @@
 import os
 from flask import Flask
+from authlib.integrations.flask_client import OAuth
 from app.extensions import db, socketio
 from app.config import Config
+
+# Module-level OAuth instance; registered routes use oauth.authentik.*
+oauth = OAuth()
 
 
 def create_app(config_class=Config):
@@ -17,6 +21,19 @@ def create_app(config_class=Config):
     # Init extensions
     db.init_app(app)
     socketio.init_app(app, async_mode='eventlet', cors_allowed_origins='*')
+
+    # Init OAuth (Authentik OIDC)
+    oauth.init_app(app)
+    if app.config.get('AUTHENTIK_CLIENT_ID'):
+        _slug = app.config.get('AUTHENTIK_APP_SLUG', 'pgsm')
+        _base = (app.config.get('AUTHENTIK_SERVER_URL') or '').rstrip('/')
+        oauth.register(
+            name='authentik',
+            client_id=app.config['AUTHENTIK_CLIENT_ID'],
+            client_secret=app.config['AUTHENTIK_CLIENT_SECRET'],
+            server_metadata_url=f'{_base}/application/o/{_slug}/.well-known/openid-configuration',
+            client_kwargs={'scope': 'openid profile email'},
+        )
 
     # Register PGSM management blueprints (all require admin auth)
     from app.blueprints.dashboard import bp as dashboard_bp

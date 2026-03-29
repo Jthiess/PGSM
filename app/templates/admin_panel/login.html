@@ -6,34 +6,47 @@
     <div class="wl-card">
         <h1 class="wl-card-title">Admin Login</h1>
 
-        <form method="post" action="{{ url_for('admin_panel.login') }}">
-            {% if request.args.get('next') %}
-                <input type="hidden" name="next" value="{{ request.args.get('next') }}">
-            {% endif %}
+        {% if authentik_enabled %}
+            {# Authentik OIDC mode — redirect to provider #}
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                <a href="{{ url_for('admin_panel.authentik_authorize') }}{% if request.args.get('next') %}?next={{ request.args.get('next') }}{% endif %}"
+                   class="btn btn-primary w-full" style="text-align: center; text-decoration: none;">
+                    Sign in with Authentik
+                </a>
+                <p style="margin: 0; text-align: center; font-size: 0.875rem; color: var(--color-text-muted);">
+                    Use your organization account
+                </p>
+            </div>
+        {% else %}
+            <form method="post" action="{{ url_for('admin_panel.login') }}">
+                {% if request.args.get('next') %}
+                    <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+                {% endif %}
 
-            {% if ldap_enabled %}
-                {# LDAP mode — username + password #}
-                <div class="form-group">
-                    <label class="form-label" for="username">Username</label>
-                    <input type="text" id="username" name="username"
-                           autocomplete="username" required autofocus
-                           value="{{ request.form.get('username', '') }}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="password">Password</label>
-                    <input type="password" id="password" name="password"
-                           autocomplete="current-password" required>
-                </div>
-            {% else %}
-                {# Legacy mode — password only #}
-                <div class="form-group">
-                    <label class="form-label" for="password">Password</label>
-                    <input type="password" id="password" name="password" required autofocus>
-                </div>
-            {% endif %}
+                {% if ldap_enabled %}
+                    {# LDAP mode — username + password #}
+                    <div class="form-group">
+                        <label class="form-label" for="username">Username</label>
+                        <input type="text" id="username" name="username"
+                               autocomplete="username" required autofocus
+                               value="{{ request.form.get('username', '') }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="password">Password</label>
+                        <input type="password" id="password" name="password"
+                               autocomplete="current-password" required>
+                    </div>
+                {% else %}
+                    {# Legacy mode — password only #}
+                    <div class="form-group">
+                        <label class="form-label" for="password">Password</label>
+                        <input type="password" id="password" name="password" required autofocus>
+                    </div>
+                {% endif %}
 
-            <button type="submit" class="btn btn-primary w-full" style="margin-top: 0.5rem;">Sign in</button>
-        </form>
+                <button type="submit" class="btn btn-primary w-full" style="margin-top: 0.5rem;">Sign in</button>
+            </form>
+        {% endif %}
 
         <div class="nav-links-row">
             <a href="{{ url_for('panel.index') }}">Back to site</a>

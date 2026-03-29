@@ -18,7 +18,7 @@
     <aside class="sidebar" id="sidebar" aria-label="Main navigation">
 
         <!-- Brand -->
-        <a class="sidebar-brand" href="{{ url_for('dashboard.index') }}">
+        <a class="sidebar-brand" href="{% if session.get('admin_auth') %}{{ url_for('dashboard.index') }}{% else %}{{ url_for('admin_panel.messages') }}{% endif %}">
             <div class="sidebar-brand-icon">PS</div>
             <div>
                 <div class="sidebar-brand-name">PGSM</div>
@@ -29,6 +29,7 @@
         <!-- Nav -->
         <nav class="sidebar-nav" aria-label="Primary">
 
+            {% if session.get('admin_auth') %}
             <div class="sidebar-section">
                 <div class="sidebar-section-label">Manage</div>
                 <a href="{{ url_for('dashboard.index') }}"
@@ -47,6 +48,7 @@
                     <span class="sidebar-link-label">New Server</span>
                 </a>
             </div>
+            {% endif %}
 
             <div class="sidebar-section">
                 <div class="sidebar-section-label">Public Site</div>
@@ -60,6 +62,7 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                     <span class="sidebar-link-label">Rules</span>
                 </a>
+                {% if session.get('admin_auth') %}
                 <a href="{{ url_for('admin_panel.servers') }}"
                    class="sidebar-link {% if request.endpoint in ['admin_panel.servers', 'admin_panel.server_new', 'admin_panel.server_edit'] %}active{% endif %}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
@@ -79,8 +82,10 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     <span class="sidebar-link-label">Public Site</span>
                 </a>
+                {% endif %}
             </div>
 
+            {% if session.get('admin_auth') %}
             <div class="sidebar-section">
                 <div class="sidebar-section-label">Settings</div>
                 <a href="{{ url_for('admin_panel.ldap_test') }}"
@@ -89,6 +94,7 @@
                     <span class="sidebar-link-label">LDAP Test</span>
                 </a>
             </div>
+            {% endif %}
 
         </nav>
 
@@ -152,7 +158,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <nav class="topbar-breadcrumb" aria-label="Breadcrumb">
-                <a href="{{ url_for('dashboard.index') }}">PGSM</a>
+                <a href="{% if session.get('admin_auth') %}{{ url_for('dashboard.index') }}{% else %}{{ url_for('admin_panel.messages') }}{% endif %}">PGSM</a>
                 {% block breadcrumb %}{% endblock %}
             </nav>
             <div class="topbar-actions">

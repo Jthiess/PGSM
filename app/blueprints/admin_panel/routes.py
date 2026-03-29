@@ -13,6 +13,7 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+from app import oauth
 from app.auth import is_admin, require_admin, require_messages_access
 from app.blueprints.admin_panel import bp
 from app.services import panel_db
@@ -69,36 +70,31 @@ def _save_pack_icon(file, label: str) -> str | None:
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """Admin login — supports LDAP authentication or password-only fallback.
+    """Admin login.
 
-    When LDAP_HOST is configured the route uses ldap_service.authenticate()
-    and maps the returned access_level ('admin' | 'messages') to the
-    appropriate session flags.  When LDAP_HOST is absent the legacy
-    password-only path is used unchanged.
-
-    POST params (LDAP mode):
-        username (str): sAMAccountName / AD login name.
-        password (str): User's AD password.
-
-    POST params (legacy mode):
-        password (str): Checked against ADMIN_PASSWORD and MESSAGES_PASSWORD.
-
-    Query params:
-        next (str): URL to redirect to after a successful admin login.
+    - Authentik mode (AUTHENTIK_CLIENT_ID set): renders a page with a
+      "Login with Authentik" button; POST is not used in this mode.
+    - LDAP mode (LDAP_HOST set, no Authentik): username + password form.
+    - Legacy mode (neither): password-only form.
 
     Session side-effects on success:
         admin_auth (bool):    set for 'admin' access level.
         messages_auth (bool): set for 'messages' access level.
-        ldap_username (str):  display name stored when LDAP auth is used.
-
-    Returns:
-        Redirect on success; rendered admin_panel/login.html on GET or failure.
+        ldap_username (str):  display name.
     """
+    authentik_enabled = bool(current_app.config.get('AUTHENTIK_CLIENT_ID'))
+    ldap_enabled = bool(current_app.config.get('LDAP_HOST'))
+
     if request.method == 'POST':
+        # In Authentik mode there is no POST form — redirect to authorize instead
+        if authentik_enabled:
+            return redirect(url_for('admin_panel.authentik_authorize',
+                                    next=request.args.get('next', '')))
+
         # ----------------------------------------------------------
         # LDAP authentication path
         # ----------------------------------------------------------
-        if current_app.config.get('LDAP_HOST'):
+        if ldap_enabled:
             from app.services import ldap_service
 
             username = request.form.get('username', '').strip()
@@ -106,7 +102,8 @@ def login():
 
             if not username or not password:
                 flash('Username and password are required.', 'error')
-                return render_template('admin_panel/login.html', ldap_enabled=True)
+                return render_template('admin_panel/login.html',
+                                       authentik_enabled=False, ldap_enabled=True)
 
             result = ldap_service.authenticate(username, password)
 
@@ -137,10 +134,11 @@ def login():
             else:
                 flash(result.get('error') or 'Invalid credentials.', 'error')
 
-            return render_template('admin_panel/login.html', ldap_enabled=True)
+            return render_template('admin_panel/login.html',
+                                   authentik_enabled=False, ldap_enabled=True)
 
         # ----------------------------------------------------------
-        # Legacy password-only path (unchanged)
+        # Legacy password-only path
         # ----------------------------------------------------------
         password = request.form.get('password', '')
         admin_pw = current_app.config.get('ADMIN_PASSWORD', 'admin')
@@ -161,8 +159,9 @@ def login():
 
         flash('Invalid password.', 'error')
 
-    ldap_enabled = bool(current_app.config.get('LDAP_HOST'))
-    return render_template('admin_panel/login.html', ldap_enabled=ldap_enabled)
+    return render_template('admin_panel/login.html',
+                           authentik_enabled=authentik_enabled,
+                           ldap_enabled=ldap_enabled)
 
 
 @bp.route('/logout', methods=['POST'])
@@ -177,6 +176,111 @@ def logout():
     session.pop('ldap_username', None)
     flash('Logged out.', 'success')
     return redirect(url_for('panel.index'))
+
+
+# ------------------------------------------------------------
+# Authentik OIDC routes
+# ------------------------------------------------------------
+
+@bp.route('/authentik/authorize')
+def authentik_authorize():
+    """Redirect the user to Authentik for OIDC authentication.
+
+    Stores the post-login redirect target in the session so it survives
+    the OAuth round-trip. Only available when AUTHENTIK_CLIENT_ID is set.
+    """
+    if not current_app.config.get('AUTHENTIK_CLIENT_ID'):
+        flash('Authentik is not configured.', 'error')
+        return redirect(url_for('admin_panel.login'))
+
+    next_url = request.args.get('next', '')
+    if next_url:
+        session['oauth_next'] = next_url
+
+    redirect_uri = url_for('admin_panel.authentik_callback', _external=True)
+    return oauth.authentik.authorize_redirect(redirect_uri)
+
+
+@bp.route('/authentik/callback')
+def authentik_callback():
+    """Handle the OIDC callback from Authentik.
+
+    Exchanges the authorization code for tokens, extracts the username
+    from the ID token, then queries AD (if LDAP_HOST is set) for group
+    membership to determine the access level.  Falls back to checking
+    the 'groups' claim in the token when AD is not configured.
+
+    Session side-effects on success:
+        admin_auth (bool):    set for 'admin' access level.
+        messages_auth (bool): set for 'messages' access level.
+        ldap_username (str):  display name from AD or OIDC token.
+    """
+    if not current_app.config.get('AUTHENTIK_CLIENT_ID'):
+        flash('Authentik is not configured.', 'error')
+        return redirect(url_for('admin_panel.login'))
+
+    try:
+        token = oauth.authentik.authorize_access_token()
+    except Exception as exc:
+        current_app.logger.warning('Authentik callback error: %s', exc)
+        flash('Authentication failed. Please try again.', 'error')
+        return redirect(url_for('admin_panel.login'))
+
+    userinfo = token.get('userinfo') or {}
+    username = userinfo.get('preferred_username') or userinfo.get('sub', '')
+    display_name = userinfo.get('name') or userinfo.get('preferred_username') or username
+
+    if not username:
+        flash('Could not determine username from Authentik token.', 'error')
+        return redirect(url_for('admin_panel.login'))
+
+    # --- Determine access level ---
+    access_level = None
+
+    if current_app.config.get('LDAP_HOST'):
+        # Query AD with service account to get group membership
+        from app.services import ldap_service
+        result = ldap_service.query_user(username)
+        if result.get('found'):
+            access_level = result.get('access_level')
+            display_name = result.get('display_name') or display_name
+        else:
+            current_app.logger.warning(
+                'Authentik callback: user %s authenticated but not found in AD', username
+            )
+            flash('Your account was not found in the directory.', 'error')
+            return redirect(url_for('admin_panel.login'))
+    else:
+        # No AD — check groups claim in OIDC token
+        token_groups = userinfo.get('groups') or token.get('groups') or []
+        admin_group = current_app.config.get('LDAP_GROUP_ADMIN', '')
+        messages_group = current_app.config.get('LDAP_GROUP_MESSAGES', '')
+        if admin_group and admin_group in token_groups:
+            access_level = 'admin'
+        elif messages_group and messages_group in token_groups:
+            access_level = 'messages'
+
+    next_url = session.pop('oauth_next', None)
+
+    if access_level == 'admin':
+        session['admin_auth'] = True
+        session.pop('messages_auth', None)
+        session['ldap_username'] = display_name
+        flash(f'Logged in as {display_name}.', 'success')
+        return redirect(next_url or url_for('dashboard.index'))
+
+    if access_level == 'messages':
+        session['messages_auth'] = True
+        session.pop('admin_auth', None)
+        session['ldap_username'] = display_name
+        flash('Logged in with messages access.', 'success')
+        return redirect(url_for('admin_panel.messages'))
+
+    flash(
+        'Access denied. Your account does not have the required group membership.',
+        'error',
+    )
+    return redirect(url_for('admin_panel.login'))
 
 
 # ------------------------------------------------------------

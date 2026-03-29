@@ -28,3 +28,6 @@ markdown>=3.4.0
 
 # LDAP / LDAPS authentication
 ldap3>=2.9.1
+
+# Authentik OIDC / OAuth2 authentication
+authlib>=1.3.0

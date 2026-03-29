@@ -72,6 +72,19 @@ class Config:
     LDAP_ATTR_MINECRAFT_UUID = os.getenv('LDAP_ATTR_MINECRAFT_UUID', 'extensionAttribute2')
 
     # ----------------------------------------------------------
+    # Authentik OIDC Authentication
+    # Set AUTHENTIK_CLIENT_ID to enable Authentik login.
+    # When set, replaces direct LDAP login; LDAP is still used
+    # for AD group lookup (query_user) if LDAP_HOST is set.
+    # AUTHENTIK_APP_SLUG: the Authentik application slug (used
+    # to build the OIDC metadata URL).
+    # ----------------------------------------------------------
+    AUTHENTIK_CLIENT_ID = os.getenv('AUTHENTIK_CLIENT_ID')
+    AUTHENTIK_CLIENT_SECRET = os.getenv('AUTHENTIK_CLIENT_SECRET')
+    AUTHENTIK_SERVER_URL = os.getenv('AUTHENTIK_SERVER_URL')   # e.g. https://auth.example.com
+    AUTHENTIK_APP_SLUG = os.getenv('AUTHENTIK_APP_SLUG', 'pgsm')
+
+    # ----------------------------------------------------------
     # Game-Panel: PostgreSQL (public panel DB)
     # ----------------------------------------------------------
     PANEL_DB_HOST = os.getenv('DB_HOST', 'localhost')
