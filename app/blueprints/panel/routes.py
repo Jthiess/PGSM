@@ -44,11 +44,20 @@ def index():
     if minecraft_uuid:
         entry = panel_db.get_whitelist_entry_by_uuid(minecraft_uuid)
         if entry:
+            avatar_url = entry.get('discord_avatar_url')
+            # If the avatar URL was never stored, try to fetch it now and cache it
+            if not avatar_url and entry.get('discord_username'):
+                _, fetched_url = panel_db.check_discord_guild_membership(
+                    entry['discord_username']
+                )
+                if fetched_url:
+                    panel_db.update_discord_avatar_url(entry['id'], fetched_url)
+                    avatar_url = fetched_url
             current_user_profile = {
                 'username': entry['username'],
                 'player_uuid': entry['player_uuid'],
                 'discord_username': entry['discord_username'],
-                'discord_avatar_url': entry.get('discord_avatar_url'),
+                'discord_avatar_url': avatar_url,
                 'approved': entry['approved'],
                 'strikes': entry.get('strikes', 0),
             }

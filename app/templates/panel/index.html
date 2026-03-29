@@ -221,21 +221,23 @@
 .profile-skin {
     flex-shrink: 0;
     width: 120px;
-    height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
+    padding: 0.75rem 0;
 }
 
-.minecraft-skin-canvas {
+.minecraft-skin-render {
     display: block;
+    transform: scaleX(-1);
 }
 
 .minecraft-skin-render-fallback {
     image-rendering: pixelated;
     width: 80px;
     display: block;
+    transform: scaleX(-1);
 }
 
 .profile-identity-info {

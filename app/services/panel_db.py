@@ -1483,9 +1483,35 @@ def check_discord_guild_membership(discord_username: str) -> tuple:
                 avatar_url = (
                     f'https://cdn.discordapp.com/avatars/{user_id}/{user_avatar}.png'
                 )
+            elif user_id:
+                # User has no custom avatar — use Discord's deterministic default
+                disc = (user.get('discriminator') or '').strip()
+                if disc and disc not in ('0', '0000'):
+                    idx = int(disc) % 5
+                else:
+                    idx = (int(user_id) >> 22) % 6
+                avatar_url = f'https://cdn.discordapp.com/embed/avatars/{idx}.png'
             return True, avatar_url
 
     return False, None
+
+
+def update_discord_avatar_url(entry_id: int, avatar_url: str) -> None:
+    """Persist a refreshed Discord avatar URL for a whitelist entry."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE whitelist SET discord_avatar_url = %s WHERE id = %s",
+                (avatar_url, entry_id),
+            )
+        conn.commit()
+    except Exception:
+        log.exception("panel_db.update_discord_avatar_url: failed for entry_id=%s", entry_id)
+    finally:
+        if conn:
+            conn.close()
 
 
 # ============================================================
