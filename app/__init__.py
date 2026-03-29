@@ -82,6 +82,7 @@ def create_app(config_class=Config):
 
     app.jinja_env.globals['card_image_path'] = lambda game: _resolve_static_image('cards', game)
     app.jinja_env.globals['header_image_path'] = lambda game: _resolve_static_image('headers', game)
+    app.jinja_env.globals['authentik_enabled'] = bool(app.config.get('AUTHENTIK_CLIENT_ID'))
 
     # Start background scheduler for panel jobs
     _start_scheduler(app)

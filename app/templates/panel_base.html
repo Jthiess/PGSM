@@ -40,6 +40,10 @@
                    {% if request.blueprint == 'whitelist_panel' %}class="active" aria-current="page"{% endif %}>Whitelist</a></li>
             {% if session.get('admin_auth') %}
             <li><a href="{{ url_for('dashboard.index') }}" class="panel-nav-btn">Admin</a></li>
+            {% elif session.get('messages_auth') %}
+            <li><a href="{{ url_for('admin_panel.messages') }}" class="panel-nav-btn">Panel</a></li>
+            {% else %}
+            <li><a href="{{ url_for('admin_panel.authentik_authorize') if authentik_enabled else url_for('admin_panel.login') }}" class="panel-nav-btn">Login</a></li>
             {% endif %}
         </ul>
 
@@ -114,6 +118,10 @@
             </a></li>
             {% if session.get('admin_auth') %}
             <li><a href="{{ url_for('dashboard.index') }}" onclick="closeMobileNav()">Admin</a></li>
+            {% elif session.get('messages_auth') %}
+            <li><a href="{{ url_for('admin_panel.messages') }}" onclick="closeMobileNav()">Panel</a></li>
+            {% else %}
+            <li><a href="{{ url_for('admin_panel.authentik_authorize') if authentik_enabled else url_for('admin_panel.login') }}" onclick="closeMobileNav()">Login</a></li>
             {% endif %}
         </ul>
     </nav>

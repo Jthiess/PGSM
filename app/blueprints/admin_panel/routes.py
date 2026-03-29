@@ -6,6 +6,7 @@
 # ============================================================
 
 import os
+from urllib.parse import urlencode
 
 from flask import (
     current_app, flash, jsonify, redirect, render_template,
@@ -168,12 +169,26 @@ def login():
 def logout():
     """Clear all auth session flags and redirect to homepage.
 
+    When Authentik is configured, also performs OIDC RP-initiated logout by
+    redirecting to the Authentik end-session endpoint with the stored id_token_hint.
+
     Returns:
-        Redirect to /.
+        Redirect to Authentik end-session (then back to /) or directly to /.
     """
+    id_token = session.pop('authentik_id_token', None)
     session.pop('admin_auth', None)
     session.pop('messages_auth', None)
     session.pop('ldap_username', None)
+
+    if current_app.config.get('AUTHENTIK_CLIENT_ID'):
+        server_url = (current_app.config.get('AUTHENTIK_SERVER_URL') or '').rstrip('/')
+        slug = current_app.config.get('AUTHENTIK_APP_SLUG', 'pgsm')
+        params = {'post_logout_redirect_uri': url_for('panel.index', _external=True)}
+        if id_token:
+            params['id_token_hint'] = id_token
+        end_session_url = f'{server_url}/application/o/{slug}/end-session/?{urlencode(params)}'
+        return redirect(end_session_url)
+
     flash('Logged out.', 'success')
     return redirect(url_for('panel.index'))
 
@@ -225,6 +240,10 @@ def authentik_callback():
         current_app.logger.warning('Authentik callback error: %s', exc)
         flash('Authentication failed. Please try again.', 'error')
         return redirect(url_for('admin_panel.login'))
+
+    # Store id_token so logout can pass it as id_token_hint to Authentik
+    if token.get('id_token'):
+        session['authentik_id_token'] = token['id_token']
 
     userinfo = token.get('userinfo') or {}
     username = userinfo.get('preferred_username') or userinfo.get('sub', '')
