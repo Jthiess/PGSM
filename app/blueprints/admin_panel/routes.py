@@ -86,6 +86,11 @@ def login():
     authentik_enabled = bool(current_app.config.get('AUTHENTIK_CLIENT_ID'))
     ldap_enabled = bool(current_app.config.get('LDAP_HOST'))
 
+    # Skip the intermediate login page when Authentik is configured
+    if authentik_enabled:
+        return redirect(url_for('admin_panel.authentik_authorize',
+                                next=request.args.get('next', '')))
+
     if request.method == 'POST':
         # In Authentik mode there is no POST form — redirect to authorize instead
         if authentik_enabled:
@@ -127,7 +132,7 @@ def login():
                     session['ldap_username'] = display
                     session['minecraft_uuid'] = result.get('minecraft_uuid')
                     flash('Logged in with messages access.', 'success')
-                    return redirect(url_for('admin_panel.messages'))
+                    return redirect(request.args.get('next') or url_for('panel.index'))
 
                 else:
                     flash(
@@ -158,7 +163,7 @@ def login():
             session['messages_auth'] = True
             session.pop('admin_auth', None)
             flash('Logged in with messages access.', 'success')
-            return redirect(url_for('admin_panel.messages'))
+            return redirect(request.args.get('next') or url_for('panel.index'))
 
         flash('Invalid password.', 'error')
 
@@ -290,7 +295,7 @@ def authentik_callback():
         session['ldap_username'] = display_name
         session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
         flash(f'Logged in as {display_name}.', 'success')
-        return redirect(next_url or url_for('dashboard.index'))
+        return redirect(next_url or url_for('panel.index'))
 
     if access_level == 'messages':
         session['messages_auth'] = True
@@ -298,7 +303,7 @@ def authentik_callback():
         session['ldap_username'] = display_name
         session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
         flash('Logged in with messages access.', 'success')
-        return redirect(url_for('admin_panel.messages'))
+        return redirect(next_url or url_for('panel.index'))
 
     flash(
         'Access denied. Your account does not have the required group membership.',
