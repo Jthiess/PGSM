@@ -237,7 +237,7 @@
                                 {{ 'Revoke' if entry['approved'] else 'Approve' }}
                             </button>
                         </form>
-                        <form class="inline" action="{{ url_for('whitelist_panel.strike', id=entry['id']) }}" method="post">
+                        <form class="inline" action="{{ url_for('whitelist_panel.strike', entry_id=entry['id']) }}" method="post">
                             <button class="btn btn-xs btn-warning" type="submit"
                                     title="Add a strike to {{ entry['username'] }}">+Strike</button>
                         </form>
