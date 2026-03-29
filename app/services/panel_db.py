@@ -226,6 +226,20 @@ def init_db_tables():
                     f"ALTER TABLE {public_schema}.whitelist ADD COLUMN client_ip TEXT"
                 )
 
+            # Add strikes counter (3-strike ban system)
+            if 'strikes' not in existing_cols:
+                cur.execute(
+                    f"ALTER TABLE {public_schema}.whitelist "
+                    f"ADD COLUMN strikes INTEGER DEFAULT 0"
+                )
+
+            # Add discord avatar URL (captured at submission time)
+            if 'discord_avatar_url' not in existing_cols:
+                cur.execute(
+                    f"ALTER TABLE {public_schema}.whitelist "
+                    f"ADD COLUMN discord_avatar_url TEXT"
+                )
+
             # Migrate ptero_servers -> pgsm_servers if legacy table still exists
             cur.execute(
                 """
@@ -788,7 +802,8 @@ def create_whitelist_entry(data: dict) -> None:
     """Insert a new whitelist request with approved=False.
 
     Args:
-        data: Dict with keys: username, player_uuid, discord_username, client_ip.
+        data: Dict with keys: username, player_uuid, discord_username,
+              client_ip, and optional discord_avatar_url.
     """
     conn = None
     try:
@@ -797,8 +812,9 @@ def create_whitelist_entry(data: dict) -> None:
             cur.execute(
                 """
                 INSERT INTO whitelist
-                    (username, player_uuid, discord_username, approved, client_ip)
-                VALUES (%s, %s, %s, %s, %s)
+                    (username, player_uuid, discord_username, approved,
+                     client_ip, discord_avatar_url)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     data['username'],
@@ -806,6 +822,7 @@ def create_whitelist_entry(data: dict) -> None:
                     data['discord_username'],
                     False,
                     data.get('client_ip'),
+                    data.get('discord_avatar_url'),
                 ),
             )
         conn.commit()
@@ -895,6 +912,121 @@ def count_whitelist_requests_by_discord(discord_username: str) -> int:
     except Exception:
         log.exception("panel_db.count_whitelist_requests_by_discord failed")
         return 0
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_whitelist_entry_by_username(username: str) -> dict | None:
+    """Fetch a whitelist entry by Minecraft username (case-insensitive).
+
+    Args:
+        username: The Minecraft username to look up.
+
+    Returns:
+        A dict of all whitelist columns, or None if not found.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM whitelist WHERE LOWER(username) = LOWER(%s)",
+                (username,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            # Convert tuple to dict using cursor column descriptions
+            col_names = [desc[0] for desc in cur.description]
+            return dict(zip(col_names, row))
+    except Exception:
+        log.exception("panel_db.get_whitelist_entry_by_username failed")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
+def add_strike(entry_id: int) -> tuple:
+    """Add one strike to a whitelist entry.
+
+    If the entry accumulates 3 or more strikes, their approved status is
+    set to FALSE so they are removed from the active whitelist on the next sync.
+    The caller is responsible for triggering the sync when was_banned is True.
+
+    Args:
+        entry_id: The whitelist entry primary key.
+
+    Returns:
+        Tuple of (new_strike_count: int, was_banned: bool).
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            # Increment the strike counter and return the new value
+            cur.execute(
+                "UPDATE whitelist SET strikes = strikes + 1 WHERE id = %s "
+                "RETURNING strikes",
+                (entry_id,),
+            )
+            result = cur.fetchone()
+            new_count = result[0] if result else 0
+
+            was_banned = False
+            if new_count >= 3:
+                # Only flip to unapproved when currently approved, to avoid
+                # redundant writes and to correctly report the ban transition
+                cur.execute(
+                    "UPDATE whitelist SET approved = FALSE "
+                    "WHERE id = %s AND approved = TRUE",
+                    (entry_id,),
+                )
+                was_banned = cur.rowcount > 0
+
+        conn.commit()
+        return new_count, was_banned
+    except Exception:
+        if conn:
+            conn.rollback()
+        log.exception("panel_db.add_strike failed")
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+
+def remove_strike(entry_id: int) -> int:
+    """Remove one strike from a whitelist entry, floored at zero.
+
+    Does not automatically restore approval status — that must be done
+    manually by an admin via toggle if desired.
+
+    Args:
+        entry_id: The whitelist entry primary key.
+
+    Returns:
+        The new strike count after decrement.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE whitelist SET strikes = GREATEST(strikes - 1, 0) "
+                "WHERE id = %s RETURNING strikes",
+                (entry_id,),
+            )
+            result = cur.fetchone()
+            new_count = result[0] if result else 0
+        conn.commit()
+        return new_count
+    except Exception:
+        if conn:
+            conn.rollback()
+        log.exception("panel_db.remove_strike failed")
+        raise
     finally:
         if conn:
             conn.close()
@@ -1221,32 +1353,35 @@ def update_all_server_statuses() -> None:
 # Discord guild membership check
 # ============================================================
 
-def check_discord_guild_membership(discord_username: str) -> bool:
+def check_discord_guild_membership(discord_username: str) -> tuple:
     """Check whether a Discord username is a member of the configured guild.
 
     Requires DISCORD_GUILD_ID and DISCORD_BOT_TOKEN in config.
     Supports legacy username#discriminator format as well as modern
     display name / global name / server nickname matching.
 
+    Also captures the matched member's avatar URL (guild-specific avatar
+    preferred; falls back to global user avatar).
+
     Args:
         discord_username: The user-provided Discord name string.
 
     Returns:
-        True if the user appears to be in the guild, False otherwise.
-        Returns False (not raises) on any API error or missing config.
+        Tuple of (is_member: bool, avatar_url: str | None).
+        Returns (False, None) on any API error or missing config.
     """
     guild_id = current_app.config.get('DISCORD_GUILD_ID')
     bot_token = current_app.config.get('DISCORD_BOT_TOKEN')
     name_input = (discord_username or '').strip()
 
     if not name_input:
-        return False
+        return False, None
     if not guild_id or not bot_token:
         log.error(
             "Discord verification not configured: "
             "missing DISCORD_GUILD_ID or DISCORD_BOT_TOKEN"
         )
-        return False
+        return False, None
 
     # Build search query using the base name before '#' if present
     base_query = name_input.split('#', 1)[0]
@@ -1259,7 +1394,7 @@ def check_discord_guild_membership(discord_username: str) -> bool:
         )
     except Exception:
         log.exception("panel_db.check_discord_guild_membership: API request failed")
-        return False
+        return False, None
 
     if resp.status_code != 200:
         log.error(
@@ -1267,7 +1402,7 @@ def check_discord_guild_membership(discord_username: str) -> bool:
             resp.status_code,
             resp.text[:200],
         )
-        return False
+        return False, None
 
     has_discriminator = '#' in name_input
     name_part = name_input.split('#', 1)[0] if has_discriminator else name_input
@@ -1291,16 +1426,36 @@ def check_discord_guild_membership(discord_username: str) -> bool:
 
         candidates = {uname.lower(), gname.lower(), nick.lower(), tag.lower()}
 
+        matched = False
         if has_discriminator:
             if uname.lower() == name_part_lower and disc == disc_part:
-                return True
-            if want_lower == tag.lower():
-                return True
+                matched = True
+            elif want_lower == tag.lower():
+                matched = True
         else:
             if name_part_lower in candidates:
-                return True
+                matched = True
 
-    return False
+        if matched:
+            # --------------------------------------------------
+            # Resolve avatar URL: guild-specific takes priority
+            # --------------------------------------------------
+            user_id = user.get('id')
+            avatar_url = None
+            guild_avatar = member.get('avatar')
+            user_avatar = user.get('avatar')
+            if guild_avatar and user_id:
+                avatar_url = (
+                    f'https://cdn.discordapp.com/guilds/{guild_id}'
+                    f'/users/{user_id}/avatars/{guild_avatar}.png'
+                )
+            elif user_avatar and user_id:
+                avatar_url = (
+                    f'https://cdn.discordapp.com/avatars/{user_id}/{user_avatar}.png'
+                )
+            return True, avatar_url
+
+    return False, None
 
 
 # ============================================================

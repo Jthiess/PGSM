@@ -78,3 +78,33 @@ def cards_api():
         'active': panel_db.get_active_servers(),
         'archived': panel_db.get_archived_servers(),
     })
+
+
+@bp.route('/api/user/<username>')
+def user_profile(username: str):
+    """Public endpoint to look up a user's whitelist status and profile.
+
+    Performs a case-insensitive username lookup. Returns a minimal
+    public profile — no client_ip or internal fields are exposed.
+
+    Args:
+        username: The Minecraft username to look up.
+
+    Returns:
+        404 JSON if not found; 200 JSON with profile fields if found.
+        Shape: { found, username, player_uuid, discord_username,
+                 discord_avatar_url, approved, strikes }
+    """
+    entry = panel_db.get_whitelist_entry_by_username(username)
+    if not entry:
+        return jsonify({'found': False}), 404
+
+    return jsonify({
+        'found': True,
+        'username': entry['username'],
+        'player_uuid': entry['player_uuid'],
+        'discord_username': entry['discord_username'],
+        'discord_avatar_url': entry.get('discord_avatar_url'),
+        'approved': entry['approved'],
+        'strikes': entry.get('strikes', 0),
+    })

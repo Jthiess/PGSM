@@ -54,6 +54,41 @@
     color: var(--text-muted);
     font-style: italic;
 }
+
+/* ── Strike count badges ────────────────────────────────────────────────── */
+.badge-strikes {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.badge-strikes-0 {
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    border-color: var(--border);
+}
+.badge-strikes-1 {
+    background: var(--accent-warning-bg, rgba(210,153,34,0.12));
+    color: var(--accent-warning);
+    border-color: var(--accent-warning);
+}
+.badge-strikes-2 {
+    background: rgba(210, 100, 20, 0.12);
+    color: var(--accent-warning);
+    border-color: var(--accent-warning);
+}
+.badge-strikes-3 {
+    background: var(--accent-danger-bg, rgba(248,81,73,0.12));
+    color: var(--accent-danger);
+    border-color: var(--accent-danger);
+}
 </style>
 {% endblock %}
 
@@ -157,6 +192,7 @@
                 <th>UUID</th>
                 <th>IP</th>
                 <th>Status</th>
+                <th>Strikes</th>
                 <th>Submitted</th>
                 <th>Actions</th>
             </tr>
@@ -179,15 +215,36 @@
                         <span class="badge-pending">Pending</span>
                     {% endif %}
                 </td>
+                <td>
+                    {% set strike_count = entry['strikes']|default(0)|int %}
+                    {% if strike_count == 0 %}
+                        <span class="badge-strikes badge-strikes-0">0</span>
+                    {% elif strike_count == 1 %}
+                        <span class="badge-strikes badge-strikes-1">1</span>
+                    {% elif strike_count == 2 %}
+                        <span class="badge-strikes badge-strikes-2">2</span>
+                    {% else %}
+                        <span class="badge-strikes badge-strikes-3">3 &#9888;</span>
+                    {% endif %}
+                </td>
                 <td class="text-muted" style="font-size: 0.78rem; white-space: nowrap;">
                     {{ entry['created_at'] }}
                 </td>
                 <td>
-                    <div class="flex gap-1 items-center">
+                    <div class="flex gap-1 items-center flex-wrap">
                         <form class="inline" action="{{ url_for('whitelist_panel.toggle', id=entry['id']) }}" method="post">
                             <button class="btn btn-xs {% if entry['approved'] %}btn-secondary{% else %}btn-success{% endif %}" type="submit">
                                 {{ 'Revoke' if entry['approved'] else 'Approve' }}
                             </button>
+                        </form>
+                        <form class="inline" action="{{ url_for('whitelist_panel.strike', id=entry['id']) }}" method="post">
+                            <button class="btn btn-xs btn-warning" type="submit"
+                                    title="Add a strike to {{ entry['username'] }}">+Strike</button>
+                        </form>
+                        <form class="inline" action="{{ url_for('whitelist_panel.unstrike', id=entry['id']) }}" method="post">
+                            <button class="btn btn-xs btn-secondary" type="submit"
+                                    title="Remove a strike from {{ entry['username'] }}"
+                                    {% if strike_count == 0 %}disabled{% endif %}>&#8722;Strike</button>
                         </form>
                         <form class="inline" action="{{ url_for('whitelist_panel.delete_entry', id=entry['id']) }}" method="post">
                             <button class="btn btn-xs btn-danger" type="submit"
@@ -198,7 +255,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="7" class="text-muted" style="text-align: center; padding: 1.75rem;">
+                <td colspan="8" class="text-muted" style="text-align: center; padding: 1.75rem;">
                     No whitelist requests yet.
                 </td>
             </tr>

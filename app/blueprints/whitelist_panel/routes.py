@@ -100,7 +100,10 @@ def index():
         # --------------------------------------------------
         # Discord guild membership check
         # --------------------------------------------------
-        if not panel_db.check_discord_guild_membership(discord_username):
+        is_member, discord_avatar_url = panel_db.check_discord_guild_membership(
+            discord_username
+        )
+        if not is_member:
             flash(
                 "You don't appear to be in the server. "
                 "Please make sure your Discord Username is correct.",
@@ -146,6 +149,7 @@ def index():
                 'player_uuid': player_uuid,
                 'discord_username': discord_username,
                 'client_ip': client_ip,
+                'discord_avatar_url': discord_avatar_url,
             })
         except Exception:
             log.exception("Failed to insert whitelist entry")
@@ -267,6 +271,66 @@ def delete_entry(id: int):
     except Exception:
         log.exception("Failed to delete whitelist entry %s", id)
         flash('Failed to delete entry.', 'error')
+
+    return redirect(url_for('whitelist_panel.admin'))
+
+
+@bp.route('/admin/strike/<int:entry_id>', methods=['POST'])
+def strike(entry_id: int):
+    """Add one strike to a whitelist entry. Auto-bans at 3 strikes.
+
+    When the third strike is recorded and the user was previously approved,
+    their approved flag is set to FALSE and the whitelist is synced to all
+    enabled PGSM servers so they are removed immediately.
+
+    Args:
+        entry_id: The whitelist entry primary key.
+
+    Returns:
+        Redirect to /whitelist/admin.
+    """
+    if not is_admin():
+        return redirect(url_for('admin_panel.login'))
+
+    try:
+        new_count, was_banned = panel_db.add_strike(entry_id)
+        if was_banned:
+            _sync_whitelist_to_pgsm_servers()
+            flash(
+                f'Strike added. User has reached 3 strikes and has been banned.',
+                'warning',
+            )
+        else:
+            flash(f'Strike added ({new_count}/3).', 'warning')
+    except Exception:
+        log.exception("Failed to add strike to whitelist entry %s", entry_id)
+        flash('Failed to add strike.', 'error')
+
+    return redirect(url_for('whitelist_panel.admin'))
+
+
+@bp.route('/admin/unstrike/<int:entry_id>', methods=['POST'])
+def unstrike(entry_id: int):
+    """Remove one strike from a whitelist entry (minimum 0).
+
+    Does not automatically restore approval status — use the toggle route
+    to re-approve a previously banned user if appropriate.
+
+    Args:
+        entry_id: The whitelist entry primary key.
+
+    Returns:
+        Redirect to /whitelist/admin.
+    """
+    if not is_admin():
+        return redirect(url_for('admin_panel.login'))
+
+    try:
+        new_count = panel_db.remove_strike(entry_id)
+        flash(f'Strike removed ({new_count}/3).', 'info')
+    except Exception:
+        log.exception("Failed to remove strike from whitelist entry %s", entry_id)
+        flash('Failed to remove strike.', 'error')
 
     return redirect(url_for('whitelist_panel.admin'))
 
