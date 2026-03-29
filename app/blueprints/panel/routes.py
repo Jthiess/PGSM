@@ -5,7 +5,7 @@
 # No authentication required — all routes are public.
 # ============================================================
 
-from flask import jsonify, render_template
+from flask import jsonify, render_template, session
 
 from app.blueprints.panel import bp
 from app.services import panel_db
@@ -22,6 +22,11 @@ def index():
     Loads server data from PostgreSQL via panel_db and selects
     a random rotating message from messages.txt.
 
+    If a username is present in the session (set at login), the
+    corresponding whitelist entry is fetched and passed to the
+    template as `current_user_profile` so the profile panel can
+    be pre-loaded without any client-side username input.
+
     Returns:
         Rendered panel/index.html template.
     """
@@ -29,11 +34,32 @@ def index():
     archived_servers = panel_db.get_archived_servers()
     random_message = panel_db.get_random_message()
 
+    # ----------------------------------------------------------
+    # Resolve the logged-in user's whitelist profile, if any
+    # ----------------------------------------------------------
+    username = session.get('ldap_username')
+    logged_in = bool(session.get('admin_auth') or session.get('messages_auth'))
+    current_user_profile = None
+
+    if username:
+        entry = panel_db.get_whitelist_entry_by_username(username)
+        if entry:
+            current_user_profile = {
+                'username': entry['username'],
+                'player_uuid': entry['player_uuid'],
+                'discord_username': entry['discord_username'],
+                'discord_avatar_url': entry.get('discord_avatar_url'),
+                'approved': entry['approved'],
+                'strikes': entry.get('strikes', 0),
+            }
+
     return render_template(
         'panel/index.html',
         servers=active_servers,
         archived=archived_servers,
         message=random_message,
+        logged_in=logged_in,
+        current_user_profile=current_user_profile,
     )
 
 
