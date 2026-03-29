@@ -241,7 +241,7 @@
                             <button class="btn btn-xs btn-warning" type="submit"
                                     title="Add a strike to {{ entry['username'] }}">+Strike</button>
                         </form>
-                        <form class="inline" action="{{ url_for('whitelist_panel.unstrike', id=entry['id']) }}" method="post">
+                        <form class="inline" action="{{ url_for('whitelist_panel.unstrike', entry_id=entry['id']) }}" method="post">
                             <button class="btn btn-xs btn-secondary" type="submit"
                                     title="Remove a strike from {{ entry['username'] }}"
                                     {% if strike_count == 0 %}disabled{% endif %}>&#8722;Strike</button>
