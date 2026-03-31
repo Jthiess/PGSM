@@ -49,7 +49,7 @@ Internet / LAN
   PGSM VLAN      → TCP port proxy (nginx stream)
       |
  ┌────────────────────────┐
- │  Game Server Containers │  (LXC, one per game server)
+ │ Game Server Containers │  (LXC, one per game server)
  │  CT 500, 501, 502 ...  │  Each runs: tmux + systemd PGSM unit
  └────────────────────────┘
 ```

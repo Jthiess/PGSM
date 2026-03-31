@@ -1,5 +1,6 @@
 import os
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from authlib.integrations.flask_client import OAuth
 from app.extensions import db, socketio
 from app.config import Config
@@ -11,6 +12,7 @@ oauth = OAuth()
 def create_app(config_class=Config):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_class)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     # Ensure instance folder and static image dirs exist
     os.makedirs(app.instance_path, exist_ok=True)
