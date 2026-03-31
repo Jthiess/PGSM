@@ -1,10 +1,27 @@
 import os
 
-from flask import render_template, request, redirect, url_for, flash, current_app
+from flask import render_template, request, redirect, url_for, flash, current_app, session
 from app.auth import require_admin, require_management_access, require_server_access, is_admin
 from app.blueprints.servers import bp
 from app.models.server import GameServer
 from app.extensions import db
+
+
+def _permitted_server_ids():
+    """Return list of server IDs the current server_user may access."""
+    from app.models.server_permission import ServerPermission
+    from sqlalchemy import or_
+    raw = session.get('ldap_raw_username')
+    display = session.get('ldap_username')
+    conditions = []
+    if raw:
+        conditions.append(ServerPermission.username == raw)
+    if display and display != raw:
+        conditions.append(ServerPermission.username == display)
+    if not conditions:
+        return []
+    perms = ServerPermission.query.filter(or_(*conditions)).all()
+    return [p.server_id for p in perms]
 
 
 @bp.route('/')
@@ -13,15 +30,8 @@ def list_servers():
     if is_admin():
         servers = GameServer.query.order_by(GameServer.created_at.desc()).all()
     else:
-        from app.auth import get_current_username
-        from app.models.server_permission import ServerPermission
-        username = get_current_username()
-        if username:
-            perms = ServerPermission.query.filter_by(username=username).all()
-            server_ids = [p.server_id for p in perms]
-            servers = GameServer.query.filter(GameServer.id.in_(server_ids)).order_by(GameServer.created_at.desc()).all()
-        else:
-            servers = []
+        server_ids = _permitted_server_ids()
+        servers = GameServer.query.filter(GameServer.id.in_(server_ids)).order_by(GameServer.created_at.desc()).all() if server_ids else []
     return render_template('servers/list.html', servers=servers)
 
 

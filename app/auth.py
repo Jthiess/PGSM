@@ -27,27 +27,41 @@ def is_messages_user() -> bool:
 
 
 def get_current_username() -> str | None:
-    """Return the display name stored in the session, or None."""
-    return session.get('ldap_username')
+    """Return the username used for permission matching (raw login name), or None.
+
+    Prefers ldap_raw_username (SAMAccountName / preferred_username) which is what
+    admins enter when granting permissions. Falls back to ldap_username (display name)
+    for legacy sessions.
+    """
+    return session.get('ldap_raw_username') or session.get('ldap_username')
 
 
 def has_server_access(server_id: str) -> bool:
     """Return True if the current user has access to the given server.
 
     Full admins always have access. Server users must have an explicit
-    ServerPermission row for this server.
+    ServerPermission row for this server, matched by raw login name or display name.
     """
     if is_admin():
         return True
     if not is_server_user():
         return False
-    username = get_current_username()
-    if not username:
+    raw = session.get('ldap_raw_username')
+    display = session.get('ldap_username')
+    if not raw and not display:
         return False
     from app.models.server_permission import ServerPermission
+    from sqlalchemy import or_
+    conditions = []
+    if raw:
+        conditions.append(ServerPermission.username == raw)
+    if display and display != raw:
+        conditions.append(ServerPermission.username == display)
     return (
-        ServerPermission.query.filter_by(server_id=server_id, username=username).first()
-        is not None
+        ServerPermission.query.filter(
+            ServerPermission.server_id == server_id,
+            or_(*conditions),
+        ).first() is not None
     )
 
 

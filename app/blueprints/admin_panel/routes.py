@@ -121,6 +121,7 @@ def login():
                     session['admin_auth'] = True
                     session.pop('messages_auth', None)
                     session['ldap_username'] = display
+                    session['ldap_raw_username'] = username
                     session['minecraft_uuid'] = result.get('minecraft_uuid')
                     next_url = request.args.get('next') or url_for('dashboard.index')
                     flash(f'Logged in as {display}.', 'success')
@@ -130,19 +131,24 @@ def login():
                     session['messages_auth'] = True
                     session.pop('admin_auth', None)
                     session['ldap_username'] = display
+                    session['ldap_raw_username'] = username
                     session['minecraft_uuid'] = result.get('minecraft_uuid')
                     flash('Logged in with messages access.', 'success')
                     return redirect(request.args.get('next') or url_for('panel.index'))
 
                 else:
-                    # Check if user has any server-specific permissions
+                    # Check if user has any server-specific permissions (match by login username)
                     from app.models.server_permission import ServerPermission
-                    has_perms = ServerPermission.query.filter_by(username=display).first()
+                    has_perms = ServerPermission.query.filter(
+                        (ServerPermission.username == username) |
+                        (ServerPermission.username == display)
+                    ).first()
                     if has_perms:
                         session['server_user'] = True
                         session.pop('admin_auth', None)
                         session.pop('messages_auth', None)
                         session['ldap_username'] = display
+                        session['ldap_raw_username'] = username
                         session['minecraft_uuid'] = result.get('minecraft_uuid')
                         next_url = request.args.get('next') or url_for('dashboard.index')
                         flash(f'Logged in as {display}.', 'success')
@@ -199,6 +205,7 @@ def logout():
     session.pop('messages_auth', None)
     session.pop('server_user', None)
     session.pop('ldap_username', None)
+    session.pop('ldap_raw_username', None)
     session.pop('minecraft_uuid', None)
 
     if current_app.config.get('AUTHENTIK_CLIENT_ID'):
@@ -306,6 +313,7 @@ def authentik_callback():
         session['admin_auth'] = True
         session.pop('messages_auth', None)
         session['ldap_username'] = display_name
+        session['ldap_raw_username'] = username
         session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
         flash(f'Logged in as {display_name}.', 'success')
         return redirect(next_url or url_for('panel.index'))
@@ -314,19 +322,25 @@ def authentik_callback():
         session['messages_auth'] = True
         session.pop('admin_auth', None)
         session['ldap_username'] = display_name
+        session['ldap_raw_username'] = username
         session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
         flash('Logged in with messages access.', 'success')
         return redirect(next_url or url_for('panel.index'))
 
-    # Check for server-specific permissions even without group membership
+    # Check for server-specific permissions even without group membership.
+    # Match by preferred_username (login name) OR display_name to handle either format.
     try:
         from app.models.server_permission import ServerPermission
-        has_perms = ServerPermission.query.filter_by(username=display_name).first()
+        has_perms = ServerPermission.query.filter(
+            (ServerPermission.username == username) |
+            (ServerPermission.username == display_name)
+        ).first()
         if has_perms:
             session['server_user'] = True
             session.pop('admin_auth', None)
             session.pop('messages_auth', None)
             session['ldap_username'] = display_name
+            session['ldap_raw_username'] = username
             session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
             flash(f'Logged in as {display_name}.', 'success')
             return redirect(next_url or url_for('panel.index'))
