@@ -98,9 +98,16 @@
 <div class="tabs">
     <a class="tab {% if active_tab == 'info' %}active{% endif %}" data-tab="info" href="#">Info</a>
     <a class="tab {% if active_tab == 'game-settings' %}active{% endif %}" data-tab="game-settings" href="#">Game Settings</a>
+    {% if session.get('admin_auth') %}
     <a class="tab {% if active_tab == 'resources' %}active{% endif %}" data-tab="resources" href="#">Resources</a>
+    {% endif %}
+    {% if session.get('admin_auth') %}
     <a class="tab {% if active_tab == 'ports' %}active{% endif %}" data-tab="ports" href="#">Ports</a>
+    {% endif %}
     <a class="tab {% if active_tab == 'monitoring' %}active{% endif %}" data-tab="monitoring" href="#">Monitoring</a>
+    {% if session.get('admin_auth') %}
+    <a class="tab {% if active_tab == 'permissions' %}active{% endif %}" data-tab="permissions" href="#">Permissions</a>
+    {% endif %}
 </div>
 
 <!-- Info tab -->
@@ -215,6 +222,7 @@
 </div>
 
 <!-- Resources tab -->
+{% if session.get('admin_auth') %}
 <div id="tab-resources" class="tab-panel" {% if active_tab != 'resources' %}style="display:none"{% endif %}>
     <div class="card" style="padding: 1.375rem;">
         <h3 class="section-title" style="margin-bottom: 0.5rem;">CPU &amp; Memory Allocation</h3>
@@ -236,8 +244,10 @@
         </form>
     </div>
 </div>
+{% endif %}
 
 <!-- Ports tab -->
+{% if session.get('admin_auth') %}
 <div id="tab-ports" class="tab-panel" {% if active_tab != 'ports' %}style="display:none"{% endif %}>
     <div class="card" style="padding: 1.375rem;">
         <h3 class="section-title" style="margin-bottom: 0.5rem;">Port Management</h3>
@@ -299,6 +309,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- Monitoring tab -->
 <div id="tab-monitoring" class="tab-panel" {% if active_tab != 'monitoring' %}style="display:none"{% endif %}>
@@ -334,6 +345,59 @@
     </div>
 </div>
 
+{% if session.get('admin_auth') %}
+<!-- Permissions tab -->
+<div id="tab-permissions" class="tab-panel" {% if active_tab != 'permissions' %}style="display:none"{% endif %}>
+    <div class="card" style="padding: 1.375rem;">
+        <h3 class="section-title" style="margin-bottom: 0.5rem;">User Permissions</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Grant specific users full control over this server (start, stop, restart, console, files, game settings).
+            Users must have an LDAP or Authentik account and will be identified by their display name.
+        </p>
+
+        {% if permissions %}
+        <table style="margin-bottom: 1.25rem; width: 100%;">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Added</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for perm in permissions %}
+                <tr>
+                    <td>{{ perm.username }}</td>
+                    <td style="color: var(--text-muted); font-size: 0.82rem;">{{ perm.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('servers.remove_permission', server_id=server.id, permission_id=perm.id) }}"
+                              onsubmit="return confirm('Revoke access for {{ perm.username }}?')"
+                              style="display:inline">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger);">Revoke</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1.25rem;">No users have been granted access to this server yet.</p>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('servers.add_permission', server_id=server.id) }}" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+            <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
+                <label for="perm-username" style="margin-bottom: 0.25rem;">Grant Access To</label>
+                <input type="text" id="perm-username" name="username"
+                       placeholder="LDAP/Authentik display name"
+                       style="margin: 0;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Grant Access</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if session.get('admin_auth') %}
 <!-- Danger zone -->
 <div class="danger-zone">
     <h3>Danger Zone</h3>
@@ -343,6 +407,7 @@
         <button type="submit" class="btn btn-danger btn-sm">Delete Server</button>
     </form>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

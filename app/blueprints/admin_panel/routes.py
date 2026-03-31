@@ -135,6 +135,18 @@ def login():
                     return redirect(request.args.get('next') or url_for('panel.index'))
 
                 else:
+                    # Check if user has any server-specific permissions
+                    from app.models.server_permission import ServerPermission
+                    has_perms = ServerPermission.query.filter_by(username=display).first()
+                    if has_perms:
+                        session['server_user'] = True
+                        session.pop('admin_auth', None)
+                        session.pop('messages_auth', None)
+                        session['ldap_username'] = display
+                        session['minecraft_uuid'] = result.get('minecraft_uuid')
+                        next_url = request.args.get('next') or url_for('dashboard.index')
+                        flash(f'Logged in as {display}.', 'success')
+                        return redirect(next_url)
                     flash(
                         'Access denied. Your account does not have the required group membership.',
                         'error',
@@ -185,6 +197,7 @@ def logout():
     id_token = session.pop('authentik_id_token', None)
     session.pop('admin_auth', None)
     session.pop('messages_auth', None)
+    session.pop('server_user', None)
     session.pop('ldap_username', None)
     session.pop('minecraft_uuid', None)
 
@@ -304,6 +317,21 @@ def authentik_callback():
         session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
         flash('Logged in with messages access.', 'success')
         return redirect(next_url or url_for('panel.index'))
+
+    # Check for server-specific permissions even without group membership
+    try:
+        from app.models.server_permission import ServerPermission
+        has_perms = ServerPermission.query.filter_by(username=display_name).first()
+        if has_perms:
+            session['server_user'] = True
+            session.pop('admin_auth', None)
+            session.pop('messages_auth', None)
+            session['ldap_username'] = display_name
+            session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
+            flash(f'Logged in as {display_name}.', 'success')
+            return redirect(next_url or url_for('panel.index'))
+    except Exception:
+        pass
 
     flash(
         'Access denied. Your account does not have the required group membership.',

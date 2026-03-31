@@ -60,6 +60,7 @@ def create_app(config_class=Config):
     app.register_blueprint(whitelist_panel_bp, url_prefix='/whitelist')
 
     with app.app_context():
+        from app.models import GameServer, ServerPermission  # noqa: F401 — ensure tables are registered
         db.create_all()
         _apply_migrations(db)
         _migrate_extra_ports_format()

@@ -5,7 +5,7 @@ from flask import render_template, current_app, abort, redirect, url_for
 from flask import request as flask_request
 from flask_socketio import emit, join_room, leave_room
 
-from app.auth import require_admin, is_admin
+from app.auth import require_admin, require_server_access, is_admin, has_server_access
 from app.blueprints.console import bp
 from app.extensions import db, socketio
 from app.models.server import GameServer
@@ -19,7 +19,7 @@ _active_sessions: dict[str, dict] = {}
 
 
 @bp.route('/<server_id>')
-@require_admin
+@require_server_access
 def console(server_id):
     server = db.session.get(GameServer, server_id)
     if server is None:
@@ -29,11 +29,11 @@ def console(server_id):
 
 @socketio.on('join_console')
 def handle_join_console(data):
-    if not is_admin():
+    server_id = data.get('server_id')
+    if not (is_admin() or has_server_access(server_id)):
         emit('console_output', {'data': '\r\n[PGSM] Unauthorized.\r\n'})
         return
     try:
-        server_id = data.get('server_id')
         cols = int(data.get('cols', 220))
         rows = int(data.get('rows', 50))
         sid = flask_request.sid
@@ -96,9 +96,9 @@ def handle_disconnect():
 
 @socketio.on('console_input')
 def handle_console_input(data):
-    if not is_admin():
-        return
     server_id = data.get('server_id')
+    if not (is_admin() or has_server_access(server_id)):
+        return
     command = data.get('command', '')
     server = db.session.get(GameServer, server_id)
     if server:

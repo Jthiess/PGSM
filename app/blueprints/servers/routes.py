@@ -1,16 +1,27 @@
 import os
 
 from flask import render_template, request, redirect, url_for, flash, current_app
-from app.auth import require_admin
+from app.auth import require_admin, require_management_access, require_server_access, is_admin
 from app.blueprints.servers import bp
 from app.models.server import GameServer
 from app.extensions import db
 
 
 @bp.route('/')
-@require_admin
+@require_management_access
 def list_servers():
-    servers = GameServer.query.order_by(GameServer.created_at.desc()).all()
+    if is_admin():
+        servers = GameServer.query.order_by(GameServer.created_at.desc()).all()
+    else:
+        from app.auth import get_current_username
+        from app.models.server_permission import ServerPermission
+        username = get_current_username()
+        if username:
+            perms = ServerPermission.query.filter_by(username=username).all()
+            server_ids = [p.server_id for p in perms]
+            servers = GameServer.query.filter(GameServer.id.in_(server_ids)).order_by(GameServer.created_at.desc()).all()
+        else:
+            servers = []
     return render_template('servers/list.html', servers=servers)
 
 
@@ -162,15 +173,19 @@ def create_server():
 
 
 @bp.route('/<server_id>')
-@require_admin
+@require_server_access
 def detail(server_id):
     server = GameServer.query.get_or_404(server_id)
     active_tab = request.args.get('tab', 'info')
-    return render_template('servers/detail.html', server=server, active_tab=active_tab)
+    permissions = []
+    if is_admin():
+        from app.models.server_permission import ServerPermission
+        permissions = ServerPermission.query.filter_by(server_id=server_id).order_by(ServerPermission.created_at).all()
+    return render_template('servers/detail.html', server=server, active_tab=active_tab, permissions=permissions)
 
 
 @bp.route('/<server_id>/start', methods=['POST'])
-@require_admin
+@require_server_access
 def start(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
@@ -183,7 +198,7 @@ def start(server_id):
 
 
 @bp.route('/<server_id>/stop', methods=['POST'])
-@require_admin
+@require_server_access
 def stop(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
@@ -196,7 +211,7 @@ def stop(server_id):
 
 
 @bp.route('/<server_id>/power_off', methods=['POST'])
-@require_admin
+@require_server_access
 def power_off(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
@@ -209,7 +224,7 @@ def power_off(server_id):
 
 
 @bp.route('/<server_id>/restart', methods=['POST'])
-@require_admin
+@require_server_access
 def restart(server_id):
     server = GameServer.query.get_or_404(server_id)
     from app.services import server_lifecycle
@@ -275,7 +290,7 @@ def update_resources(server_id):
 
 
 @bp.route('/<server_id>/settings', methods=['POST'])
-@require_admin
+@require_server_access
 def update_settings(server_id):
     server = GameServer.query.get_or_404(server_id)
     form = request.form
@@ -442,3 +457,35 @@ def delete(server_id):
     db.session.commit()
     flash(f'Server "{name}" has been deleted.', 'warning')
     return redirect(url_for('servers.list_servers'))
+
+
+@bp.route('/<server_id>/permissions/add', methods=['POST'])
+@require_admin
+def add_permission(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    username = request.form.get('username', '').strip()
+    if not username:
+        flash('Username is required.', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='permissions'))
+    from app.models.server_permission import ServerPermission
+    existing = ServerPermission.query.filter_by(server_id=server_id, username=username).first()
+    if existing:
+        flash(f'"{username}" already has access to this server.', 'warning')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='permissions'))
+    perm = ServerPermission(server_id=server_id, username=username)
+    db.session.add(perm)
+    db.session.commit()
+    flash(f'Access granted to "{username}".', 'success')
+    return redirect(url_for('servers.detail', server_id=server_id, tab='permissions'))
+
+
+@bp.route('/<server_id>/permissions/<permission_id>/remove', methods=['POST'])
+@require_admin
+def remove_permission(server_id, permission_id):
+    from app.models.server_permission import ServerPermission
+    perm = ServerPermission.query.filter_by(id=permission_id, server_id=server_id).first_or_404()
+    username = perm.username
+    db.session.delete(perm)
+    db.session.commit()
+    flash(f'Access revoked for "{username}".', 'success')
+    return redirect(url_for('servers.detail', server_id=server_id, tab='permissions'))

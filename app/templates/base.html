@@ -18,7 +18,7 @@
     <aside class="sidebar" id="sidebar" aria-label="Main navigation">
 
         <!-- Brand -->
-        <a class="sidebar-brand" href="{% if session.get('admin_auth') %}{{ url_for('dashboard.index') }}{% else %}{{ url_for('admin_panel.messages') }}{% endif %}">
+        <a class="sidebar-brand" href="{% if session.get('admin_auth') or session.get('server_user') %}{{ url_for('dashboard.index') }}{% else %}{{ url_for('admin_panel.messages') }}{% endif %}">
             <div class="sidebar-brand-icon">PS</div>
             <div>
                 <div class="sidebar-brand-name">PGSM</div>
@@ -46,6 +46,22 @@
                    class="sidebar-link {% if request.endpoint == 'servers.create_server' %}active{% endif %}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                     <span class="sidebar-link-label">New Server</span>
+                </a>
+            </div>
+            {% endif %}
+
+            {% if session.get('server_user') and not session.get('admin_auth') %}
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Manage</div>
+                <a href="{{ url_for('dashboard.index') }}"
+                   class="sidebar-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <span class="sidebar-link-label">Dashboard</span>
+                </a>
+                <a href="{{ url_for('servers.list_servers') }}"
+                   class="sidebar-link {% if request.endpoint in ['servers.list_servers', 'servers.detail'] %}active{% endif %}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                    <span class="sidebar-link-label">My Servers</span>
                 </a>
             </div>
             {% endif %}
@@ -100,6 +116,12 @@
 
         <!-- Footer -->
         <div class="sidebar-footer">
+            {% if session.get('admin_auth') or session.get('server_user') %}
+            <div class="sidebar-link" style="pointer-events: none; opacity: 0.7; font-size: 0.8rem; padding-bottom: 0.25rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span class="sidebar-link-label">{{ session.get('ldap_username', 'Unknown') }}</span>
+            </div>
+            {% endif %}
             <!-- Theme switcher -->
             <div class="theme-switcher" style="flex:1;">
                 <button class="theme-toggle-btn" onclick="toggleThemeMenu()" title="Switch theme" aria-label="Switch theme" aria-expanded="false" aria-controls="theme-menu">
@@ -158,7 +180,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <nav class="topbar-breadcrumb" aria-label="Breadcrumb">
-                <a href="{% if session.get('admin_auth') %}{{ url_for('dashboard.index') }}{% else %}{{ url_for('admin_panel.messages') }}{% endif %}">PGSM</a>
+                <a href="{% if session.get('admin_auth') or session.get('server_user') %}{{ url_for('dashboard.index') }}{% else %}{{ url_for('admin_panel.messages') }}{% endif %}">PGSM</a>
                 {% block breadcrumb %}{% endblock %}
             </nav>
             <div class="topbar-actions">
