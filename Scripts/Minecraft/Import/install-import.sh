@@ -162,6 +162,5 @@ EOF
 
 systemctl daemon-reload
 
-# Step 12: Enable and start
+# Step 12: Enable service (started by PGSM after server.properties is written)
 systemctl enable PGSM
-systemctl start PGSM
