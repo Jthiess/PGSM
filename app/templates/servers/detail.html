@@ -51,6 +51,8 @@
                 <form method="POST" action="{{ url_for('servers.power_off', server_id=server.id) }}" style="display:inline">
                     <button class="btn btn-danger btn-sm">&#9866; Power Off</button>
                 </form>
+            {% elif server.status == 'updating' %}
+                <button class="btn btn-secondary btn-sm" disabled>Updating…</button>
             {% else %}
                 <button class="btn btn-secondary btn-sm" disabled>Provisioning…</button>
             {% endif %}
@@ -107,6 +109,9 @@
     <a class="tab {% if active_tab == 'monitoring' %}active{% endif %}" data-tab="monitoring" href="#">Monitoring</a>
     {% if session.get('admin_auth') %}
     <a class="tab {% if active_tab == 'permissions' %}active{% endif %}" data-tab="permissions" href="#">Permissions</a>
+    {% endif %}
+    {% if session.get('admin_auth') and server.server_type not in ['import', 'bedrock', 'forge'] %}
+    <a class="tab {% if active_tab == 'update' %}active{% endif %}" data-tab="update" href="#">Update</a>
     {% endif %}
 </div>
 
@@ -397,6 +402,40 @@
 </div>
 {% endif %}
 
+{% if session.get('admin_auth') and server.server_type not in ['import', 'bedrock', 'forge'] %}
+<!-- Update tab -->
+<div id="tab-update" class="tab-panel" {% if active_tab != 'update' %}style="display:none"{% endif %}>
+    <div class="card" style="padding: 1.375rem;">
+        <h3 class="section-title" style="margin-bottom: 0.5rem;">Update Minecraft Version</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Replaces the server binary with a new version. World data and configuration are preserved.
+            The server will be stopped, updated, and restarted automatically.
+        </p>
+        <div style="margin-bottom: 1rem; font-size: 0.875rem;">
+            <span style="color: var(--text-muted);">Current version:</span>
+            <strong style="margin-left: 0.4rem;">{{ server.game_version }}</strong>
+        </div>
+        <form method="POST" action="{{ url_for('servers.update_version', server_id=server.id) }}"
+              onsubmit="return confirm('Update server to Minecraft ' + document.getElementById('new_version').value + '? The server will restart.')">
+            <div class="form-row" style="align-items: flex-end;">
+                <div class="form-group">
+                    <label for="new_version">Update To</label>
+                    <select id="new_version" name="new_version">
+                        <option value="">Loading versions…</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 0;">
+                    <button type="submit" class="btn btn-primary btn-sm"
+                            {% if server.status not in ['stopped', 'running', 'error'] %}disabled{% endif %}>
+                        Update
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
 {% if session.get('admin_auth') and server.provision_log %}
 <!-- Provision log -->
 <div class="card" id="provision-log-card" style="margin-top: 1.5rem; padding: 1.375rem;">
@@ -456,7 +495,7 @@ document.querySelectorAll('.tab').forEach(function(tab) {
 const badge = document.getElementById('status-badge');
 const currentStatus = badge ? badge.textContent.trim() : '';
 
-if (currentStatus === 'creating') {
+if (currentStatus === 'creating' || currentStatus === 'updating') {
     const interval = setInterval(function() {
         fetchWithTimeout('/api/servers/{{ server.id }}/status', {}, 8000)
             .then(r => r.json())
@@ -464,7 +503,7 @@ if (currentStatus === 'creating') {
                 const status = data.db_status;
                 badge.textContent = status;
                 badge.className = 'badge badge-' + status;
-                if (status !== 'creating') {
+                if (status !== 'creating' && status !== 'updating') {
                     clearInterval(interval);
                     location.reload();
                 }
@@ -544,6 +583,31 @@ if (currentStatus === 'creating') {
     setInterval(pollMetrics, 2000);
 })();
 {% endif %}
+
+// Update tab: load available Minecraft versions
+(function() {
+    var sel = document.getElementById('new_version');
+    if (!sel) return;
+    fetchWithTimeout('/api/minecraft/versions', {}, 10000)
+        .then(r => r.json())
+        .then(function(versions) {
+            sel.innerHTML = '';
+            var currentVersion = '{{ server.game_version }}';
+            versions.forEach(function(v) {
+                if (v.id === currentVersion) return; // skip current version
+                var opt = document.createElement('option');
+                opt.value = v.id;
+                opt.textContent = v.id;
+                sel.appendChild(opt);
+            });
+            if (!sel.options.length) {
+                sel.innerHTML = '<option value="">No other versions available</option>';
+            }
+        })
+        .catch(function() {
+            sel.innerHTML = '<option value="">Failed to load versions</option>';
+        });
+})();
 
 // Port management
 var SERVER_ID = '{{ server.id }}';

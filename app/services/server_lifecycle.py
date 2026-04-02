@@ -185,6 +185,91 @@ def sync_server_status(server: GameServer) -> str:
     return new_status
 
 
+def update_server_version(server_id: str, new_version: str) -> None:
+    """Updates the Minecraft server binary to a new version.
+
+    Stops the server, replaces the server JAR/binary, updates the DB game_version,
+    and restarts. World data in /PGSM is preserved.
+
+    Supported server types: vanilla, paper, fabric.
+    """
+    import shlex as _shlex
+
+    server = GameServer.query.get(server_id)
+    if not server:
+        return
+
+    ip = server.ip_address
+    _set_status(server, 'updating')
+
+    stdout, stderr = '', ''
+    try:
+        # Stop the server
+        try:
+            ssh_mgr.exec(ip, f'systemctl stop {SYSTEMD_UNIT}', timeout=30)
+        except Exception:
+            pass
+
+        if server.server_type == 'vanilla':
+            jar_url = mc_svc.get_vanilla_jar_url(new_version)
+            stdout, stderr = ssh_mgr.exec(
+                ip,
+                f'wget -q -O /PGSM/server.jar {_shlex.quote(jar_url)}',
+                timeout=300,
+            )
+
+        elif server.server_type == 'paper':
+            jar_url = mc_svc.get_paper_jar_url(new_version)
+            stdout, stderr = ssh_mgr.exec(
+                ip,
+                f'wget -q -O /PGSM/server.jar {_shlex.quote(jar_url)}',
+                timeout=300,
+            )
+
+        elif server.server_type == 'fabric':
+            installer_url = mc_svc.get_fabric_installer_url()
+            loader_version = mc_svc.get_fabric_loader_version(server.fabric_loader_version)
+            java_bin = f'/opt/java/java{server.java_version}/bin/java'
+            stdout, stderr = ssh_mgr.exec(
+                ip,
+                f'cd /PGSM && '
+                f'wget -q -O /tmp/pgsm-fabric-installer.jar {_shlex.quote(installer_url)} && '
+                f'{java_bin} -jar /tmp/pgsm-fabric-installer.jar server '
+                f'-mcversion {_shlex.quote(new_version)} '
+                f'-loader {_shlex.quote(loader_version)} '
+                f'-downloadMinecraft && '
+                f'rm -f /tmp/pgsm-fabric-installer.jar',
+                timeout=600,
+            )
+
+        else:
+            raise ValueError(f'Version update is not supported for server type: {server.server_type}')
+
+        # Fix ownership
+        ssh_mgr.exec(ip, 'chown -R PGSM:PGSM /PGSM')
+
+        # Update DB
+        server.game_version = new_version
+        db.session.commit()
+
+        # Update Java symlink — auto-resolved Java version may change with new MC version
+        java_dir = f'java{server.java_version}'
+        ssh_mgr.exec(ip, f'ln -sf /opt/java/{java_dir}/bin/java /usr/local/bin/java')
+
+        # Write updated server.properties
+        props = mc_svc.generate_server_properties(server)
+        _write_remote_file(ip, '/PGSM/server.properties', props)
+        ssh_mgr.exec(ip, 'chown PGSM:PGSM /PGSM/server.properties')
+
+        # Restart the server
+        ssh_mgr.exec(ip, f'systemctl start {SYSTEMD_UNIT}')
+        _set_status(server, 'running', provision_log=_format_script_output(stdout, stderr))
+
+    except Exception as e:
+        _set_status(server, 'error', provision_log=f'Update to {new_version} failed: {e}')
+        raise
+
+
 def send_console_command(server: GameServer, command: str) -> None:
     """Sends a command string to the running tmux session."""
     escaped = command.replace("'", "'\\''")

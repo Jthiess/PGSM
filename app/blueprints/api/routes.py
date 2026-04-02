@@ -73,7 +73,7 @@ def server_status(server_id):
 def sync_server(server_id):
     """Syncs DB status with actual Proxmox CT + systemd state."""
     server = GameServer.query.get_or_404(server_id)
-    if server.status == 'creating':
+    if server.status in ('creating', 'updating'):
         return jsonify({'status': server.status, 'changed': False})
     old_status = server.status
     try:

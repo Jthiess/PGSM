@@ -426,6 +426,44 @@ def _rewrite_systemd_unit(server, ssh_mgr):
     ssh_mgr.exec(server.ip_address, 'systemctl daemon-reload')
 
 
+_UPDATE_SUPPORTED_TYPES = ('vanilla', 'paper', 'fabric')
+
+
+@bp.route('/<server_id>/update-version', methods=['POST'])
+@require_admin
+def update_version(server_id):
+    import threading
+    server = GameServer.query.get_or_404(server_id)
+
+    if server.server_type not in _UPDATE_SUPPORTED_TYPES:
+        flash(f'Version updates are not supported for {server.server_type} servers.', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='update'))
+
+    if server.status not in ('stopped', 'running', 'error'):
+        flash('Cannot update while a provisioning or update operation is already in progress.', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='update'))
+
+    new_version = request.form.get('new_version', '').strip()
+    if not new_version:
+        flash('Please select a version.', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='update'))
+
+    if new_version == server.game_version:
+        flash('Server is already on that version.', 'info')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='update'))
+
+    app = current_app._get_current_object()
+
+    def _update():
+        with app.app_context():
+            from app.services import server_lifecycle
+            server_lifecycle.update_server_version(server.id, new_version)
+
+    threading.Thread(target=_update, daemon=True).start()
+    flash(f'Updating server to Minecraft {new_version}. This may take a few minutes.', 'info')
+    return redirect(url_for('servers.detail', server_id=server_id, tab='update'))
+
+
 @bp.route('/<server_id>/delete', methods=['POST'])
 @require_admin
 def delete(server_id):
