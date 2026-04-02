@@ -53,7 +53,7 @@ def provision_server(server_id: str) -> None:
         local_script = mc_svc.get_script_path(server.server_type)
         ssh_mgr.upload_script(ip, local_script, '/tmp/pgsm_install.sh')
     except Exception as e:
-        _set_status(server, 'error')
+        _set_status(server, 'error', provision_log=f'Script upload failed: {e}')
         raise RuntimeError(f'Script upload failed: {e}') from e
 
     # Step 2b: For import servers, upload the zip archive to the container
@@ -62,7 +62,7 @@ def provision_server(server_id: str) -> None:
         try:
             ssh_mgr.upload_script(ip, local_zip, '/tmp/server-archive.zip')
         except Exception as e:
-            _set_status(server, 'error')
+            _set_status(server, 'error', provision_log=f'Archive upload failed: {e}')
             raise RuntimeError(f'Archive upload failed: {e}') from e
         finally:
             # Clean up local zip regardless of upload success
@@ -75,8 +75,9 @@ def provision_server(server_id: str) -> None:
     try:
         args = mc_svc.build_install_args(server)
         stdout, stderr = ssh_mgr.exec(ip, f'bash /tmp/pgsm_install.sh {args}', timeout=600)
+        _set_provision_log(server, _format_script_output(stdout, stderr))
     except Exception as e:
-        _set_status(server, 'error')
+        _set_status(server, 'error', provision_log=f'Install script failed: {e}')
         raise RuntimeError(f'Install script failed: {e}') from e
 
     # Step 4: Write server.properties and fix ownership
@@ -86,7 +87,7 @@ def provision_server(server_id: str) -> None:
         # SFTP writes as root; restore PGSM ownership so the server can read/write the file
         ssh_mgr.exec(ip, 'chown PGSM:PGSM /PGSM/server.properties')
     except Exception as e:
-        _set_status(server, 'error')
+        _set_status(server, 'error', provision_log=f'Could not write server.properties: {e}')
         raise RuntimeError(f'Could not write server.properties: {e}') from e
 
     # Step 5: Write nginx conf
@@ -100,7 +101,7 @@ def provision_server(server_id: str) -> None:
         ssh_mgr.exec(ip, f'systemctl start {SYSTEMD_UNIT}')
         _set_status(server, 'running')
     except Exception as e:
-        _set_status(server, 'stopped')  # Provisioned but not started
+        _set_status(server, 'stopped', provision_log=f'Server provisioned but systemd start failed: {e}')  # Provisioned but not started
 
 
 def start_server(server: GameServer) -> None:
@@ -206,8 +207,9 @@ def _wait_for_ssh(ip: str, server: GameServer) -> None:
             if attempt == 0:
                 pass  # Expected on first try
             time.sleep(_BOOT_RETRY_INTERVAL)
-    _set_status(server, 'error')
-    raise RuntimeError(f'Container at {ip} never became SSH-accessible after {_BOOT_MAX_ATTEMPTS} attempts.')
+    msg = f'Container at {ip} never became SSH-accessible after {_BOOT_MAX_ATTEMPTS} attempts ({_BOOT_MAX_ATTEMPTS * _BOOT_RETRY_INTERVAL}s).'
+    _set_status(server, 'error', provision_log=msg)
+    raise RuntimeError(msg)
 
 
 def _write_remote_file(ip: str, remote_path: str, content: str) -> None:
@@ -221,6 +223,23 @@ def _write_remote_file(ip: str, remote_path: str, content: str) -> None:
         client.close()
 
 
-def _set_status(server: GameServer, status: str) -> None:
+def _set_status(server: GameServer, status: str, provision_log: str = None) -> None:
     server.status = status
+    if provision_log is not None:
+        server.provision_log = provision_log
     db.session.commit()
+
+
+def _set_provision_log(server: GameServer, message: str) -> None:
+    server.provision_log = message
+    db.session.commit()
+
+
+def _format_script_output(stdout: str, stderr: str) -> str:
+    """Formats install script stdout/stderr into a single log string."""
+    parts = []
+    if stdout and stdout.strip():
+        parts.append(f'=== stdout ===\n{stdout.strip()}')
+    if stderr and stderr.strip():
+        parts.append(f'=== stderr ===\n{stderr.strip()}')
+    return '\n\n'.join(parts) if parts else '(no output)'

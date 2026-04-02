@@ -170,6 +170,8 @@ def _apply_migrations(db):
         "ALTER TABLE game_servers ADD COLUMN forge_version VARCHAR(32)",
         # v8: Import archive URL (for import server type)
         "ALTER TABLE game_servers ADD COLUMN import_archive_url VARCHAR(512)",
+        # v9: Provisioning log (stdout/stderr from install script; error details)
+        "ALTER TABLE game_servers ADD COLUMN provision_log TEXT",
     ]
 
     with db.engine.connect() as conn:

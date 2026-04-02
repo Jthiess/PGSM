@@ -73,6 +73,7 @@ class GameServer(db.Model):
 
     # Lifecycle
     status = db.Column(db.String(32), default='creating')  # creating, stopped, running, error
+    provision_log = db.Column(db.Text, nullable=True)       # stdout/stderr from provisioning; set on error or completion
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

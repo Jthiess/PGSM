@@ -397,6 +397,14 @@
 </div>
 {% endif %}
 
+{% if session.get('admin_auth') and server.provision_log %}
+<!-- Provision log -->
+<div class="card" style="margin-top: 1.5rem; padding: 1.375rem;">
+    <h3 class="section-title" style="margin-bottom: 0.75rem;">Provision Log</h3>
+    <pre style="background: var(--bg-code, #1a1a1a); color: var(--text-code, #e0e0e0); border-radius: 6px; padding: 1rem; font-size: 0.78rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; margin: 0;">{{ server.provision_log }}</pre>
+</div>
+{% endif %}
+
 {% if session.get('admin_auth') %}
 <!-- Danger zone -->
 <div class="danger-zone">
