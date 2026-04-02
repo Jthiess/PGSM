@@ -291,6 +291,14 @@ def push_whitelist(server_id):
     return jsonify({'ok': True, 'entries': len(data)})
 
 
+@bp.route('/servers/<server_id>/provision-log/dismiss', methods=['POST'])
+def dismiss_provision_log(server_id):
+    server = GameServer.query.get_or_404(server_id)
+    server.provision_log = None
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
 @bp.route('/servers/<server_id>/ports/remove', methods=['POST'])
 def remove_port(server_id):
     server = GameServer.query.get_or_404(server_id)
