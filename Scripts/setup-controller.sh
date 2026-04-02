@@ -314,13 +314,11 @@ fi
 
 SUDOERS_FILE="/etc/sudoers.d/pgsm-nginx"
 mkdir -p /etc/sudoers.d
-if [ ! -f "$SUDOERS_FILE" ]; then
-    echo "${PGSM_USER} ALL=(root) NOPASSWD: /usr/sbin/nginx -s reload, /usr/sbin/nginx -t" > "$SUDOERS_FILE"
-    chmod 440 "$SUDOERS_FILE"
-    print_ok "sudoers entry added for nginx reload"
-else
-    print_ok "sudoers entry already exists"
-fi
+cat > "$SUDOERS_FILE" <<EOF
+${PGSM_USER} ALL=(root) NOPASSWD: /usr/sbin/nginx -s reload, /usr/sbin/nginx -t, /usr/bin/tee ${PGSM_STREAM_DIR}/*.conf, /usr/bin/rm ${PGSM_STREAM_DIR}/*.conf
+EOF
+chmod 440 "$SUDOERS_FILE"
+print_ok "sudoers entry written for nginx reload + stream conf write/delete"
 
 # Grant pgsm-ctrl write access to the PGSM stream conf directory
 chown root:"$PGSM_USER" "$PGSM_STREAM_DIR"

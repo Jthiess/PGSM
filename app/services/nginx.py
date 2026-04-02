@@ -54,16 +54,26 @@ class NginxService:
     def add_server(self, server) -> None:
         """Writes an nginx conf file for the server and reloads nginx."""
         path = self._conf_path(server)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as f:
-            f.write(self._generate_stream_block(server))
+        content = self._generate_stream_block(server)
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w') as f:
+                f.write(content)
+        except PermissionError:
+            subprocess.run(
+                ['sudo', 'tee', path],
+                input=content, text=True, check=True, capture_output=True,
+            )
         self._reload_nginx()
 
     def remove_server(self, server) -> None:
         """Removes the nginx conf file for the server and reloads nginx."""
         path = self._conf_path(server)
         if os.path.exists(path):
-            os.remove(path)
+            try:
+                os.remove(path)
+            except PermissionError:
+                subprocess.run(['sudo', 'rm', path], check=True, capture_output=True)
             self._reload_nginx()
 
     def _reload_nginx(self) -> None:
