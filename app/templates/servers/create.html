@@ -171,6 +171,19 @@
             </div>
         </div>
 
+        <div class="form-group" id="java-version-group">
+            <label for="java_version_override">Java Version</label>
+            <select name="java_version_override" id="java_version_override">
+                <option value="">Auto (recommended)</option>
+                <option value="8">Java 8</option>
+                <option value="16">Java 16</option>
+                <option value="17">Java 17</option>
+                <option value="21">Java 21</option>
+                <option value="25">Java 25</option>
+            </select>
+            <div class="form-hint">Override the Java version used to run the server. Leave on Auto to let PGSM select the correct version for the chosen Minecraft version.</div>
+        </div>
+
         <div class="form-group" id="startup-cmd-group" style="display:none">
             <label for="custom_startup_command">
                 Startup Command
@@ -204,6 +217,7 @@
     var fabricOptions    = document.getElementById('fabric-options');
     var forgeOptions     = document.getElementById('forge-options');
     var importOptions    = document.getElementById('import-options');
+    var javaVersionGroup = document.getElementById('java-version-group');
     var startupCmdGroup  = document.getElementById('startup-cmd-group');
     var startupCmdReq    = document.getElementById('startup-cmd-required');
     var startupCmdHint   = document.getElementById('startup-cmd-hint');
@@ -262,10 +276,13 @@
         var isFabric = type === 'fabric';
         var isForge  = type === 'forge';
 
-        versionSection.style.display = isImport ? 'none' : '';
-        fabricOptions.style.display  = isFabric ? '' : 'none';
-        forgeOptions.style.display   = isForge  ? '' : 'none';
-        importOptions.style.display  = isImport ? '' : 'none';
+        var isBedrock = type === 'bedrock';
+
+        versionSection.style.display  = isImport ? 'none' : '';
+        fabricOptions.style.display   = isFabric ? '' : 'none';
+        forgeOptions.style.display    = isForge  ? '' : 'none';
+        importOptions.style.display   = isImport ? '' : 'none';
+        javaVersionGroup.style.display = (isBedrock || isImport) ? 'none' : '';
 
         startupCmdGroup.style.display = isImport ? '' : 'none';
         startupCmdReq.style.display   = isImport ? '' : 'none';

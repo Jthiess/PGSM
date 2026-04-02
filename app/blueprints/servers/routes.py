@@ -142,6 +142,7 @@ def create_server():
         forge_version=form.get('forge_version', '').strip() or None,
         import_archive_url=import_archive_path,  # local path to uploaded zip
         custom_startup_command=form.get('custom_startup_command', '').strip() or None,
+        java_version_override=int(form['java_version_override']) if form.get('java_version_override', '').strip() else None,
     )
     db.session.add(server)
     db.session.commit()
