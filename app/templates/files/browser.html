@@ -53,8 +53,9 @@
 (function() {
     var serverId    = {{ server.id | tojson }};
     var currentPath = {{ current_path | tojson }};
+    var baseUrl     = {{ url_for('files.browse', server_id=server.id) | tojson }}.replace(/\/[^\/]*$/, '');
     var container   = document.getElementById('file-listing');
-    var listUrl     = '/files/' + serverId + '/list/' + currentPath.replace(/^\//, '');
+    var listUrl     = baseUrl + '/' + serverId + '/list/' + currentPath.replace(/^\//, '');
 
     var controller = new AbortController();
     var timer = setTimeout(function() { controller.abort(); }, 12000);
@@ -100,7 +101,7 @@
             var parentPath = parts.length ? parts.join('/') : 'PGSM';
             html += '<li class="file-item">' +
                 '<span class="file-icon">&#128193;</span>' +
-                '<span class="file-name"><a href="/files/' + serverId + '/' + parentPath + '">..</a></span>' +
+                '<span class="file-name"><a href="' + baseUrl + '/' + serverId + '/' + parentPath + '">..</a></span>' +
                 '</li>';
         }
 
@@ -110,22 +111,22 @@
             html += '<li class="file-item">';
             if (e.is_dir) {
                 html += '<span class="file-icon">&#128193;</span>' +
-                    '<span class="file-name"><a href="/files/' + serverId + '/' + safePath + '">' + safeName + '/</a></span>' +
+                    '<span class="file-name"><a href="' + baseUrl + '/' + serverId + '/' + safePath + '">' + safeName + '/</a></span>' +
                     '<span class="file-size"></span>' +
                     '<div class="file-actions">' +
-                    '<form method="POST" action="/files/' + serverId + '/delete_dir" ' +
+                    '<form method="POST" action="' + baseUrl + '/' + serverId + '/delete_dir" ' +
                     'onsubmit="return confirm(\'Delete directory ' + safeName + ' and ALL its contents? This cannot be undone.\')" style="display:inline">' +
                     '<input type="hidden" name="path" value="' + escapeHtml(e.path) + '">' +
                     '<button type="submit" class="btn btn-ghost btn-xs" style="color: var(--accent-danger)">Delete</button>' +
                     '</form></div>';
             } else {
                 html += '<span class="file-icon">&#128196;</span>' +
-                    '<span class="file-name"><a href="/files/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '">' + safeName + '</a></span>' +
+                    '<span class="file-name"><a href="' + baseUrl + '/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '">' + safeName + '</a></span>' +
                     '<span class="file-size">' + formatSize(e.size) + '</span>' +
                     '<div class="file-actions">' +
-                    '<a href="/files/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-xs">Edit</a>' +
-                    '<a href="/files/' + serverId + '/download?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-xs">Download</a>' +
-                    '<form method="POST" action="/files/' + serverId + '/delete_file" ' +
+                    '<a href="' + baseUrl + '/' + serverId + '/edit?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-xs">Edit</a>' +
+                    '<a href="' + baseUrl + '/' + serverId + '/download?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-xs">Download</a>' +
+                    '<form method="POST" action="' + baseUrl + '/' + serverId + '/delete_file" ' +
                     'onsubmit="return confirm(\'Delete ' + safeName + '?\')" style="display:inline">' +
                     '<input type="hidden" name="path" value="' + escapeHtml(e.path) + '">' +
                     '<button type="submit" class="btn btn-ghost btn-xs" style="color: var(--accent-danger)">Delete</button>' +
