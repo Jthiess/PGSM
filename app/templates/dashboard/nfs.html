@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}- NFS Mounts{% endblock %}
+
+{% block breadcrumb %}
+<span class="topbar-breadcrumb-sep">/</span>
+<span class="topbar-breadcrumb-current">NFS Mounts</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">NFS Mounts</h1>
+    <p class="page-subtitle" style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">
+        Manage NFS shares mounted on the PGSM host. Changes take effect immediately.
+    </p>
+</div>
+
+{% if backup_nfs_path %}
+<div style="
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: color-mix(in srgb, var(--accent-info) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-info) 30%, transparent);
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.8125rem;
+    color: var(--accent-info);
+">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Backup NFS path is configured as:
+    <code style="font-family: monospace; font-size: 0.8rem; opacity: 0.9;">{{ backup_nfs_path }}</code>
+</div>
+{% endif %}
+
+<!-- Current Mounts card -->
+<div class="card" style="margin-bottom: 1.25rem;">
+    <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div class="card-title">Current Mounts</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadMounts()">Refresh</button>
+    </div>
+    <table style="width: 100%;">
+        <thead>
+            <tr>
+                <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);">Device</th>
+                <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);">Mount Point</th>
+                <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);">Type</th>
+                <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);">Options</th>
+                <th style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);">Action</th>
+            </tr>
+        </thead>
+        <tbody id="mounts-table-body">
+            {% if mounts %}
+                {% for m in mounts %}
+                <tr>
+                    <td class="text-mono" style="font-size: 0.82rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);">{{ m.device }}</td>
+                    <td class="text-mono" style="font-size: 0.82rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);">{{ m.mount_point }}</td>
+                    <td style="font-size: 0.82rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);">{{ m.fstype }}</td>
+                    <td style="font-size: 0.82rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-muted);">{{ m.options }}</td>
+                    <td style="padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);">
+                        <button class="btn btn-ghost btn-sm" style="color: var(--accent-danger);"
+                                onclick="unmountNfs({{ m.mount_point | tojson }})">Unmount</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" style="color: var(--text-muted); font-size: 0.875rem; padding: 1rem 0.75rem;">No NFS mounts active.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Mount NFS Share card -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">Mount NFS Share</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.375rem;">NFS Server</label>
+            <input type="text" id="nfs-server" class="input" placeholder="192.168.1.10">
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.375rem;">Remote Path</label>
+            <input type="text" id="nfs-remote-path" class="input" placeholder="/exports/backups">
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.375rem;">Mount Point</label>
+            <input type="text" id="nfs-mount-point" class="input" placeholder="/mnt/pgsm-backups">
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.375rem;">Options</label>
+            <input type="text" id="nfs-options" class="input" placeholder="defaults" value="defaults">
+        </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <button id="nfs-mount-btn" class="btn btn-primary btn-sm" onclick="mountNfs()">Mount</button>
+        <span id="nfs-feedback" style="font-size: 0.82rem; display: none;"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var SERVER_ID = null; // not server-scoped, kept for consistency
+
+function showNfsFeedback(msg, isError) {
+    var el = document.getElementById('nfs-feedback');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--accent-danger)' : 'var(--accent-success)';
+    el.style.display = '';
+    setTimeout(function() { el.style.display = 'none'; }, 4000);
+}
+
+function loadMounts() {
+    fetch('/api/nfs/mounts')
+        .then(r => r.json())
+        .then(function(data) {
+            var tbody = document.getElementById('mounts-table-body');
+            if (!Array.isArray(data) || !data.length) {
+                tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);font-size:0.875rem;padding:1rem 0.75rem;">No NFS mounts active.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(function(m) {
+                return '<tr>' +
+                    '<td class="text-mono" style="font-size:0.82rem;padding:0.6rem 0.75rem;border-bottom:1px solid var(--border);">' + m.device + '</td>' +
+                    '<td class="text-mono" style="font-size:0.82rem;padding:0.6rem 0.75rem;border-bottom:1px solid var(--border);">' + m.mount_point + '</td>' +
+                    '<td style="font-size:0.82rem;padding:0.6rem 0.75rem;border-bottom:1px solid var(--border);">' + m.fstype + '</td>' +
+                    '<td style="font-size:0.82rem;padding:0.6rem 0.75rem;border-bottom:1px solid var(--border);color:var(--text-muted);">' + m.options + '</td>' +
+                    '<td style="padding:0.6rem 0.75rem;border-bottom:1px solid var(--border);">' +
+                    '<button class="btn btn-ghost btn-sm" style="color:var(--accent-danger);" ' +
+                    'onclick="unmountNfs(' + JSON.stringify(m.mount_point) + ')">Unmount</button></td>' +
+                    '</tr>';
+            }).join('');
+        })
+        .catch(function() {
+            document.getElementById('mounts-table-body').innerHTML =
+                '<tr><td colspan="5" style="color:var(--accent-danger);font-size:0.875rem;padding:1rem 0.75rem;">Failed to load mounts.</td></tr>';
+        });
+}
+
+function mountNfs() {
+    var server = document.getElementById('nfs-server').value.trim();
+    var remotePath = document.getElementById('nfs-remote-path').value.trim();
+    var mountPoint = document.getElementById('nfs-mount-point').value.trim();
+    var options = document.getElementById('nfs-options').value.trim() || 'defaults';
+    if (!server || !remotePath || !mountPoint) {
+        showNfsFeedback('All fields except options are required.', true);
+        return;
+    }
+    var btn = document.getElementById('nfs-mount-btn');
+    btn.disabled = true;
+    fetch('/api/nfs/mount', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({server_addr: server, remote_path: remotePath, mount_point: mountPoint, options: options})
+    })
+    .then(r => r.json())
+    .then(function(data) {
+        btn.disabled = false;
+        if (data.error) { showNfsFeedback(data.error, true); return; }
+        showNfsFeedback(mountPoint + ' mounted successfully.', false);
+        loadMounts();
+    })
+    .catch(function() { btn.disabled = false; showNfsFeedback('Request failed.', true); });
+}
+
+function unmountNfs(mountPoint) {
+    if (!confirm('Unmount ' + mountPoint + '?')) return;
+    fetch('/api/nfs/unmount', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mount_point: mountPoint})
+    })
+    .then(r => r.json())
+    .then(function(data) {
+        if (data.error) { showNfsFeedback(data.error, true); return; }
+        showNfsFeedback(mountPoint + ' unmounted.', false);
+        loadMounts();
+    })
+    .catch(function() { showNfsFeedback('Request failed.', true); });
+}
+
+loadMounts();
+</script>
+{% endblock %}

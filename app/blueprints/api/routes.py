@@ -395,3 +395,102 @@ def remove_port(server_id):
         return jsonify({'ok': True, 'nginx_warning': str(e), 'all_ports': server.all_ports})
 
     return jsonify({'ok': True, 'all_ports': server.all_ports})
+
+
+# ---------------------------------------------------------------------------
+# NFS Mount Management endpoints
+# All three endpoints require admin auth checked inline (is_admin()) rather
+# than via decorator because API routes return JSON 403s instead of redirects.
+# ---------------------------------------------------------------------------
+
+@bp.route('/nfs/mounts')
+def nfs_list():
+    """Return all currently active NFS mounts.
+
+    GET /api/nfs/mounts
+
+    Returns:
+        200: List of mount dicts — see ``nfs_svc.list_nfs_mounts()`` for schema.
+        403: ``{"error": "Admin access required"}`` if not an admin session.
+        500: ``{"error": "..."}`` on unexpected failure.
+    """
+    from app.auth import is_admin
+    if not is_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    from app.services import nfs as nfs_svc
+    try:
+        return jsonify(nfs_svc.list_nfs_mounts())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/nfs/mount', methods=['POST'])
+def nfs_mount():
+    """Mount a remote NFS export at a local path.
+
+    POST /api/nfs/mount
+
+    Request body (JSON):
+        server_addr  (str, required): NFS server hostname or IP.
+        remote_path  (str, required): Exported path on the server (absolute).
+        mount_point  (str, required): Local mount directory (absolute).
+        options      (str, optional): Mount option string (default ``defaults``).
+
+    Returns:
+        200: ``{"ok": true}``
+        400: ``{"error": "..."}`` for missing fields or invalid/rejected input.
+        403: ``{"error": "Admin access required"}`` if not an admin session.
+        500: ``{"error": "..."}`` on unexpected failure.
+    """
+    from app.auth import is_admin
+    if not is_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    from app.services import nfs as nfs_svc
+    data = request.get_json(silent=True) or {}
+    server_addr = (data.get('server_addr') or '').strip()
+    remote_path = (data.get('remote_path') or '').strip()
+    mount_point = (data.get('mount_point') or '').strip()
+    options = (data.get('options') or 'defaults').strip()
+    if not server_addr or not remote_path or not mount_point:
+        return jsonify({'error': 'server_addr, remote_path, and mount_point are required'}), 400
+    try:
+        nfs_svc.mount_nfs(server_addr, remote_path, mount_point, options)
+        return jsonify({'ok': True})
+    except (ValueError, RuntimeError) as e:
+        # ValueError = failed input validation; RuntimeError = mount command failed
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/nfs/unmount', methods=['POST'])
+def nfs_unmount():
+    """Unmount an NFS filesystem from a local path.
+
+    POST /api/nfs/unmount
+
+    Request body (JSON):
+        mount_point (str, required): Local directory to unmount (absolute path).
+
+    Returns:
+        200: ``{"ok": true}``
+        400: ``{"error": "..."}`` for missing field or invalid/rejected input.
+        403: ``{"error": "Admin access required"}`` if not an admin session.
+        500: ``{"error": "..."}`` on unexpected failure.
+    """
+    from app.auth import is_admin
+    if not is_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    from app.services import nfs as nfs_svc
+    data = request.get_json(silent=True) or {}
+    mount_point = (data.get('mount_point') or '').strip()
+    if not mount_point:
+        return jsonify({'error': 'mount_point is required'}), 400
+    try:
+        nfs_svc.unmount_nfs(mount_point)
+        return jsonify({'ok': True})
+    except (ValueError, RuntimeError) as e:
+        # ValueError = failed input validation; RuntimeError = umount command failed
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
