@@ -302,13 +302,11 @@ def dismiss_provision_log(server_id):
 
 # ---------------------------------------------------------------------------
 # Backup endpoints
-# These routes trigger and list /PGSM backups downloaded to the NFS share
-# configured via BACKUP_NFS_PATH in config.py.
 # ---------------------------------------------------------------------------
 
 @bp.route('/servers/<server_id>/backup', methods=['POST'])
 def create_backup(server_id):
-    """Triggers a background backup of /PGSM to the configured NFS share.
+    """Triggers a background backup of /PGSM to the configured local backup path.
 
     The tar.gz is created on the container then pulled down over SFTP.
     Because large worlds can take several minutes to compress, the operation
@@ -316,7 +314,7 @@ def create_backup(server_id):
 
     Returns:
         200: ``{"ok": true, "message": "Backup started in background"}``
-        400: ``{"error": "BACKUP_NFS_PATH is not configured"}`` when the
+        400: ``{"error": "BACKUP_PATH is not configured"}`` when the
              config value is missing or empty.
         404: server not found.
     """
@@ -324,9 +322,9 @@ def create_backup(server_id):
 
     server = GameServer.query.get_or_404(server_id)
 
-    backup_dir = current_app.config.get('BACKUP_NFS_PATH', '').strip()
+    backup_dir = current_app.config.get('BACKUP_PATH', '').strip()
     if not backup_dir:
-        return jsonify({'error': 'BACKUP_NFS_PATH is not configured'}), 400
+        return jsonify({'error': 'BACKUP_PATH is not configured'}), 400
 
     # Capture the real app object — the current_app proxy is not safe to use
     # inside a new thread because the request context will be gone by then.
@@ -357,7 +355,7 @@ def list_backups(server_id):
     from app.services import backup as backup_service
 
     server = GameServer.query.get_or_404(server_id)
-    backup_dir = current_app.config.get('BACKUP_NFS_PATH', '').strip()
+    backup_dir = current_app.config.get('BACKUP_PATH', '').strip()
 
     try:
         return jsonify(backup_service.list_backups(server, backup_dir))
@@ -395,102 +393,3 @@ def remove_port(server_id):
         return jsonify({'ok': True, 'nginx_warning': str(e), 'all_ports': server.all_ports})
 
     return jsonify({'ok': True, 'all_ports': server.all_ports})
-
-
-# ---------------------------------------------------------------------------
-# NFS Mount Management endpoints
-# All three endpoints require admin auth checked inline (is_admin()) rather
-# than via decorator because API routes return JSON 403s instead of redirects.
-# ---------------------------------------------------------------------------
-
-@bp.route('/nfs/mounts')
-def nfs_list():
-    """Return all currently active NFS mounts.
-
-    GET /api/nfs/mounts
-
-    Returns:
-        200: List of mount dicts — see ``nfs_svc.list_nfs_mounts()`` for schema.
-        403: ``{"error": "Admin access required"}`` if not an admin session.
-        500: ``{"error": "..."}`` on unexpected failure.
-    """
-    from app.auth import is_admin
-    if not is_admin():
-        return jsonify({'error': 'Admin access required'}), 403
-    from app.services import nfs as nfs_svc
-    try:
-        return jsonify(nfs_svc.list_nfs_mounts())
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/nfs/mount', methods=['POST'])
-def nfs_mount():
-    """Mount a remote NFS export at a local path.
-
-    POST /api/nfs/mount
-
-    Request body (JSON):
-        server_addr  (str, required): NFS server hostname or IP.
-        remote_path  (str, required): Exported path on the server (absolute).
-        mount_point  (str, required): Local mount directory (absolute).
-        options      (str, optional): Mount option string (default ``defaults``).
-
-    Returns:
-        200: ``{"ok": true}``
-        400: ``{"error": "..."}`` for missing fields or invalid/rejected input.
-        403: ``{"error": "Admin access required"}`` if not an admin session.
-        500: ``{"error": "..."}`` on unexpected failure.
-    """
-    from app.auth import is_admin
-    if not is_admin():
-        return jsonify({'error': 'Admin access required'}), 403
-    from app.services import nfs as nfs_svc
-    data = request.get_json(silent=True) or {}
-    server_addr = (data.get('server_addr') or '').strip()
-    remote_path = (data.get('remote_path') or '').strip()
-    mount_point = (data.get('mount_point') or '').strip()
-    options = (data.get('options') or 'defaults').strip()
-    if not server_addr or not remote_path or not mount_point:
-        return jsonify({'error': 'server_addr, remote_path, and mount_point are required'}), 400
-    try:
-        nfs_svc.mount_nfs(server_addr, remote_path, mount_point, options)
-        return jsonify({'ok': True})
-    except (ValueError, RuntimeError) as e:
-        # ValueError = failed input validation; RuntimeError = mount command failed
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/nfs/unmount', methods=['POST'])
-def nfs_unmount():
-    """Unmount an NFS filesystem from a local path.
-
-    POST /api/nfs/unmount
-
-    Request body (JSON):
-        mount_point (str, required): Local directory to unmount (absolute path).
-
-    Returns:
-        200: ``{"ok": true}``
-        400: ``{"error": "..."}`` for missing field or invalid/rejected input.
-        403: ``{"error": "Admin access required"}`` if not an admin session.
-        500: ``{"error": "..."}`` on unexpected failure.
-    """
-    from app.auth import is_admin
-    if not is_admin():
-        return jsonify({'error': 'Admin access required'}), 403
-    from app.services import nfs as nfs_svc
-    data = request.get_json(silent=True) or {}
-    mount_point = (data.get('mount_point') or '').strip()
-    if not mount_point:
-        return jsonify({'error': 'mount_point is required'}), 400
-    try:
-        nfs_svc.unmount_nfs(mount_point)
-        return jsonify({'ok': True})
-    except (ValueError, RuntimeError) as e:
-        # ValueError = failed input validation; RuntimeError = umount command failed
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500

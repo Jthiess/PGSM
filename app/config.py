@@ -128,8 +128,6 @@ class Config:
     SERVER_DEFAULT_HA_ENABLED    = os.getenv('Server_Default_HA_Enabled', 'true').lower() == 'true'
 
     # ----------------------------------------------------------
-    # Backups: NFS share path on this host
-    # The PGSM host must have the NFS share mounted at this path.
-    # Backup files are written directly here via SFTP download.
+    # Backups: local directory to store backup archives
     # ----------------------------------------------------------
-    BACKUP_NFS_PATH = os.getenv('BACKUP_NFS_PATH', '/mnt/pgsm-backups')
+    BACKUP_PATH = os.getenv('BACKUP_PATH', '/mnt/pgsm-backups')
