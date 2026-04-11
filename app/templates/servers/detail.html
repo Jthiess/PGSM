@@ -113,6 +113,9 @@
     {% if session.get('admin_auth') and server.server_type not in ['import', 'bedrock', 'forge'] %}
     <a class="tab {% if active_tab == 'update' %}active{% endif %}" data-tab="update" href="#">Update</a>
     {% endif %}
+    {% if session.get('admin_auth') %}
+    <a class="tab {% if active_tab == 'backup' %}active{% endif %}" data-tab="backup" href="#">Backup</a>
+    {% endif %}
 </div>
 
 <!-- Info tab -->
@@ -436,6 +439,39 @@
 </div>
 {% endif %}
 
+{% if session.get('admin_auth') %}
+<!-- Backup tab -->
+<div id="tab-backup" class="tab-panel" {% if active_tab != 'backup' %}style="display:none"{% endif %}>
+    <div class="card" style="padding: 1.375rem;">
+        <h3 class="section-title" style="margin-bottom: 0.5rem;">Backups</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Create and manage backups of this server's world data and configuration.
+        </p>
+
+        <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem;">
+            <button id="backup-trigger-btn" class="btn btn-primary btn-sm" onclick="triggerBackup()">Create Backup</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadBackups()">Refresh</button>
+            <span id="backup-feedback" style="font-size: 0.82rem; display: none;"></span>
+        </div>
+
+        <table id="backups-table" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Size</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody id="backups-table-body">
+                <tr id="backups-loading-row">
+                    <td colspan="3" style="color: var(--text-muted); font-size: 0.875rem;">Loading…</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 {% if session.get('admin_auth') and server.provision_log %}
 <!-- Provision log -->
 <div class="card" id="provision-log-card" style="margin-top: 1.5rem; padding: 1.375rem;">
@@ -696,5 +732,76 @@ function removePort(port) {
     })
     .catch(() => showPortFeedback('Request failed.', true));
 }
+
+{% if session.get('admin_auth') %}
+// Backup management
+function showBackupFeedback(msg, isError) {
+    var el = document.getElementById('backup-feedback');
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--accent-danger)' : 'var(--accent-success)';
+    el.style.display = '';
+}
+
+function hideBackupFeedback() {
+    var el = document.getElementById('backup-feedback');
+    if (el) el.style.display = 'none';
+}
+
+function loadBackups() {
+    var tbody = document.getElementById('backups-table-body');
+    tbody.innerHTML = '<tr><td colspan="3" style="color: var(--text-muted); font-size: 0.875rem;">Loading…</td></tr>';
+    fetchWithTimeout('/api/servers/' + SERVER_ID + '/backups', {}, 15000)
+        .then(r => r.json())
+        .then(function(data) {
+            if (data.error) {
+                tbody.innerHTML = '<tr><td colspan="3" style="color: var(--accent-danger); font-size: 0.875rem;">' + data.error + '</td></tr>';
+                return;
+            }
+            var backups = Array.isArray(data) ? data : (data.backups || []);
+            if (!backups.length) {
+                tbody.innerHTML = '<tr><td colspan="3" style="color: var(--text-muted); font-size: 0.875rem;">No backups found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = backups.map(function(b) {
+                var created = b.created ? new Date(b.created).toLocaleString() : '—';
+                return '<tr>' +
+                    '<td class="text-mono" style="font-size: 0.82rem;">' + b.filename + '</td>' +
+                    '<td style="font-size: 0.875rem;">' + (b.size_mb !== undefined && b.size_mb !== null ? b.size_mb + ' MB' : '—') + '</td>' +
+                    '<td style="font-size: 0.875rem; color: var(--text-muted);">' + created + '</td>' +
+                    '</tr>';
+            }).join('');
+        })
+        .catch(function() {
+            tbody.innerHTML = '<tr><td colspan="3" style="color: var(--accent-danger); font-size: 0.875rem;">Failed to load backups.</td></tr>';
+        });
+}
+
+function triggerBackup() {
+    var btn = document.getElementById('backup-trigger-btn');
+    btn.disabled = true;
+    btn.textContent = 'Starting…';
+    hideBackupFeedback();
+    fetchWithTimeout('/api/servers/' + SERVER_ID + '/backup', { method: 'POST' }, 30000)
+        .then(r => r.json())
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Create Backup';
+            if (data.error) {
+                showBackupFeedback(data.error, true);
+                return;
+            }
+            showBackupFeedback('Backup started in the background. The list will refresh shortly.', false);
+            setTimeout(loadBackups, 3000);
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.textContent = 'Create Backup';
+            showBackupFeedback('Request failed.', true);
+        });
+}
+
+// Load backup list on page load
+loadBackups();
+{% endif %}
 </script>
 {% endblock %}

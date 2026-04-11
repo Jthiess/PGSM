@@ -1,6 +1,7 @@
 import json
+import threading
 
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.blueprints.api import bp
@@ -297,6 +298,71 @@ def dismiss_provision_log(server_id):
     server.provision_log = None
     db.session.commit()
     return jsonify({'ok': True})
+
+
+# ---------------------------------------------------------------------------
+# Backup endpoints
+# These routes trigger and list /PGSM backups downloaded to the NFS share
+# configured via BACKUP_NFS_PATH in config.py.
+# ---------------------------------------------------------------------------
+
+@bp.route('/servers/<server_id>/backup', methods=['POST'])
+def create_backup(server_id):
+    """Triggers a background backup of /PGSM to the configured NFS share.
+
+    The tar.gz is created on the container then pulled down over SFTP.
+    Because large worlds can take several minutes to compress, the operation
+    runs in a daemon thread and this endpoint returns immediately.
+
+    Returns:
+        200: ``{"ok": true, "message": "Backup started in background"}``
+        400: ``{"error": "BACKUP_NFS_PATH is not configured"}`` when the
+             config value is missing or empty.
+        404: server not found.
+    """
+    from app.services import backup as backup_service
+
+    server = GameServer.query.get_or_404(server_id)
+
+    backup_dir = current_app.config.get('BACKUP_NFS_PATH', '').strip()
+    if not backup_dir:
+        return jsonify({'error': 'BACKUP_NFS_PATH is not configured'}), 400
+
+    # Capture the real app object — the current_app proxy is not safe to use
+    # inside a new thread because the request context will be gone by then.
+    app = current_app._get_current_object()
+
+    def _run_backup():
+        with app.app_context():
+            backup_service.backup_server(server, backup_dir)
+
+    threading.Thread(target=_run_backup, daemon=True).start()
+
+    return jsonify({'ok': True, 'message': 'Backup started in background'})
+
+
+@bp.route('/servers/<server_id>/backups', methods=['GET'])
+def list_backups(server_id):
+    """Returns a list of existing backup archives for the given server.
+
+    Scans the NFS share directory (BACKUP_NFS_PATH) for files matching
+    the server's safe name.  Returns an empty list when no backups exist
+    or the directory has not yet been created.
+
+    Returns:
+        200: List of ``{"filename": str, "size_mb": float, "created": str}``,
+             sorted newest-first.  Empty list ``[]`` when none exist.
+        500: ``{"error": "..."}`` on unexpected failure.
+    """
+    from app.services import backup as backup_service
+
+    server = GameServer.query.get_or_404(server_id)
+    backup_dir = current_app.config.get('BACKUP_NFS_PATH', '').strip()
+
+    try:
+        return jsonify(backup_service.list_backups(server, backup_dir))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @bp.route('/servers/<server_id>/ports/remove', methods=['POST'])
