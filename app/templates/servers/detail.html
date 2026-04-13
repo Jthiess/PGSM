@@ -472,17 +472,19 @@
 </div>
 {% endif %}
 
-{% if session.get('admin_auth') and server.provision_log %}
-<!-- Provision log -->
-<div class="card" id="provision-log-card" style="margin-top: 1.5rem; padding: 1.375rem;">
+{% if server.provision_log %}
+<!-- Server log (provision / start failure output) -->
+<div class="card" id="provision-log-card" style="margin-top: 1.5rem; padding: 1.375rem; border-left: 3px solid var(--color-warning, #e6a817);">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-        <h3 class="section-title" style="margin: 0;">Provision Log</h3>
-        <button class="btn btn-ghost btn-sm" onclick="dismissProvisionLog()">Dismiss</button>
+        <h3 class="section-title" style="margin: 0;">Server Log</h3>
+        {% if session.get('admin_auth') %}
+        <button class="btn btn-ghost btn-sm" onclick="dismissServerLog()">Dismiss</button>
+        {% endif %}
     </div>
     <pre style="background: var(--bg-code, #1a1a1a); color: var(--text-code, #e0e0e0); border-radius: 6px; padding: 1rem; font-size: 0.78rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; margin: 0;">{{ server.provision_log }}</pre>
 </div>
 <script>
-function dismissProvisionLog() {
+function dismissServerLog() {
     fetch('/api/servers/{{ server.id }}/provision-log/dismiss', { method: 'POST' })
         .then(function() {
             var card = document.getElementById('provision-log-card');

@@ -128,12 +128,11 @@ def provision_server(server_id: str) -> None:
     # Step 6: Start the server and update status
     logger.info('[server=%s] Step 6/6: Starting systemd unit %s', server_id, SYSTEMD_UNIT)
     try:
-        ssh_mgr.exec(ip, f'systemctl start {SYSTEMD_UNIT}')
-        _set_status(server, 'running')
+        _start_and_verify(ip, server)
         logger.info('[server=%s] Provisioning complete — server is running', server_id)
     except Exception as e:
         logger.error('[server=%s] systemd start failed after provisioning: %s', server_id, e, exc_info=True)
-        _set_status(server, 'stopped', provision_log=f'Server provisioned but systemd start failed: {e}')  # Provisioned but not started
+        # provision_log already set by _start_and_verify; preserve it by not overwriting
 
 
 def start_server(server: GameServer) -> None:
@@ -145,8 +144,7 @@ def start_server(server: GameServer) -> None:
         # CT may already be running; log at debug level so it doesn't alarm on normal starts
         logger.debug('[server=%s] start_ct raised (CT may already be running): %s', server.id, e)
     _wait_for_ssh(server.ip_address, server)
-    ssh_mgr.exec(server.ip_address, f'systemctl start {SYSTEMD_UNIT}')
-    _set_status(server, 'running')
+    _start_and_verify(server.ip_address, server)
     logger.info('[server=%s] Server started successfully', server.id)
 
 
@@ -174,7 +172,7 @@ def power_off_server(server: GameServer) -> None:
 def restart_server(server: GameServer) -> None:
     logger.info('[server=%s] Restarting server process — ip=%s', server.id, server.ip_address)
     ssh_mgr.exec(server.ip_address, f'systemctl restart {SYSTEMD_UNIT}')
-    _set_status(server, 'running')
+    _start_and_verify(server.ip_address, server)
     logger.info('[server=%s] Server restarted', server.id)
 
 
@@ -329,6 +327,33 @@ def send_console_command(server: GameServer, command: str) -> None:
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+def _start_and_verify(ip: str, server: GameServer) -> None:
+    """Starts the PGSM systemd unit, waits briefly, then verifies it came up.
+
+    On failure, captures the last 50 lines of the unit's journal and stores
+    them in server.provision_log before raising RuntimeError.
+    """
+    ssh_mgr.exec(ip, f'systemctl start {SYSTEMD_UNIT}')
+    # Give systemd a few seconds to reach a stable state (active or failed)
+    time.sleep(4)
+    live = get_live_status(server)
+    if live == 'running':
+        _set_status(server, 'running')
+        return
+    # Service didn't come up — capture journalctl for diagnostics
+    try:
+        journal_out, _ = ssh_mgr.exec(ip, f'journalctl -u {SYSTEMD_UNIT} -n 50 --no-pager', timeout=10)
+    except Exception:
+        journal_out = '(unable to retrieve journal output)'
+    log_msg = (
+        f'Server failed to start (systemd state: {live})\n\n'
+        f'=== journalctl -u {SYSTEMD_UNIT} ===\n{journal_out.strip()}'
+    )
+    logger.error('[server=%s] %s', server.id, log_msg)
+    _set_status(server, 'error', provision_log=log_msg)
+    raise RuntimeError(f'Server failed to start — systemd state: {live}')
+
 
 def _wait_for_ssh(ip: str, server: GameServer) -> None:
     """Blocks until the container responds to SSH, with retries."""
