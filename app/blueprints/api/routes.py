@@ -306,20 +306,32 @@ def push_whitelist(server_id):
 
 @bp.route('/servers/<server_id>/log')
 def server_log(server_id):
-    """Returns the most recent journal output for the PGSM systemd unit.
+    """Returns recent game output for the server.
 
-    Tries a live SSH fetch first. Falls back to the stored provision_log when
-    the container is unreachable (e.g. stopped or still booting).
+    Priority:
+      1. tmux capture-pane — the actual Minecraft stdout/stderr scrollback
+      2. journalctl — systemd unit events (used when the tmux session doesn't exist yet)
+      3. stored provision_log — last known output when the container is unreachable
     """
-    from app.services.server_lifecycle import SYSTEMD_UNIT
+    from app.services.server_lifecycle import SYSTEMD_UNIT, TMUX_SESSION
     server = GameServer.query.get_or_404(server_id)
     try:
+        # Try the tmux scrollback first — this is the actual game output
+        stdout, _ = _ssh_mgr.exec(
+            server.ip_address,
+            f'su -s /bin/bash PGSM -c "TMUX_TMPDIR=/tmp tmux capture-pane -t {TMUX_SESSION} -p -S -500" 2>/dev/null',
+            timeout=10,
+        )
+        if stdout.strip():
+            return jsonify({'log': stdout.rstrip(), 'source': 'live'})
+
+        # tmux session doesn't exist yet — fall back to journalctl for systemd events
         stdout, _ = _ssh_mgr.exec(
             server.ip_address,
             f'journalctl -u {SYSTEMD_UNIT} -n 100 --no-pager',
             timeout=10,
         )
-        return jsonify({'log': stdout.strip() or '(no journal output)', 'source': 'live'})
+        return jsonify({'log': stdout.strip() or '(no output yet)', 'source': 'live'})
     except Exception:
         stored = server.provision_log or '(no log available — container unreachable)'
         return jsonify({'log': stored, 'source': 'stored'})
