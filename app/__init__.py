@@ -164,6 +164,9 @@ def _configure_logging(app: Flask) -> None:
     for handler in handlers:
         root_logger.addHandler(handler)
 
+    # Suppress noisy third-party loggers that flood the output at INFO level.
+    logging.getLogger('paramiko.transport').setLevel(logging.WARNING)
+
     app.logger.info(
         'PGSM logging initialised — level=%s, file=%s',
         log_level_name,
