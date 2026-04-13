@@ -331,26 +331,32 @@ def send_console_command(server: GameServer, command: str) -> None:
 def _start_and_verify(ip: str, server: GameServer) -> None:
     """Starts the PGSM systemd unit, waits briefly, then verifies it came up.
 
-    On failure, captures the last 50 lines of the unit's journal and stores
-    them in server.provision_log before raising RuntimeError.
+    Always captures the last 50 lines of the unit's journal and stores them in
+    server.provision_log so the startup output is visible in the UI regardless
+    of whether the start succeeded. Raises RuntimeError on failure.
     """
     ssh_mgr.exec(ip, f'systemctl start {SYSTEMD_UNIT}')
     # Give systemd a few seconds to reach a stable state (active or failed)
     time.sleep(4)
     live = get_live_status(server)
-    if live == 'running':
-        _set_status(server, 'running')
-        return
-    # Service didn't come up — capture journalctl for diagnostics
+
+    # Always capture journal output — "active" doesn't mean the game is healthy
     try:
         journal_out, _ = ssh_mgr.exec(ip, f'journalctl -u {SYSTEMD_UNIT} -n 50 --no-pager', timeout=10)
+        journal_out = journal_out.strip() or '(no journal output)'
     except Exception:
         journal_out = '(unable to retrieve journal output)'
+
     log_msg = (
-        f'Server failed to start (systemd state: {live})\n\n'
-        f'=== journalctl -u {SYSTEMD_UNIT} ===\n{journal_out.strip()}'
+        f'systemd state: {live}\n\n'
+        f'=== journalctl -u {SYSTEMD_UNIT} ===\n{journal_out}'
     )
-    logger.error('[server=%s] %s', server.id, log_msg)
+
+    if live == 'running':
+        _set_status(server, 'running', provision_log=log_msg)
+        return
+
+    logger.error('[server=%s] Server failed to start — %s', server.id, log_msg)
     _set_status(server, 'error', provision_log=log_msg)
     raise RuntimeError(f'Server failed to start — systemd state: {live}')
 

@@ -472,27 +472,35 @@
 </div>
 {% endif %}
 
-{% if server.provision_log %}
-<!-- Server log (provision / start failure output) -->
-<div class="card" id="provision-log-card" style="margin-top: 1.5rem; padding: 1.375rem; border-left: 3px solid var(--color-warning, #e6a817);">
+<!-- Server log — always visible, loads live journal output -->
+<div class="card" id="server-log-card" style="margin-top: 1.5rem; padding: 1.375rem;">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-        <h3 class="section-title" style="margin: 0;">Server Log</h3>
-        {% if session.get('admin_auth') %}
-        <button class="btn btn-ghost btn-sm" onclick="dismissServerLog()">Dismiss</button>
-        {% endif %}
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <h3 class="section-title" style="margin: 0;">Server Log</h3>
+            <span id="server-log-source" style="font-size: 0.75rem; color: var(--text-muted);"></span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadServerLog()">Refresh</button>
     </div>
-    <pre style="background: var(--bg-code, #1a1a1a); color: var(--text-code, #e0e0e0); border-radius: 6px; padding: 1rem; font-size: 0.78rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; margin: 0;">{{ server.provision_log }}</pre>
+    <pre id="server-log-output" style="background: var(--bg-code, #1a1a1a); color: var(--text-code, #e0e0e0); border-radius: 6px; padding: 1rem; font-size: 0.78rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-all; height: 300px; overflow-y: auto; margin: 0;">Loading…</pre>
 </div>
 <script>
-function dismissServerLog() {
-    fetch('/api/servers/{{ server.id }}/provision-log/dismiss', { method: 'POST' })
-        .then(function() {
-            var card = document.getElementById('provision-log-card');
-            if (card) card.remove();
+function loadServerLog() {
+    var pre = document.getElementById('server-log-output');
+    var src = document.getElementById('server-log-source');
+    src.textContent = '';
+    fetch('/api/servers/{{ server.id }}/log')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            pre.textContent = data.log;
+            pre.scrollTop = pre.scrollHeight;
+            src.textContent = data.source === 'live' ? 'live' : 'stored (container unreachable)';
+        })
+        .catch(function() {
+            pre.textContent = '(failed to load log)';
         });
 }
+loadServerLog();
 </script>
-{% endif %}
 
 {% if session.get('admin_auth') %}
 <!-- Danger zone -->

@@ -304,6 +304,27 @@ def push_whitelist(server_id):
     return jsonify({'ok': True, 'entries': len(data)})
 
 
+@bp.route('/servers/<server_id>/log')
+def server_log(server_id):
+    """Returns the most recent journal output for the PGSM systemd unit.
+
+    Tries a live SSH fetch first. Falls back to the stored provision_log when
+    the container is unreachable (e.g. stopped or still booting).
+    """
+    from app.services.server_lifecycle import SYSTEMD_UNIT
+    server = GameServer.query.get_or_404(server_id)
+    try:
+        stdout, _ = _ssh_mgr.exec(
+            server.ip_address,
+            f'journalctl -u {SYSTEMD_UNIT} -n 100 --no-pager',
+            timeout=10,
+        )
+        return jsonify({'log': stdout.strip() or '(no journal output)', 'source': 'live'})
+    except Exception:
+        stored = server.provision_log or '(no log available — container unreachable)'
+        return jsonify({'log': stored, 'source': 'stored'})
+
+
 @bp.route('/servers/<server_id>/provision-log/dismiss', methods=['POST'])
 def dismiss_provision_log(server_id):
     server = GameServer.query.get_or_404(server_id)
