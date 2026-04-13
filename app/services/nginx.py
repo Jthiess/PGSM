@@ -1,7 +1,10 @@
+import logging
 import os
 import subprocess
 
 from flask import current_app
+
+logger = logging.getLogger(__name__)
 
 
 class NginxService:
@@ -54,27 +57,36 @@ class NginxService:
     def add_server(self, server) -> None:
         """Writes an nginx conf file for the server and reloads nginx."""
         path = self._conf_path(server)
+        logger.info('Writing nginx conf for ct_id=%s → %s', server.ct_id, path)
         content = self._generate_stream_block(server)
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, 'w') as f:
                 f.write(content)
+            logger.info('nginx conf written for ct_id=%s', server.ct_id)
         except PermissionError:
+            logger.debug('Direct write to %s denied — falling back to sudo tee', path)
             subprocess.run(
                 ['sudo', 'tee', path],
                 input=content, text=True, check=True, capture_output=True,
             )
+            logger.info('nginx conf written via sudo for ct_id=%s', server.ct_id)
         self._reload_nginx()
 
     def remove_server(self, server) -> None:
         """Removes the nginx conf file for the server and reloads nginx."""
         path = self._conf_path(server)
         if os.path.exists(path):
+            logger.info('Removing nginx conf for ct_id=%s: %s', server.ct_id, path)
             try:
                 os.remove(path)
             except PermissionError:
+                logger.debug('Direct remove of %s denied — falling back to sudo rm', path)
                 subprocess.run(['sudo', 'rm', path], check=True, capture_output=True)
+            logger.info('nginx conf removed for ct_id=%s', server.ct_id)
             self._reload_nginx()
+        else:
+            logger.debug('nginx conf not found for ct_id=%s (already removed?): %s', server.ct_id, path)
 
     def _reload_nginx(self) -> None:
         # Test config first so errors are descriptive rather than silent.
@@ -83,14 +95,17 @@ class NginxService:
             if result.returncode == 0:
                 break
         else:
-            raise RuntimeError(
-                f'nginx config test failed: {result.stderr.strip() or result.stdout.strip()}'
-            )
+            err_msg = result.stderr.strip() or result.stdout.strip()
+            logger.error('nginx config test failed: %s', err_msg)
+            raise RuntimeError(f'nginx config test failed: {err_msg}')
 
         # Reload — try direct first (works when running as root),
         # fall back to sudo granted via /etc/sudoers.d/pgsm-nginx.
         for cmd in (['nginx', '-s', 'reload'], ['sudo', 'nginx', '-s', 'reload']):
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode == 0:
+                logger.info('nginx reloaded successfully')
                 return
-        raise RuntimeError(f'nginx reload failed: {result.stderr.strip()}')
+        err_msg = result.stderr.strip()
+        logger.error('nginx reload failed: %s', err_msg)
+        raise RuntimeError(f'nginx reload failed: {err_msg}')

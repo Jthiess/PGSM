@@ -131,3 +131,15 @@ class Config:
     # Backups: local directory to store backup archives
     # ----------------------------------------------------------
     BACKUP_PATH = os.getenv('BACKUP_PATH', '/mnt/pgsm-backups')
+
+    # ----------------------------------------------------------
+    # Logging
+    # LOG_LEVEL: Python logging level name (DEBUG, INFO, WARNING, ERROR).
+    # LOG_FILE:  Path to the rotating log file. Set to empty string to
+    #            disable file logging (console only).
+    # LOG_MAX_BYTES / LOG_BACKUP_COUNT: RotatingFileHandler parameters.
+    # ----------------------------------------------------------
+    LOG_LEVEL        = os.getenv('LOG_LEVEL', 'INFO').upper()
+    LOG_FILE         = os.getenv('LOG_FILE', 'logs/pgsm.log')
+    LOG_MAX_BYTES    = int(os.getenv('LOG_MAX_BYTES', 10 * 1024 * 1024))  # 10 MB
+    LOG_BACKUP_COUNT = int(os.getenv('LOG_BACKUP_COUNT', 5))

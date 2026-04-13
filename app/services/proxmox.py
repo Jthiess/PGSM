@@ -1,7 +1,10 @@
 import ipaddress
+import logging
 
 from flask import current_app
 from proxmoxer import ProxmoxAPI
+
+logger = logging.getLogger(__name__)
 
 
 class ProxmoxService:
@@ -23,6 +26,7 @@ class ProxmoxService:
                     f"Proxmox connection not configured. Missing from .env: {', '.join(missing)}"
                 )
 
+            logger.info('Connecting to Proxmox API at %s (user=%s)', host, user)
             self._api = ProxmoxAPI(
                 host,
                 user=user,
@@ -76,27 +80,37 @@ class ProxmoxService:
         pubkey: str,
     ) -> None:
         """Creates an unprivileged LXC container with PGSM networking and starts it."""
+        logger.info(
+            'Creating LXC container ct_id=%s hostname=%s ip=%s node=%s '
+            'disk=%dGB cores=%d memory=%dMB',
+            ct_id, hostname, ip, node, disk_gb, cores, memory_mb,
+        )
         api = self._get_api()
         cfg = current_app.config
         gateway = cfg['PGSM_VLAN_GATEWAY']
         template = cfg['PGSM_LXC_TEMPLATE']
 
-        api.nodes(node).lxc.post(**{
-            'vmid': ct_id,
-            'ostemplate': template,
-            'hostname': hostname,
-            'unprivileged': 1,
-            'cores': cores,
-            'memory': memory_mb,
-            'rootfs': f'kestrel:{disk_gb}',
-            'net0': f'name=eth0,bridge=PGSM,ip={ip}/24,gw={gateway}',
-            'nameserver': '1.1.1.1',
-            'searchdomain': 'PGSM.lan',
-            'ssh-public-keys': pubkey,
-            'features': 'nesting=1',
-            'tags': 'pgsm',
-            'start': 1,
-        })
+        try:
+            api.nodes(node).lxc.post(**{
+                'vmid': ct_id,
+                'ostemplate': template,
+                'hostname': hostname,
+                'unprivileged': 1,
+                'cores': cores,
+                'memory': memory_mb,
+                'rootfs': f'kestrel:{disk_gb}',
+                'net0': f'name=eth0,bridge=PGSM,ip={ip}/24,gw={gateway}',
+                'nameserver': '1.1.1.1',
+                'searchdomain': 'PGSM.lan',
+                'ssh-public-keys': pubkey,
+                'features': 'nesting=1',
+                'tags': 'pgsm',
+                'start': 1,
+            })
+            logger.info('LXC container ct_id=%s created and start signal sent', ct_id)
+        except Exception as e:
+            logger.error('Failed to create LXC container ct_id=%s: %s', ct_id, e, exc_info=True)
+            raise
 
     def enable_ha(self, ct_id: int) -> None:
         """Registers an LXC container with Proxmox HA (no group, state=started).
@@ -104,7 +118,13 @@ class ProxmoxService:
         Requires the Proxmox cluster to have HA configured. If the cluster has
         no HA manager running, this will raise an exception.
         """
-        self._get_api().cluster.ha.resources.post(sid=f'lxc:{ct_id}', state='started')
+        logger.info('Enabling HA for ct_id=%s', ct_id)
+        try:
+            self._get_api().cluster.ha.resources.post(sid=f'lxc:{ct_id}', state='started')
+            logger.info('HA enabled for ct_id=%s', ct_id)
+        except Exception as e:
+            logger.error('Failed to enable HA for ct_id=%s: %s', ct_id, e, exc_info=True)
+            raise
 
     def disable_ha(self, ct_id: int) -> None:
         """Removes an LXC container from Proxmox HA management.
@@ -112,7 +132,13 @@ class ProxmoxService:
         Safe to call even if HA was never enabled — Proxmox returns 404 which
         callers should catch and ignore.
         """
-        self._get_api().cluster.ha.resources(f'lxc:{ct_id}').delete()
+        logger.info('Disabling HA for ct_id=%s', ct_id)
+        try:
+            self._get_api().cluster.ha.resources(f'lxc:{ct_id}').delete()
+            logger.info('HA disabled for ct_id=%s', ct_id)
+        except Exception as e:
+            logger.error('Failed to disable HA for ct_id=%s: %s', ct_id, e, exc_info=True)
+            raise
 
     def update_ct_resources(
         self,
@@ -131,10 +157,22 @@ class ProxmoxService:
         if memory_mb is not None:
             params['memory'] = memory_mb
         if params:
-            self._get_api().nodes(node).lxc(ct_id).config.put(**params)
+            logger.info('Updating resources for ct_id=%s on node=%s: %s', ct_id, node, params)
+            try:
+                self._get_api().nodes(node).lxc(ct_id).config.put(**params)
+                logger.info('Resources updated for ct_id=%s', ct_id)
+            except Exception as e:
+                logger.error('Failed to update resources for ct_id=%s: %s', ct_id, e, exc_info=True)
+                raise
 
     def start_ct(self, node: str, ct_id: int) -> None:
-        self._get_api().nodes(node).lxc(ct_id).status.start.post()
+        logger.info('Starting CT ct_id=%s on node=%s', ct_id, node)
+        try:
+            self._get_api().nodes(node).lxc(ct_id).status.start.post()
+            logger.info('Start signal sent to ct_id=%s', ct_id)
+        except Exception as e:
+            logger.error('Failed to start ct_id=%s: %s', ct_id, e, exc_info=True)
+            raise
 
     def stop_ct(self, node: str, ct_id: int, wait: bool = False, timeout: int = 60) -> None:
         """Sends a stop signal to an LXC container.
@@ -143,7 +181,13 @@ class ProxmoxService:
         timeout seconds elapse (raises RuntimeError on timeout).
         """
         import time
-        self._get_api().nodes(node).lxc(ct_id).status.stop.post()
+        logger.info('Stopping CT ct_id=%s on node=%s (wait=%s, timeout=%ds)', ct_id, node, wait, timeout)
+        try:
+            self._get_api().nodes(node).lxc(ct_id).status.stop.post()
+            logger.info('Stop signal sent to ct_id=%s', ct_id)
+        except Exception as e:
+            logger.error('Failed to send stop signal to ct_id=%s: %s', ct_id, e, exc_info=True)
+            raise
         if wait:
             deadline = time.time() + timeout
             while time.time() < deadline:
@@ -151,6 +195,7 @@ class ProxmoxService:
                 try:
                     status = self._get_api().nodes(node).lxc(ct_id).status.current.get()
                     if status.get('status') == 'stopped':
+                        logger.info('CT ct_id=%s confirmed stopped', ct_id)
                         return
                 except Exception:
                     pass
@@ -158,7 +203,20 @@ class ProxmoxService:
 
     def delete_ct(self, node: str, ct_id: int) -> None:
         """Permanently deletes an LXC container from Proxmox. Container must be stopped first."""
-        self._get_api().nodes(node).lxc(ct_id).delete()
+        logger.info('Deleting CT ct_id=%s on node=%s', ct_id, node)
+        try:
+            self._get_api().nodes(node).lxc(ct_id).delete()
+            logger.info('CT ct_id=%s deleted', ct_id)
+        except Exception as e:
+            logger.error('Failed to delete ct_id=%s: %s', ct_id, e, exc_info=True)
+            raise
 
     def get_ct_status(self, node: str, ct_id: int) -> dict:
-        return self._get_api().nodes(node).lxc(ct_id).status.current.get()
+        logger.debug('Querying status for ct_id=%s on node=%s', ct_id, node)
+        try:
+            status = self._get_api().nodes(node).lxc(ct_id).status.current.get()
+            logger.debug('ct_id=%s status=%s', ct_id, status.get('status'))
+            return status
+        except Exception as e:
+            logger.error('Failed to get status for ct_id=%s: %s', ct_id, e, exc_info=True)
+            raise

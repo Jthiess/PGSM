@@ -21,6 +21,18 @@ def nodes():
         return jsonify({'error': str(e)}), 500
 
 
+@bp.route('/ports/used')
+def ports_used():
+    """Returns sorted list of all port numbers currently in use by any server."""
+    ports = set()
+    for s in GameServer.query.all():
+        ports.add(s.game_port)
+        for entry in (s.extra_ports or []):
+            p = entry['port'] if isinstance(entry, dict) else entry
+            ports.add(p)
+    return jsonify(sorted(ports))
+
+
 @bp.route('/minecraft/versions')
 def minecraft_versions():
     from app.services.minecraft import MinecraftService

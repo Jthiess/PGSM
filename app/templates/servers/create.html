@@ -139,6 +139,7 @@
             <div class="form-group">
                 <label for="game_port">Game Port</label>
                 <input type="number" name="game_port" id="game_port" value="{{ defaults.game_port }}" min="1024" max="65535">
+                <div class="form-hint" id="game-port-hint" style="display:none"></div>
             </div>
         </div>
         <div class="form-group">
@@ -255,10 +256,18 @@
         .then(function(nodes) {
             nodeSelect.innerHTML = '';
             if (!nodes.length) throw new Error('no nodes');
+            nodes.sort(function(a, b) {
+                var aFree = (a.maxmem || 0) - (a.mem || 0);
+                var bFree = (b.maxmem || 0) - (b.mem || 0);
+                return bFree - aFree;
+            });
             nodes.forEach(function(n) {
                 var opt = document.createElement('option');
                 opt.value = n.node;
-                opt.textContent = n.node + ' (' + n.status + ')';
+                var freeMb = n.maxmem ? Math.round((n.maxmem - (n.mem || 0)) / 1048576) : null;
+                opt.textContent = freeMb !== null
+                    ? n.node + ' (' + freeMb.toLocaleString() + ' MB free)'
+                    : n.node + ' (' + n.status + ')';
                 nodeSelect.appendChild(opt);
             });
             nodeSelect.disabled = false;
@@ -267,6 +276,23 @@
             nodeSelect.innerHTML = '<option value="">Unavailable</option>';
             nodesHint.style.display = '';
         });
+
+    var gamePortInput   = document.getElementById('game_port');
+    var gamePortHint    = document.getElementById('game-port-hint');
+    var defaultGamePort = {{ defaults.game_port }};
+    fetch('/api/ports/used')
+        .then(r => r.json())
+        .then(function(usedPorts) {
+            if (usedPorts.length) {
+                gamePortHint.textContent = 'Taken: ' + usedPorts.join(', ');
+                gamePortHint.style.display = '';
+            }
+            var usedSet = new Set(usedPorts);
+            var port = defaultGamePort;
+            while (usedSet.has(port)) { port++; }
+            gamePortInput.value = port;
+        })
+        .catch(function() {});
 
     loadVersions(false, false);
 

@@ -1,4 +1,7 @@
+import logging
 import os
+from logging.handlers import RotatingFileHandler
+
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 from authlib.integrations.flask_client import OAuth
@@ -13,6 +16,10 @@ def create_app(config_class=Config):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_class)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+    # Configure application-wide logging before anything else so that all
+    # subsequent startup steps (migrations, scheduler, etc.) are captured.
+    _configure_logging(app)
 
     # Ensure instance folder and static image dirs exist
     os.makedirs(app.instance_path, exist_ok=True)
@@ -91,6 +98,77 @@ def create_app(config_class=Config):
     _start_scheduler(app)
 
     return app
+
+
+def _configure_logging(app: Flask) -> None:
+    """Configures Python's root logger for the PGSM application.
+
+    Sets up two handlers:
+      - StreamHandler (console): always active, useful for Docker / systemd logs.
+      - RotatingFileHandler (file): writes to LOG_FILE; disabled when LOG_FILE is
+        empty or falsy.
+
+    Using the root logger (rather than app.logger alone) ensures that service
+    modules using ``logging.getLogger(__name__)`` inherit the same level and
+    handlers without needing a reference to the Flask app object.
+
+    Config keys (from config.py / .env):
+        LOG_LEVEL        — Python level name, e.g. 'DEBUG' or 'INFO' (default INFO).
+        LOG_FILE         — Rotating log file path (default 'logs/pgsm.log').
+        LOG_MAX_BYTES    — Max size per log file before rotation (default 10 MB).
+        LOG_BACKUP_COUNT — Number of rotated files to retain (default 5).
+    """
+    log_level_name = app.config.get('LOG_LEVEL', 'INFO')
+    log_level = getattr(logging, log_level_name, logging.INFO)
+
+    # Shared formatter: timestamp, level, module path, message
+    fmt = logging.Formatter(
+        '[%(asctime)s] %(levelname)s in %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+
+    # --- Console handler ---
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(fmt)
+    console_handler.setLevel(log_level)
+
+    handlers = [console_handler]
+
+    # --- Rotating file handler (optional) ---
+    log_file = app.config.get('LOG_FILE', 'logs/pgsm.log')
+    if log_file:
+        # Create the logs directory relative to the project root (one level up
+        # from the app package) so the file ends up at <project>/logs/pgsm.log.
+        if not os.path.isabs(log_file):
+            project_root = os.path.dirname(app.root_path)
+            log_file = os.path.join(project_root, log_file)
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=app.config.get('LOG_MAX_BYTES', 10 * 1024 * 1024),
+            backupCount=app.config.get('LOG_BACKUP_COUNT', 5),
+            encoding='utf-8',
+        )
+        file_handler.setFormatter(fmt)
+        file_handler.setLevel(log_level)
+        handlers.append(file_handler)
+
+    # Apply to the root logger so all ``logging.getLogger(__name__)`` calls in
+    # service modules inherit this configuration automatically.
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+    # Remove any default handlers installed before our factory ran (e.g.
+    # Werkzeug's default StreamHandler) to avoid duplicate log lines.
+    root_logger.handlers.clear()
+    for handler in handlers:
+        root_logger.addHandler(handler)
+
+    app.logger.info(
+        'PGSM logging initialised — level=%s, file=%s',
+        log_level_name,
+        log_file if log_file else 'disabled',
+    )
 
 
 def _start_scheduler(app):

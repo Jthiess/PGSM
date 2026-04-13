@@ -1,7 +1,10 @@
+import logging
 import os
 
 import requests
 from flask import current_app
+
+logger = logging.getLogger(__name__)
 
 # Maps server_type → game code
 GAME_CODES = {
@@ -45,6 +48,7 @@ class MinecraftService:
     def get_vanilla_jar_url(self, version: str, snapshot: bool = False) -> str:
         """Resolves a Minecraft version string to its server JAR download URL via Mojang API.
         Directly absorbs the logic from the original Minecraft.py JavaManifester()."""
+        logger.info('Resolving vanilla JAR URL for version=%s (snapshot=%s)', version, snapshot)
         manifest_url = current_app.config['MINECRAFT_MANIFEST_URL']
         response = requests.get(manifest_url, timeout=10).json()
 
@@ -61,10 +65,13 @@ class MinecraftService:
             None,
         )
         if not version_entry:
+            logger.error("Minecraft version '%s' not found in Mojang manifest", version_id)
             raise ValueError(f"Minecraft version '{version_id}' not found in Mojang manifest.")
 
         version_page = requests.get(version_entry['url'], timeout=10).json()
-        return version_page['downloads']['server']['url']
+        jar_url = version_page['downloads']['server']['url']
+        logger.info('Resolved vanilla JAR URL for %s: %s', version_id, jar_url)
+        return jar_url
 
     def get_available_versions(self, include_snapshots: bool = False) -> list[dict]:
         """Returns a list of available Minecraft versions from the Mojang manifest."""
@@ -94,29 +101,39 @@ class MinecraftService:
         If forge_version is None, uses the recommended version (falling back to latest).
         Raises ValueError if no Forge version is found for the given MC version.
         """
+        logger.info('Resolving Forge installer URL for MC=%s, forge_version=%s', mc_version, forge_version or 'auto')
         if not forge_version:
             versions = self.get_forge_versions(mc_version)
             forge_version = versions['recommended'] or versions['latest']
             if not forge_version:
+                logger.error('No Forge version found for Minecraft %s', mc_version)
                 raise ValueError(f"No Forge version found for Minecraft {mc_version}")
-        return _FORGE_INSTALLER_URL.format(mc=mc_version, forge=forge_version)
+            logger.info('Auto-resolved Forge version for MC=%s: %s', mc_version, forge_version)
+        url = _FORGE_INSTALLER_URL.format(mc=mc_version, forge=forge_version)
+        logger.info('Forge installer URL: %s', url)
+        return url
 
     def get_paper_jar_url(self, mc_version: str) -> str:
         """Resolves the latest Paper build JAR download URL for a given Minecraft version."""
+        logger.info('Resolving Paper JAR URL for MC version=%s', mc_version)
         # Get the latest build number for this MC version
         version_url = f'{_PAPER_API_URL}/versions/{mc_version}'
         version_data = requests.get(version_url, timeout=10)
         if version_data.status_code != 200:
+            logger.error("Paper does not support Minecraft version '%s' (HTTP %s)", mc_version, version_data.status_code)
             raise ValueError(f"Paper does not support Minecraft version '{mc_version}'")
         builds = version_data.json().get('builds', [])
         if not builds:
+            logger.error("No Paper builds found for Minecraft version '%s'", mc_version)
             raise ValueError(f"No Paper builds found for Minecraft version '{mc_version}'")
         latest_build = builds[-1]
         # Get the download filename for this build
         build_url = f'{_PAPER_API_URL}/versions/{mc_version}/builds/{latest_build}'
         build_data = requests.get(build_url, timeout=10).json()
         download_name = build_data['downloads']['application']['name']
-        return f'{_PAPER_API_URL}/versions/{mc_version}/builds/{latest_build}/downloads/{download_name}'
+        jar_url = f'{_PAPER_API_URL}/versions/{mc_version}/builds/{latest_build}/downloads/{download_name}'
+        logger.info('Resolved Paper JAR URL for %s build %s: %s', mc_version, latest_build, jar_url)
+        return jar_url
 
     def get_fabric_loader_versions(self) -> list[dict]:
         """Returns a list of available Fabric loader versions."""
@@ -124,21 +141,30 @@ class MinecraftService:
 
     def get_fabric_installer_url(self) -> str:
         """Resolves the latest stable Fabric installer JAR download URL."""
+        logger.info('Resolving latest stable Fabric installer URL')
         installers = requests.get(_FABRIC_INSTALLER_URL, timeout=10).json()
         stable = [i for i in installers if i.get('stable')]
         if not stable:
+            logger.error('No stable Fabric installer versions found')
             raise ValueError('No stable Fabric installer versions found')
-        return stable[0]['url']
+        url = stable[0]['url']
+        logger.info('Resolved Fabric installer URL: %s', url)
+        return url
 
     def get_fabric_loader_version(self, loader_version: str | None = None) -> str:
         """Resolves a Fabric loader version. If None, returns the latest stable."""
         if loader_version:
+            logger.info('Using specified Fabric loader version: %s', loader_version)
             return loader_version
+        logger.info('Resolving latest stable Fabric loader version')
         loaders = self.get_fabric_loader_versions()
         stable = [l for l in loaders if l.get('stable')]
         if not stable:
+            logger.error('No stable Fabric loader versions found')
             raise ValueError('No stable Fabric loader versions found')
-        return stable[0]['version']
+        resolved = stable[0]['version']
+        logger.info('Resolved latest stable Fabric loader version: %s', resolved)
+        return resolved
 
     def get_script_path(self, server_type: str) -> str:
         """Returns the absolute path to the install script for a given server type."""
@@ -152,6 +178,8 @@ class MinecraftService:
     def build_install_args(self, server) -> str:
         """Builds the argument string for the install script from a GameServer instance."""
         import shlex
+        logger.info('Building install args for server_id=%s type=%s version=%s',
+                    server.id, server.server_type, server.game_version)
         args = [f'type={server.server_type}']
 
         if server.server_type == 'import':

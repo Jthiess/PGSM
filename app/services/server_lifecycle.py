@@ -5,6 +5,7 @@ All operations that control game server state: provisioning, start, stop,
 restart, console command sending, and status queries.
 """
 import io
+import logging
 import os
 import time
 
@@ -13,6 +14,8 @@ from app.models.server import GameServer
 from app.services.ssh import SSHManager
 from app.services.minecraft import MinecraftService
 from app.services.nginx import NginxService
+
+logger = logging.getLogger(__name__)
 
 ssh_mgr = SSHManager()
 mc_svc = MinecraftService()
@@ -41,100 +44,138 @@ def provision_server(server_id: str) -> None:
     """
     server = GameServer.query.get(server_id)
     if not server:
+        logger.error('provision_server called with unknown server_id=%s — aborting', server_id)
         return
 
     ip = server.ip_address
+    logger.info(
+        '[server=%s] Starting provisioning pipeline — type=%s, version=%s, ip=%s, ct_id=%s',
+        server_id, server.server_type, server.game_version, ip, server.ct_id,
+    )
 
     # Step 1: Wait for SSH
+    logger.info('[server=%s] Step 1/6: Waiting for SSH on %s', server_id, ip)
     _wait_for_ssh(ip, server)
+    logger.info('[server=%s] SSH is ready on %s', server_id, ip)
 
     # Step 2: Upload install script
+    logger.info('[server=%s] Step 2/6: Uploading install script for type=%s', server_id, server.server_type)
     try:
         local_script = mc_svc.get_script_path(server.server_type)
+        logger.info('[server=%s] Uploading %s → /tmp/pgsm_install.sh', server_id, local_script)
         ssh_mgr.upload_script(ip, local_script, '/tmp/pgsm_install.sh')
     except Exception as e:
+        logger.error('[server=%s] Script upload failed: %s', server_id, e, exc_info=True)
         _set_status(server, 'error', provision_log=f'Script upload failed: {e}')
         raise RuntimeError(f'Script upload failed: {e}') from e
 
     # Step 2b: For import servers, upload the zip archive to the container
     if server.server_type == 'import' and server.import_archive_url:
         local_zip = server.import_archive_url  # stored as local host path
+        logger.info('[server=%s] Uploading import archive %s → /tmp/server-archive.zip', server_id, local_zip)
         try:
             ssh_mgr.upload_script(ip, local_zip, '/tmp/server-archive.zip')
+            logger.info('[server=%s] Import archive uploaded successfully', server_id)
         except Exception as e:
+            logger.error('[server=%s] Archive upload failed: %s', server_id, e, exc_info=True)
             _set_status(server, 'error', provision_log=f'Archive upload failed: {e}')
             raise RuntimeError(f'Archive upload failed: {e}') from e
         finally:
             # Clean up local zip regardless of upload success
             try:
                 os.remove(local_zip)
+                logger.info('[server=%s] Cleaned up local archive %s', server_id, local_zip)
             except OSError:
                 pass
 
     # Step 3: Execute install script
+    logger.info('[server=%s] Step 3/6: Executing install script (timeout=600s)', server_id)
     try:
         args = mc_svc.build_install_args(server)
+        logger.info('[server=%s] Install args: %s', server_id, args)
         stdout, stderr = ssh_mgr.exec(ip, f'bash /tmp/pgsm_install.sh {args}', timeout=600)
+        logger.info('[server=%s] Install script completed', server_id)
+        if stderr and stderr.strip():
+            logger.warning('[server=%s] Install script stderr: %s', server_id, stderr.strip())
         _set_provision_log(server, _format_script_output(stdout, stderr))
     except Exception as e:
+        logger.error('[server=%s] Install script failed: %s', server_id, e, exc_info=True)
         _set_status(server, 'error', provision_log=f'Install script failed: {e}')
         raise RuntimeError(f'Install script failed: {e}') from e
 
     # Step 4: Write server.properties and fix ownership
+    logger.info('[server=%s] Step 4/6: Writing server.properties', server_id)
     try:
         props = mc_svc.generate_server_properties(server)
         _write_remote_file(ip, '/PGSM/server.properties', props)
         # SFTP writes as root; restore PGSM ownership so the server can read/write the file
         ssh_mgr.exec(ip, 'chown PGSM:PGSM /PGSM/server.properties')
+        logger.info('[server=%s] server.properties written and ownership fixed', server_id)
     except Exception as e:
+        logger.error('[server=%s] Could not write server.properties: %s', server_id, e, exc_info=True)
         _set_status(server, 'error', provision_log=f'Could not write server.properties: {e}')
         raise RuntimeError(f'Could not write server.properties: {e}') from e
 
-    # Step 5: Write nginx conf
+    # Step 5: Write nginx conf (non-fatal — server still works without it)
+    logger.info('[server=%s] Step 5/6: Writing nginx conf for ct_id=%s', server_id, server.ct_id)
     try:
         nginx_svc.add_server(server)
-    except Exception:
-        pass  # nginx errors are non-fatal; log in production
+        logger.info('[server=%s] nginx conf written and nginx reloaded', server_id)
+    except Exception as e:
+        # nginx errors are non-fatal; the game server is still reachable directly
+        logger.warning('[server=%s] nginx conf step failed (non-fatal): %s', server_id, e)
 
     # Step 6: Start the server and update status
+    logger.info('[server=%s] Step 6/6: Starting systemd unit %s', server_id, SYSTEMD_UNIT)
     try:
         ssh_mgr.exec(ip, f'systemctl start {SYSTEMD_UNIT}')
         _set_status(server, 'running')
+        logger.info('[server=%s] Provisioning complete — server is running', server_id)
     except Exception as e:
+        logger.error('[server=%s] systemd start failed after provisioning: %s', server_id, e, exc_info=True)
         _set_status(server, 'stopped', provision_log=f'Server provisioned but systemd start failed: {e}')  # Provisioned but not started
 
 
 def start_server(server: GameServer) -> None:
+    logger.info('[server=%s] Starting server — ct_id=%s, ip=%s', server.id, server.ct_id, server.ip_address)
     from app.services.proxmox import ProxmoxService
     try:
         ProxmoxService().start_ct(server.proxmox_node, server.ct_id)
-    except Exception:
-        pass  # CT may already be running
+    except Exception as e:
+        # CT may already be running; log at debug level so it doesn't alarm on normal starts
+        logger.debug('[server=%s] start_ct raised (CT may already be running): %s', server.id, e)
     _wait_for_ssh(server.ip_address, server)
     ssh_mgr.exec(server.ip_address, f'systemctl start {SYSTEMD_UNIT}')
     _set_status(server, 'running')
+    logger.info('[server=%s] Server started successfully', server.id)
 
 
 def stop_server(server: GameServer) -> None:
     """Stops the Minecraft server process via systemd. The container keeps running."""
+    logger.info('[server=%s] Stopping server process (container stays up) — ip=%s', server.id, server.ip_address)
     ssh_mgr.exec(server.ip_address, f'systemctl stop {SYSTEMD_UNIT}')
     _set_status(server, 'stopped')
+    logger.info('[server=%s] Server stopped', server.id)
 
 
 def power_off_server(server: GameServer) -> None:
     """Stops the Minecraft process (best-effort) then powers off the LXC container."""
+    logger.info('[server=%s] Powering off — stopping game process then halting CT %s', server.id, server.ct_id)
     from app.services.proxmox import ProxmoxService
     try:
         ssh_mgr.exec(server.ip_address, f'systemctl stop {SYSTEMD_UNIT}')
-    except Exception:
-        pass  # CT may be unreachable
+    except Exception as e:
+        logger.debug('[server=%s] Could not stop game process before power-off (CT may be unreachable): %s', server.id, e)
     ProxmoxService().stop_ct(server.proxmox_node, server.ct_id)
     _set_status(server, 'stopped')
+    logger.info('[server=%s] Container powered off', server.id)
 
 
 def restart_server(server: GameServer) -> None:
+    logger.info('[server=%s] Restarting server process — ip=%s', server.id, server.ip_address)
     ssh_mgr.exec(server.ip_address, f'systemctl restart {SYSTEMD_UNIT}')
     _set_status(server, 'running')
+    logger.info('[server=%s] Server restarted', server.id)
 
 
 def get_live_status(server: GameServer) -> str:
@@ -197,9 +238,14 @@ def update_server_version(server_id: str, new_version: str) -> None:
 
     server = GameServer.query.get(server_id)
     if not server:
+        logger.error('update_server_version called with unknown server_id=%s', server_id)
         return
 
     ip = server.ip_address
+    logger.info(
+        '[server=%s] Starting version update %s → %s (type=%s)',
+        server_id, server.game_version, new_version, server.server_type,
+    )
     _set_status(server, 'updating')
 
     stdout, stderr = '', ''
@@ -264,8 +310,10 @@ def update_server_version(server_id: str, new_version: str) -> None:
         # Restart the server
         ssh_mgr.exec(ip, f'systemctl start {SYSTEMD_UNIT}')
         _set_status(server, 'running', provision_log=_format_script_output(stdout, stderr))
+        logger.info('[server=%s] Version update complete — now running %s', server_id, new_version)
 
     except Exception as e:
+        logger.error('[server=%s] Version update to %s failed: %s', server_id, new_version, e, exc_info=True)
         _set_status(server, 'error', provision_log=f'Update to {new_version} failed: {e}')
         raise
 
@@ -290,9 +338,15 @@ def _wait_for_ssh(ip: str, server: GameServer) -> None:
             return
         except Exception:
             if attempt == 0:
-                pass  # Expected on first try
+                logger.debug('[server=%s] SSH not yet ready on %s — will retry every %ds (max %d attempts)',
+                             server.id, ip, _BOOT_RETRY_INTERVAL, _BOOT_MAX_ATTEMPTS)
+            elif attempt % 6 == 0:
+                # Log a progress note roughly every 30 seconds to show we're still alive
+                logger.info('[server=%s] Still waiting for SSH on %s (attempt %d/%d)',
+                            server.id, ip, attempt + 1, _BOOT_MAX_ATTEMPTS)
             time.sleep(_BOOT_RETRY_INTERVAL)
     msg = f'Container at {ip} never became SSH-accessible after {_BOOT_MAX_ATTEMPTS} attempts ({_BOOT_MAX_ATTEMPTS * _BOOT_RETRY_INTERVAL}s).'
+    logger.error('[server=%s] %s', server.id, msg)
     _set_status(server, 'error', provision_log=msg)
     raise RuntimeError(msg)
 

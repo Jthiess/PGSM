@@ -1,3 +1,4 @@
+import logging
 import os
 
 import paramiko
@@ -5,6 +6,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from flask import current_app
+
+logger = logging.getLogger(__name__)
 
 
 class SSHManager:
@@ -16,6 +19,7 @@ class SSHManager:
         pub_path = key_path + '.pub'
 
         if not os.path.exists(key_path):
+            logger.info('SSH keypair not found at %s — generating new 4096-bit RSA keypair', key_path)
             os.makedirs(os.path.dirname(os.path.abspath(key_path)), exist_ok=True)
             private_key = rsa.generate_private_key(
                 public_exponent=65537,
@@ -34,6 +38,7 @@ class SSHManager:
                     serialization.Encoding.OpenSSH,
                     serialization.PublicFormat.OpenSSH,
                 ))
+            logger.info('SSH keypair generated and written to %s', key_path)
 
         with open(pub_path, 'r') as f:
             return f.read().strip()
@@ -53,16 +58,21 @@ class SSHManager:
                 f'Has the keypair been generated? (SSH_Key_Path in .env)'
             )
 
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(
-            ip,
-            username=username,
-            key_filename=key_path,
-            timeout=5,
-            banner_timeout=10,
-        )
-        return client
+        logger.debug('Opening SSH connection to %s@%s', username, ip)
+        try:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.connect(
+                ip,
+                username=username,
+                key_filename=key_path,
+                timeout=5,
+                banner_timeout=10,
+            )
+            return client
+        except Exception as e:
+            logger.error('SSH connection to %s@%s failed: %s', username, ip, e)
+            raise
 
     def exec(self, ip: str, command: str, username: str = 'root', timeout: int = 60) -> tuple[str, str]:
         """Runs a command on a remote host. Returns (stdout, stderr) as strings.
@@ -71,25 +81,40 @@ class SSHManager:
             timeout: Max seconds to wait for the command. Use a large value for
                      install scripts (e.g., 600 for 10-minute installs).
         """
+        # Log at DEBUG level — exec is called frequently (SSH health checks, status
+        # polls) and logging every call at INFO would be too noisy in production.
+        logger.debug('SSH exec %s: %s', ip, command)
         client = self.get_client(ip, username)
         try:
             _, stdout, stderr = client.exec_command(command, timeout=timeout)
-            return stdout.read().decode(), stderr.read().decode()
+            out, err = stdout.read().decode(), stderr.read().decode()
+            if err and err.strip():
+                logger.debug('SSH exec %s stderr: %s', ip, err.strip())
+            return out, err
+        except Exception as e:
+            logger.error('SSH exec failed on %s (cmd=%r): %s', ip, command, e)
+            raise
         finally:
             client.close()
 
     def upload_script(self, ip: str, local_path: str, remote_path: str) -> None:
         """Uploads a local file to the remote container via SFTP and makes it executable."""
+        logger.debug('SFTP upload %s → %s:%s', local_path, ip, remote_path)
         client = self.get_client(ip)
         try:
             sftp = client.open_sftp()
             sftp.put(local_path, remote_path)
             sftp.chmod(remote_path, 0o755)
             sftp.close()
+            logger.debug('SFTP upload complete: %s:%s', ip, remote_path)
+        except Exception as e:
+            logger.error('SFTP upload failed (%s → %s:%s): %s', local_path, ip, remote_path, e)
+            raise
         finally:
             client.close()
 
     def get_sftp(self, ip: str, username: str = 'root') -> tuple[paramiko.SSHClient, paramiko.SFTPClient]:
         """Returns (ssh_client, sftp_client). Caller is responsible for closing both."""
+        logger.debug('Opening SFTP session to %s@%s', username, ip)
         client = self.get_client(ip, username)
         return client, client.open_sftp()
