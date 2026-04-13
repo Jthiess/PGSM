@@ -120,7 +120,7 @@ class ProxmoxService:
         """
         logger.info('Enabling HA for ct_id=%s', ct_id)
         try:
-            self._get_api().cluster.ha.resources.post(sid=f'lxc:{ct_id}', state='started')
+            self._get_api().cluster.ha.resources.post(sid=f'ct:{ct_id}', state='started')
             logger.info('HA enabled for ct_id=%s', ct_id)
         except Exception as e:
             logger.error('Failed to enable HA for ct_id=%s: %s', ct_id, e, exc_info=True)
