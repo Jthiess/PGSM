@@ -336,9 +336,16 @@ def _start_and_verify(ip: str, server: GameServer) -> None:
     of whether the start succeeded. Raises RuntimeError on failure.
     """
     ssh_mgr.exec(ip, f'systemctl start {SYSTEMD_UNIT}')
-    # Give systemd a few seconds to reach a stable state (active or failed)
-    time.sleep(4)
-    live = get_live_status(server)
+    # Poll until systemd leaves the transient 'activating' state (or we time out)
+    _STABLE_STATES = {'running', 'failed', 'inactive', 'error', 'unknown'}
+    _POLL_INTERVAL = 2   # seconds between checks
+    _POLL_TIMEOUT  = 60  # give the unit up to 60 s to settle
+    deadline = time.monotonic() + _POLL_TIMEOUT
+    live = 'activating'
+    while live not in _STABLE_STATES and time.monotonic() < deadline:
+        time.sleep(_POLL_INTERVAL)
+        live = get_live_status(server)
+        logger.debug('[server=%s] systemd state: %s', server.id, live)
 
     # Always capture journal output — "active" doesn't mean the game is healthy
     try:
