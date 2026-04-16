@@ -103,11 +103,14 @@ if [ "$SUBDIR_COUNT" -eq 1 ] && [ "$FILE_COUNT" -eq 0 ]; then
     rmdir "$SUBDIR" 2>/dev/null || true
 fi
 
-# Step 7: Create PGSM user
+# Step 7: Create PGSM user and fix permissions
 echo "Creating PGSM user..."
 useradd -M -s /bin/bash PGSM
 chown -R PGSM:PGSM /PGSM
 chmod -R 755 /opt/java
+# Ensure shell scripts extracted from the archive are executable by the PGSM user.
+# Archives from Windows or certain tools often strip the execute bit.
+find /PGSM -name "*.sh" -exec chmod +x {} \;
 ln -sf "$JAVA_BIN" /usr/local/bin/java
 
 # Step 8: Accept EULA

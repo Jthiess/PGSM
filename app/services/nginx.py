@@ -66,6 +66,9 @@ class NginxService:
             logger.info('nginx conf written for ct_id=%s', server.ct_id)
         except PermissionError:
             logger.debug('Direct write to %s denied — falling back to sudo tee', path)
+            dir_path = os.path.dirname(path)
+            if not os.path.isdir(dir_path):
+                subprocess.run(['sudo', 'mkdir', '-p', dir_path], check=True, capture_output=True)
             subprocess.run(
                 ['sudo', 'tee', path],
                 input=content, text=True, check=True, capture_output=True,
