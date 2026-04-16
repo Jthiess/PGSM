@@ -93,7 +93,7 @@ def provision_server(server_id: str) -> None:
     try:
         args = mc_svc.build_install_args(server)
         logger.info('[server=%s] Install args: %s', server_id, args)
-        stdout, stderr = ssh_mgr.exec(ip, f'bash /tmp/pgsm_install.sh {args}', timeout=600)
+        stdout, stderr = ssh_mgr.exec(ip, f'bash /tmp/pgsm_install.sh {args}', timeout=600, check=True)
         logger.info('[server=%s] Install script completed', server_id)
         if stderr and stderr.strip():
             logger.warning('[server=%s] Install script stderr: %s', server_id, stderr.strip())
@@ -354,10 +354,24 @@ def _start_and_verify(ip: str, server: GameServer) -> None:
     except Exception:
         journal_out = '(unable to retrieve journal output)'
 
+    # Also capture the tmux pane buffer — Java process output goes there, not to journal
+    tmux_out = ''
+    try:
+        raw, _ = ssh_mgr.exec(
+            ip,
+            f'TMUX_TMPDIR=/tmp tmux capture-pane -p -t {TMUX_SESSION} 2>/dev/null || true',
+            timeout=10,
+        )
+        tmux_out = raw.strip()
+    except Exception:
+        pass
+
     log_msg = (
         f'systemd state: {live}\n\n'
         f'=== journalctl -u {SYSTEMD_UNIT} ===\n{journal_out}'
     )
+    if tmux_out:
+        log_msg += f'\n\n=== tmux pane ({TMUX_SESSION}) ===\n{tmux_out}'
 
     if live == 'running':
         _set_status(server, 'running', provision_log=log_msg)

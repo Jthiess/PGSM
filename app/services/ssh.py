@@ -74,12 +74,14 @@ class SSHManager:
             logger.error('SSH connection to %s@%s failed: %s', username, ip, e)
             raise
 
-    def exec(self, ip: str, command: str, username: str = 'root', timeout: int = 60) -> tuple[str, str]:
+    def exec(self, ip: str, command: str, username: str = 'root', timeout: int = 60,
+             check: bool = False) -> tuple[str, str]:
         """Runs a command on a remote host. Returns (stdout, stderr) as strings.
 
         Args:
             timeout: Max seconds to wait for the command. Use a large value for
                      install scripts (e.g., 600 for 10-minute installs).
+            check:   If True, raises RuntimeError when the remote command exits non-zero.
         """
         # Log at DEBUG level — exec is called frequently (SSH health checks, status
         # polls) and logging every call at INFO would be too noisy in production.
@@ -88,8 +90,16 @@ class SSHManager:
         try:
             _, stdout, stderr = client.exec_command(command, timeout=timeout)
             out, err = stdout.read().decode(), stderr.read().decode()
+            exit_code = stdout.channel.recv_exit_status()
             if err and err.strip():
                 logger.debug('SSH exec %s stderr: %s', ip, err.strip())
+            if check and exit_code != 0:
+                raise RuntimeError(
+                    f'Remote command exited {exit_code}\n'
+                    f'cmd: {command}\n'
+                    f'stdout: {out.strip()}\n'
+                    f'stderr: {err.strip()}'
+                )
             return out, err
         except Exception as e:
             logger.error('SSH exec failed on %s (cmd=%r): %s', ip, command, e)

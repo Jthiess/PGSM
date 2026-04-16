@@ -185,6 +185,8 @@ class MinecraftService:
         if server.server_type == 'import':
             if not server.import_archive_url:
                 raise ValueError('import_archive_url is required for import server type')
+            if not server.custom_startup_command:
+                raise ValueError('custom_startup_command is required for import server type (e.g. "java -jar server.jar nogui")')
             # import_archive_url holds the local host path; the file will be
             # uploaded to /tmp/server-archive.zip on the container by provision_server()
             args.append('archive_path=/tmp/server-archive.zip')
