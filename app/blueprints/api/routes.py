@@ -4,6 +4,7 @@ import threading
 from flask import current_app, jsonify, request
 from sqlalchemy.orm.attributes import flag_modified
 
+from app.auth import require_admin, require_server_access, is_admin, is_server_user
 from app.blueprints.api import bp
 from app.extensions import db
 from app.models.server import GameServer
@@ -13,6 +14,7 @@ _ssh_mgr = SSHManager()
 
 
 @bp.route('/nodes')
+@require_admin
 def nodes():
     from app.services.proxmox import ProxmoxService
     try:
@@ -22,6 +24,7 @@ def nodes():
 
 
 @bp.route('/ports/used')
+@require_admin
 def ports_used():
     """Returns sorted list of all port numbers currently in use by any server."""
     ports = set()
@@ -34,6 +37,7 @@ def ports_used():
 
 
 @bp.route('/minecraft/versions')
+@require_admin
 def minecraft_versions():
     from app.services.minecraft import MinecraftService
     snapshots = request.args.get('snapshots', 'false').lower() == 'true'
@@ -44,6 +48,7 @@ def minecraft_versions():
 
 
 @bp.route('/forge/versions')
+@require_admin
 def forge_versions():
     from app.services.minecraft import MinecraftService
     mc_version = request.args.get('mc_version', '').strip()
@@ -56,6 +61,7 @@ def forge_versions():
 
 
 @bp.route('/fabric/loader-versions')
+@require_admin
 def fabric_loader_versions():
     from app.services.minecraft import MinecraftService
     try:
@@ -68,6 +74,7 @@ def fabric_loader_versions():
 
 
 @bp.route('/servers/<server_id>/status')
+@require_server_access
 def server_status(server_id):
     server = GameServer.query.get_or_404(server_id)
     live_status = server.status  # fallback
@@ -83,6 +90,7 @@ def server_status(server_id):
 
 
 @bp.route('/servers/<server_id>/sync', methods=['POST'])
+@require_server_access
 def sync_server(server_id):
     """Syncs DB status with actual Proxmox CT + systemd state."""
     server = GameServer.query.get_or_404(server_id)
@@ -98,6 +106,7 @@ def sync_server(server_id):
 
 
 @bp.route('/servers/<server_id>/metrics')
+@require_server_access
 def server_metrics(server_id):
     server = GameServer.query.get_or_404(server_id)
 
@@ -168,6 +177,7 @@ def server_metrics(server_id):
 
 
 @bp.route('/servers/<server_id>/ports', methods=['GET'])
+@require_server_access
 def get_ports(server_id):
     server = GameServer.query.get_or_404(server_id)
     return jsonify({
@@ -179,6 +189,7 @@ def get_ports(server_id):
 
 
 @bp.route('/servers/<server_id>/ports/add', methods=['POST'])
+@require_admin
 def add_port(server_id):
     server = GameServer.query.get_or_404(server_id)
     data = request.get_json(silent=True) or {}
@@ -219,6 +230,7 @@ def add_port(server_id):
 
 
 @bp.route('/servers/<server_id>/ports/primary', methods=['POST'])
+@require_admin
 def set_primary_port(server_id):
     server = GameServer.query.get_or_404(server_id)
     data = request.get_json(silent=True) or {}
@@ -292,10 +304,9 @@ def push_whitelist(server_id):
         finally:
             ssh_client.close()
         _ssh_mgr.exec(server.ip_address, 'chown PGSM:PGSM /PGSM/whitelist.json')
-        # Send whitelist reload command via the Minecraft console
         _ssh_mgr.exec(
             server.ip_address,
-            "screen -S minecraft -p 0 -X stuff 'whitelist reload\\n'",
+            "su -s /bin/bash PGSM -c \"TMUX_TMPDIR=/tmp tmux send-keys -t PGSM 'whitelist reload' Enter\"",
             timeout=5,
         )
     except Exception as e:
@@ -305,6 +316,7 @@ def push_whitelist(server_id):
 
 
 @bp.route('/servers/<server_id>/log')
+@require_server_access
 def server_log(server_id):
     """Returns recent game output for the server.
 
@@ -338,6 +350,7 @@ def server_log(server_id):
 
 
 @bp.route('/servers/<server_id>/provision-log/dismiss', methods=['POST'])
+@require_server_access
 def dismiss_provision_log(server_id):
     server = GameServer.query.get_or_404(server_id)
     server.provision_log = None
@@ -350,6 +363,7 @@ def dismiss_provision_log(server_id):
 # ---------------------------------------------------------------------------
 
 @bp.route('/servers/<server_id>/backup', methods=['POST'])
+@require_admin
 def create_backup(server_id):
     """Triggers a background backup of /PGSM to the configured local backup path.
 
@@ -385,6 +399,7 @@ def create_backup(server_id):
 
 
 @bp.route('/servers/<server_id>/backups', methods=['GET'])
+@require_server_access
 def list_backups(server_id):
     """Returns a list of existing backup archives for the given server.
 
@@ -409,6 +424,7 @@ def list_backups(server_id):
 
 
 @bp.route('/servers/<server_id>/ports/remove', methods=['POST'])
+@require_admin
 def remove_port(server_id):
     server = GameServer.query.get_or_404(server_id)
     data = request.get_json(silent=True) or {}

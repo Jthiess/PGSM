@@ -642,7 +642,7 @@
         <div class="profile-not-whitelisted">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16,11 18,13 22,9"/></svg>
             <p class="profile-not-whitelisted-message">Your account isn't on the whitelist yet.</p>
-            <a class="profile-whitelist-link" href="/whitelist/">Apply to Whitelist</a>
+            <a class="profile-whitelist-link" href="{{ url_for('whitelist_panel.index') }}">Apply to Whitelist</a>
         </div>
 
         {% else %}
@@ -650,7 +650,7 @@
         <div class="profile-login-cta">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <p class="profile-login-cta-message">Log in to see your whitelist profile.</p>
-            <a class="profile-login-btn" href="/admin/login">Log In</a>
+            <a class="profile-login-btn" href="{{ url_for('admin_panel.login') }}">Log In</a>
         </div>
 
         {% endif %}

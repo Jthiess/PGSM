@@ -99,6 +99,22 @@ def require_management_access(f):
     return decorated
 
 
+def get_permitted_server_ids() -> list[str]:
+    from app.models.server_permission import ServerPermission
+    from sqlalchemy import or_
+    raw = session.get('ldap_raw_username')
+    display = session.get('ldap_username')
+    conditions = []
+    if raw:
+        conditions.append(ServerPermission.username == raw)
+    if display and display != raw:
+        conditions.append(ServerPermission.username == display)
+    if not conditions:
+        return []
+    perms = ServerPermission.query.filter(or_(*conditions)).all()
+    return [p.server_id for p in perms]
+
+
 def require_server_access(f):
     """Decorator: allow admin, or server_user who has a permission for this server.
 

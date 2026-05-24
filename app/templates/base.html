@@ -161,12 +161,14 @@
                     </button>
                 </div>
             </div>
+            {% if session.get('admin_auth') or session.get('messages_auth') or session.get('server_user') %}
             <form method="post" action="{{ url_for('admin_panel.logout') }}" style="margin-top: 0.5rem;">
                 <button type="submit" class="sidebar-link" style="width:100%; background:none; border:none; cursor:pointer; text-align:left;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                     <span class="sidebar-link-label">Log out</span>
                 </button>
             </form>
+            {% endif %}
         </div>
 
     </aside>
@@ -214,7 +216,7 @@
 
 </div><!-- /.admin-shell -->
 
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+{% block extra_scripts %}{% endblock %}
 <script>
 // Sidebar toggle (persisted to localStorage; responsive-aware)
 (function() {

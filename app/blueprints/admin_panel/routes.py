@@ -6,7 +6,7 @@
 # ============================================================
 
 import os
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from flask import (
     current_app, flash, jsonify, redirect, render_template,
@@ -18,6 +18,15 @@ from app import oauth
 from app.auth import is_admin, require_admin, require_messages_access
 from app.blueprints.admin_panel import bp
 from app.services import panel_db
+
+
+def _safe_next_url(fallback: str) -> str:
+    next_url = request.args.get('next', '')
+    if next_url:
+        parsed = urlparse(next_url)
+        if not parsed.netloc and not parsed.scheme:
+            return next_url
+    return fallback
 
 # Allowed extensions for pack icon uploads
 _ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -92,11 +101,6 @@ def login():
                                 next=request.args.get('next', '')))
 
     if request.method == 'POST':
-        # In Authentik mode there is no POST form — redirect to authorize instead
-        if authentik_enabled:
-            return redirect(url_for('admin_panel.authentik_authorize',
-                                    next=request.args.get('next', '')))
-
         # ----------------------------------------------------------
         # LDAP authentication path
         # ----------------------------------------------------------
@@ -123,9 +127,8 @@ def login():
                     session['ldap_username'] = display
                     session['ldap_raw_username'] = username
                     session['minecraft_uuid'] = result.get('minecraft_uuid')
-                    next_url = request.args.get('next') or url_for('dashboard.index')
                     flash(f'Logged in as {display}.', 'success')
-                    return redirect(next_url)
+                    return redirect(_safe_next_url(url_for('dashboard.index')))
 
                 elif level == 'messages':
                     session['messages_auth'] = True
@@ -134,7 +137,7 @@ def login():
                     session['ldap_raw_username'] = username
                     session['minecraft_uuid'] = result.get('minecraft_uuid')
                     flash('Logged in with messages access.', 'success')
-                    return redirect(request.args.get('next') or url_for('panel.index'))
+                    return redirect(_safe_next_url(url_for('panel.index')))
 
                 else:
                     # Check if user has any server-specific permissions (match by login username)
@@ -150,9 +153,8 @@ def login():
                         session['ldap_username'] = display
                         session['ldap_raw_username'] = username
                         session['minecraft_uuid'] = result.get('minecraft_uuid')
-                        next_url = request.args.get('next') or url_for('dashboard.index')
                         flash(f'Logged in as {display}.', 'success')
-                        return redirect(next_url)
+                        return redirect(_safe_next_url(url_for('dashboard.index')))
                     flash(
                         'Access denied. Your account does not have the required group membership.',
                         'error',
@@ -173,15 +175,14 @@ def login():
         if password == admin_pw:
             session['admin_auth'] = True
             session.pop('messages_auth', None)
-            next_url = request.args.get('next') or url_for('dashboard.index')
             flash('Logged in as admin.', 'success')
-            return redirect(next_url)
+            return redirect(_safe_next_url(url_for('dashboard.index')))
 
         if messages_pw and password == messages_pw:
             session['messages_auth'] = True
             session.pop('admin_auth', None)
             flash('Logged in with messages access.', 'success')
-            return redirect(request.args.get('next') or url_for('panel.index'))
+            return redirect(_safe_next_url(url_for('panel.index')))
 
         flash('Invalid password.', 'error')
 
@@ -394,9 +395,8 @@ def messages():
             flash(f'Failed to update: {exc}', 'error')
         return redirect(url_for('admin_panel.messages'))
 
-    content = panel_db.get_random_message.__module__ and ''
+    content = ''
     try:
-        content = ''
         path = panel_db._panel_data_path('messages.txt')
         if os.path.exists(path):
             with open(path, 'r', encoding='utf-8') as f:

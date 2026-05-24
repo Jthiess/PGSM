@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 try:
     import ldap3
     import ldap3.core.exceptions
+    import ldap3.utils.conv
     import ldap3.utils.dn
     _LDAP3_AVAILABLE = True
 except ImportError:
@@ -119,8 +120,7 @@ def _search_user(conn: 'ldap3.Connection', username: str) -> tuple[str | None, d
     search_base = cfg.get('LDAP_USER_SEARCH_BASE') or cfg.get('LDAP_BASE_DN')
     raw_filter = cfg.get('LDAP_USER_SEARCH_FILTER', '(sAMAccountName={username})')
 
-    # Escape the username value to prevent LDAP injection
-    safe_username = ldap3.utils.dn.escape_rdn(username)
+    safe_username = ldap3.utils.conv.escape_filter_chars(username)
     search_filter = raw_filter.format(username=safe_username)
 
     # Build the full attribute list, including any custom UUID attributes

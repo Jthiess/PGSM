@@ -5,6 +5,7 @@
 # No authentication required — all routes are public.
 # ============================================================
 
+from markupsafe import escape
 from flask import jsonify, render_template, session
 
 from app.blueprints.panel import bp
@@ -92,7 +93,7 @@ def rules():
             rules_html = md_lib.markdown(rules_content, extensions=['extra', 'nl2br'])
         except ImportError:
             # Graceful fallback when markdown library is not installed
-            rules_html = f'<pre>{rules_content}</pre>'
+            rules_html = f'<pre>{escape(rules_content)}</pre>'
     else:
         rules_html = '<p>Rules file not found. Please contact an administrator.</p>'
 

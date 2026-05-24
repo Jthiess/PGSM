@@ -1,7 +1,8 @@
 import io
+import posixpath
 import stat
 
-from flask import render_template, request, redirect, url_for, send_file, flash, jsonify
+from flask import render_template, request, redirect, url_for, send_file, flash, jsonify, abort
 
 from app.auth import require_server_access
 from app.blueprints.files import bp
@@ -10,17 +11,22 @@ from app.services.ssh import SSHManager
 
 ssh_mgr = SSHManager()
 
+_ALLOWED_BASE = '/PGSM'
+
+
+def _safe_path(user_path: str) -> str:
+    normalized = posixpath.normpath('/' + user_path.lstrip('/'))
+    if not (normalized == _ALLOWED_BASE or normalized.startswith(_ALLOWED_BASE + '/')):
+        abort(403)
+    return normalized
+
 
 @bp.route('/<server_id>')
 @bp.route('/<server_id>/<path:remote_path>')
 @require_server_access
 def browse(server_id, remote_path='/PGSM'):
     server = GameServer.query.get_or_404(server_id)
-
-    # Ensure remote_path always starts with '/' (Flask strips the leading slash
-    # from <path:...> captures, so "/PGSM/logs" becomes "PGSM/logs").
-    if not remote_path.startswith('/'):
-        remote_path = '/' + remote_path
+    remote_path = _safe_path(remote_path)
 
     # Build breadcrumb parts
     parts = [p for p in remote_path.split('/') if p]
@@ -47,9 +53,7 @@ def browse(server_id, remote_path='/PGSM'):
 def list_files(server_id, remote_path='/PGSM'):
     """JSON API: returns directory listing for the file browser."""
     server = GameServer.query.get_or_404(server_id)
-
-    if not remote_path.startswith('/'):
-        remote_path = '/' + remote_path
+    remote_path = _safe_path(remote_path)
 
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
@@ -80,6 +84,7 @@ def download(server_id):
     if not remote_path:
         flash('No file path specified.', 'error')
         return redirect(url_for('files.browse', server_id=server_id))
+    remote_path = _safe_path(remote_path)
 
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
@@ -102,21 +107,28 @@ def download(server_id):
 @require_server_access
 def upload(server_id):
     server = GameServer.query.get_or_404(server_id)
-    remote_dir = request.form.get('path', '/PGSM')
+    remote_dir = _safe_path(request.form.get('path', '/PGSM'))
     file = request.files.get('file')
     if not file or not file.filename:
         flash('No file selected.', 'error')
         return redirect(url_for('files.browse', server_id=server_id,
                                 remote_path=remote_dir))
 
+    from werkzeug.utils import secure_filename as _secure
+    safe_name = _secure(file.filename)
+    if not safe_name:
+        flash('Invalid filename.', 'error')
+        return redirect(url_for('files.browse', server_id=server_id,
+                                remote_path=remote_dir))
+
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
-            sftp.putfo(file.stream, f'{remote_dir.rstrip("/")}/{file.filename}')
+            sftp.putfo(file.stream, f'{remote_dir.rstrip("/")}/{safe_name}')
         finally:
             sftp.close()
             client.close()
-        flash(f'Uploaded {file.filename} successfully.', 'success')
+        flash(f'Uploaded {safe_name} successfully.', 'success')
     except Exception as e:
         flash(f'Upload failed: {e}', 'error')
 
@@ -129,11 +141,11 @@ def upload(server_id):
 def delete_file(server_id):
     server = GameServer.query.get_or_404(server_id)
     remote_path = request.form.get('path', '')
-    parent = '/'.join(remote_path.split('/')[:-1]) or '/PGSM'
-
     if not remote_path:
         flash('No path specified.', 'error')
         return redirect(url_for('files.browse', server_id=server_id))
+    remote_path = _safe_path(remote_path)
+    parent = '/'.join(remote_path.split('/')[:-1]) or '/PGSM'
 
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
@@ -154,15 +166,15 @@ def delete_file(server_id):
 def delete_dir(server_id):
     server = GameServer.query.get_or_404(server_id)
     remote_path = request.form.get('path', '')
-    parent = '/'.join(remote_path.split('/')[:-1]) or '/PGSM'
 
     if not remote_path:
         flash('No path specified.', 'error')
         return redirect(url_for('files.browse', server_id=server_id))
+    remote_path = _safe_path(remote_path)
+    parent = '/'.join(remote_path.split('/')[:-1]) or '/PGSM'
 
-    # Safety: only allow deletion within /PGSM to prevent accidents
-    if not remote_path.startswith('/PGSM/'):
-        flash('Cannot delete directories outside of /PGSM.', 'error')
+    if remote_path == _ALLOWED_BASE:
+        flash('Cannot delete the server root directory.', 'error')
         return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
 
     try:
@@ -186,7 +198,7 @@ def edit_file(server_id):
     if not remote_path:
         flash('No file path specified.', 'error')
         return redirect(url_for('files.browse', server_id=server_id))
-
+    remote_path = _safe_path(remote_path)
     parent = '/'.join(remote_path.split('/')[:-1]) or '/PGSM'
 
     try:
@@ -240,6 +252,7 @@ def save_file(server_id):
 
     if not remote_path:
         return jsonify({'error': 'No path specified'}), 400
+    remote_path = _safe_path(remote_path)
 
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)

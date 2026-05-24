@@ -142,7 +142,7 @@ def index():
         # --------------------------------------------------
         # Persist entry
         # --------------------------------------------------
-        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        client_ip = request.remote_addr
         try:
             panel_db.create_whitelist_entry({
                 'username': username,

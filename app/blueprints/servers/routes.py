@@ -1,27 +1,10 @@
 import os
 
 from flask import render_template, request, redirect, url_for, flash, current_app, session
-from app.auth import require_admin, require_management_access, require_server_access, is_admin
+from app.auth import require_admin, require_management_access, require_server_access, is_admin, get_permitted_server_ids
 from app.blueprints.servers import bp
 from app.models.server import GameServer
 from app.extensions import db
-
-
-def _permitted_server_ids():
-    """Return list of server IDs the current server_user may access."""
-    from app.models.server_permission import ServerPermission
-    from sqlalchemy import or_
-    raw = session.get('ldap_raw_username')
-    display = session.get('ldap_username')
-    conditions = []
-    if raw:
-        conditions.append(ServerPermission.username == raw)
-    if display and display != raw:
-        conditions.append(ServerPermission.username == display)
-    if not conditions:
-        return []
-    perms = ServerPermission.query.filter(or_(*conditions)).all()
-    return [p.server_id for p in perms]
 
 
 @bp.route('/')
@@ -30,7 +13,7 @@ def list_servers():
     if is_admin():
         servers = GameServer.query.order_by(GameServer.created_at.desc()).all()
     else:
-        server_ids = _permitted_server_ids()
+        server_ids = get_permitted_server_ids()
         servers = GameServer.query.filter(GameServer.id.in_(server_ids)).order_by(GameServer.created_at.desc()).all() if server_ids else []
     return render_template('servers/list.html', servers=servers)
 
@@ -362,7 +345,7 @@ def _rewrite_systemd_unit(server, ssh_mgr):
     current java_version and custom_startup_command, then reloads systemd.
     Also ensures the run.sh wrapper script exists."""
     if server.custom_startup_command:
-        startup_cmd = server.custom_startup_command
+        startup_cmd = server.custom_startup_command.replace('\n', ' ').replace('\r', '')
     else:
         java_dir = f'java{server.java_version}'
         startup_cmd = f'/opt/java/{java_dir}/bin/java -jar server.jar'

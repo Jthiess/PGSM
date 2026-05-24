@@ -4,8 +4,26 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _stable_secret_key() -> str:
+    key = os.getenv('Secret_Key')
+    if key:
+        return key
+    key_file = os.path.join(os.path.dirname(__file__), '..', 'instance', '.flask_secret')
+    key_file = os.path.abspath(key_file)
+    try:
+        with open(key_file, 'r') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        pass
+    key = os.urandom(32).hex()
+    os.makedirs(os.path.dirname(key_file), exist_ok=True)
+    with open(key_file, 'w') as f:
+        f.write(key)
+    return key
+
+
 class Config:
-    SECRET_KEY = os.getenv('Secret_Key', os.urandom(24).hex())
+    SECRET_KEY = _stable_secret_key()
     FLASK_PORT = int(os.getenv('Flask_Port', 5000))
 
     # Proxmox
@@ -17,6 +35,8 @@ class Config:
     # Database
     SQLALCHEMY_DATABASE_URI = 'sqlite:///pgsm.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    MAX_CONTENT_LENGTH = int(os.getenv('MAX_UPLOAD_MB', 512)) * 1024 * 1024
 
     # Minecraft
     MINECRAFT_MANIFEST_URL = os.getenv(

@@ -29,7 +29,11 @@ def create_app(config_class=Config):
 
     # Init extensions
     db.init_app(app)
-    socketio.init_app(app, async_mode='eventlet', cors_allowed_origins='*')
+    socketio.init_app(
+        app,
+        async_mode='eventlet',
+        cors_allowed_origins=os.getenv('CORS_ORIGINS', '').split(',') if os.getenv('CORS_ORIGINS') else [],
+    )
 
     # Init OAuth (Authentik OIDC)
     oauth.init_app(app)

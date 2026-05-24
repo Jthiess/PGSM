@@ -78,7 +78,7 @@ def backup_server(server, backup_dir: str) -> str:
     # -C / means paths inside the archive are relative to /, so the top-level
     # entry is PGSM/ — this makes extraction predictable.
     tar_cmd = f'tar -czf {remote_path} -C / PGSM'
-    stdout, stderr = _ssh_mgr.exec(server.ip_address, tar_cmd, timeout=600)
+    stdout, stderr = _ssh_mgr.exec(server.ip_address, tar_cmd, timeout=600, check=True)
 
     # Step 2: Download the archive from the container to the NFS share.
     ssh_client, sftp = _ssh_mgr.get_sftp(server.ip_address)

@@ -318,11 +318,11 @@ def update_server_version(server_id: str, new_version: str) -> None:
 
 def send_console_command(server: GameServer, command: str) -> None:
     """Sends a command string to the running tmux session."""
-    escaped = command.replace("'", "'\\''")
-    # tmux session is owned by the PGSM user — must run as that user
+    import shlex
+    inner = f"TMUX_TMPDIR=/tmp tmux send-keys -t {TMUX_SESSION} -- {shlex.quote(command)} Enter"
     ssh_mgr.exec(
         server.ip_address,
-        f"su -s /bin/bash PGSM -c \"TMUX_TMPDIR=/tmp tmux send-keys -t {TMUX_SESSION} '{escaped}' Enter\""
+        f"su -s /bin/bash PGSM -c {shlex.quote(inner)}"
     )
 
 

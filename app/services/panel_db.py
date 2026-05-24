@@ -15,6 +15,7 @@ import requests
 
 try:
     import psycopg2
+    import psycopg2.sql
     from psycopg2.extras import RealDictCursor
     _PSYCOPG2_AVAILABLE = True
 except ImportError:
@@ -86,11 +87,12 @@ def _get_servers_db_connection():
         connect_timeout=5,
     )
 
-    # Ensure servers schema exists before setting search path
     servers_schema = cfg['PANEL_DB_SERVERS_SCHEMA']
     with conn.cursor() as cur:
-        cur.execute(f"CREATE SCHEMA IF NOT EXISTS {servers_schema}")
-        cur.execute(f"SET search_path TO {servers_schema}")
+        cur.execute(psycopg2.sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(
+            psycopg2.sql.Identifier(servers_schema)))
+        cur.execute(psycopg2.sql.SQL("SET search_path TO {}").format(
+            psycopg2.sql.Identifier(servers_schema)))
     conn.commit()
 
     return conn
@@ -125,19 +127,22 @@ def init_db_tables():
             connect_timeout=5,
         )
 
+        _pub = psycopg2.sql.Identifier(public_schema)
+        _srv = psycopg2.sql.Identifier(servers_schema)
+
         with conn.cursor() as cur:
             # --------------------------------------------------
             # Create schemas
             # --------------------------------------------------
-            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {public_schema}")
-            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {servers_schema}")
+            cur.execute(psycopg2.sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(_pub))
+            cur.execute(psycopg2.sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(_srv))
 
             # --------------------------------------------------
             # Public schema tables: whitelist, pgsm_servers
             # --------------------------------------------------
-            cur.execute(
-                f"""
-                CREATE TABLE IF NOT EXISTS {public_schema}.whitelist (
+            cur.execute(psycopg2.sql.SQL(
+                """
+                CREATE TABLE IF NOT EXISTS {}.whitelist (
                     id              SERIAL PRIMARY KEY,
                     username        TEXT NOT NULL,
                     player_uuid     TEXT NOT NULL,
@@ -147,25 +152,25 @@ def init_db_tables():
                     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
-            )
+            ).format(_pub))
 
-            cur.execute(
-                f"""
-                CREATE TABLE IF NOT EXISTS {public_schema}.pgsm_servers (
+            cur.execute(psycopg2.sql.SQL(
+                """
+                CREATE TABLE IF NOT EXISTS {}.pgsm_servers (
                     id        SERIAL PRIMARY KEY,
                     name      TEXT NOT NULL,
                     server_id TEXT NOT NULL,
                     enabled   BOOLEAN NOT NULL DEFAULT TRUE
                 )
                 """
-            )
+            ).format(_pub))
 
             # --------------------------------------------------
             # Servers schema tables: active, archive
             # --------------------------------------------------
-            cur.execute(
-                f"""
-                CREATE TABLE IF NOT EXISTS {servers_schema}.active (
+            cur.execute(psycopg2.sql.SQL(
+                """
+                CREATE TABLE IF NOT EXISTS {}.active (
                     id          SERIAL PRIMARY KEY,
                     name        TEXT NOT NULL,
                     game        TEXT,
@@ -184,11 +189,11 @@ def init_db_tables():
                     pack_version TEXT
                 )
                 """
-            )
+            ).format(_srv))
 
-            cur.execute(
-                f"""
-                CREATE TABLE IF NOT EXISTS {servers_schema}.archive (
+            cur.execute(psycopg2.sql.SQL(
+                """
+                CREATE TABLE IF NOT EXISTS {}.archive (
                     id              SERIAL PRIMARY KEY,
                     name            TEXT NOT NULL,
                     game            TEXT,
@@ -206,7 +211,7 @@ def init_db_tables():
                     pack_version    TEXT
                 )
                 """
-            )
+            ).format(_srv))
 
             # --------------------------------------------------
             # Lightweight migrations
@@ -222,23 +227,21 @@ def init_db_tables():
             )
             existing_cols = [row[0] for row in cur.fetchall()]
             if 'client_ip' not in existing_cols:
-                cur.execute(
-                    f"ALTER TABLE {public_schema}.whitelist ADD COLUMN client_ip TEXT"
-                )
+                cur.execute(psycopg2.sql.SQL(
+                    "ALTER TABLE {}.whitelist ADD COLUMN client_ip TEXT"
+                ).format(_pub))
 
             # Add strikes counter (3-strike ban system)
             if 'strikes' not in existing_cols:
-                cur.execute(
-                    f"ALTER TABLE {public_schema}.whitelist "
-                    f"ADD COLUMN strikes INTEGER DEFAULT 0"
-                )
+                cur.execute(psycopg2.sql.SQL(
+                    "ALTER TABLE {}.whitelist ADD COLUMN strikes INTEGER DEFAULT 0"
+                ).format(_pub))
 
             # Add discord avatar URL (captured at submission time)
             if 'discord_avatar_url' not in existing_cols:
-                cur.execute(
-                    f"ALTER TABLE {public_schema}.whitelist "
-                    f"ADD COLUMN discord_avatar_url TEXT"
-                )
+                cur.execute(psycopg2.sql.SQL(
+                    "ALTER TABLE {}.whitelist ADD COLUMN discord_avatar_url TEXT"
+                ).format(_pub))
 
             # Migrate ptero_servers -> pgsm_servers if legacy table still exists
             cur.execute(
@@ -249,25 +252,25 @@ def init_db_tables():
                 (public_schema,),
             )
             if cur.fetchone():
-                cur.execute(
-                    f"""
-                    INSERT INTO {public_schema}.pgsm_servers (name, server_id, enabled)
-                    SELECT name, server_id, enabled FROM {public_schema}.ptero_servers
+                cur.execute(psycopg2.sql.SQL(
+                    """
+                    INSERT INTO {0}.pgsm_servers (name, server_id, enabled)
+                    SELECT name, server_id, enabled FROM {0}.ptero_servers
                     ON CONFLICT DO NOTHING
                     """
-                )
-                cur.execute(f"DROP TABLE {public_schema}.ptero_servers")
+                ).format(_pub))
+                cur.execute(psycopg2.sql.SQL("DROP TABLE {}.ptero_servers").format(_pub))
 
             # Fix whitelist sequence to match current max id
-            cur.execute(
-                f"""
+            cur.execute(psycopg2.sql.SQL(
+                """
                 SELECT setval(
-                    pg_get_serial_sequence('{public_schema}.whitelist', 'id'),
-                    COALESCE((SELECT MAX(id) FROM {public_schema}.whitelist), 0) + 1,
+                    pg_get_serial_sequence({} || '.whitelist', 'id'),
+                    COALESCE((SELECT MAX(id) FROM {}.whitelist), 0) + 1,
                     false
                 )
                 """
-            )
+            ).format(psycopg2.sql.Literal(public_schema), _pub))
 
         conn.commit()
         log.info("Panel DB tables initialised successfully.")
@@ -730,7 +733,8 @@ def get_whitelist_entries() -> list:
             cur.execute(
                 """
                 SELECT id, username, player_uuid, discord_username,
-                       client_ip, approved, created_at
+                       client_ip, approved, created_at,
+                       strikes, discord_avatar_url
                 FROM whitelist
                 ORDER BY created_at DESC
                 """
