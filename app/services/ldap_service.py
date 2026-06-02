@@ -46,6 +46,61 @@ _USER_ATTRIBUTES = [
 
 
 # ============================================================
+# Partial-chain trust patch
+#
+# OpenSSL (and therefore Python's ssl / ldap3) refuses by default to treat a
+# certificate that is not self-signed as a trust anchor: even if you place a
+# leaf or intermediate cert in the CA file, it insists on building the chain
+# all the way up to a self-signed root. Pinning the LDAP server's own leaf
+# cert in LDAP_CA_CERT_FILE therefore fails with
+#     "unable to get local issuer certificate"
+# even though Go-based TLS stacks (e.g. Authentik) happily accept the exact
+# same file by trusting the pinned cert directly.
+#
+# Setting VERIFY_X509_PARTIAL_CHAIN tells OpenSSL to accept any certificate
+# present in the trust store as a valid anchor, restoring parity with those
+# stacks while still requiring a match against the admin-provided CA file.
+#
+# ldap3 builds its SSLContext internally inside Tls.wrap_socket() and exposes
+# no hook for verify_flags, so we augment the create_default_context() factory
+# it uses (ldap3 takes that code path whenever Tls.version is None). The patch
+# is bound to ldap3's own module namespace, so it affects only ldap3
+# connections and never any other TLS the app performs.
+# ============================================================
+
+_partial_chain_installed = False
+
+
+def _enable_partial_chain_for_ldap3() -> None:
+    """Idempotently patch ldap3 so a pinned leaf/intermediate cert in
+    LDAP_CA_CERT_FILE is accepted as a trust anchor (VERIFY_X509_PARTIAL_CHAIN).
+    """
+    global _partial_chain_installed
+    if _partial_chain_installed or not _LDAP3_AVAILABLE:
+        return
+
+    partial_chain = getattr(ssl, 'VERIFY_X509_PARTIAL_CHAIN', None)
+    if partial_chain is None:  # OpenSSL too old to support it; nothing to do
+        _partial_chain_installed = True
+        return
+
+    import ldap3.core.tls as _ldap_tls
+
+    real_create_default_context = getattr(_ldap_tls, 'create_default_context', None)
+    if real_create_default_context is None:  # ldap3 fell back to legacy ssl path
+        _partial_chain_installed = True
+        return
+
+    def _create_default_context_partial(*args, **kwargs):
+        ctx = real_create_default_context(*args, **kwargs)
+        ctx.verify_flags |= partial_chain
+        return ctx
+
+    _ldap_tls.create_default_context = _create_default_context_partial
+    _partial_chain_installed = True
+
+
+# ============================================================
 # Internal helpers
 # ============================================================
 
@@ -62,10 +117,17 @@ def _build_server() -> 'ldap3.Server':
     validate_mode = ssl.CERT_REQUIRED if cfg.get('LDAP_TLS_VALIDATE') else ssl.CERT_NONE
     ca_certs_file = cfg.get('LDAP_CA_CERT_FILE') or None
 
+    # Accept a pinned leaf/intermediate cert in LDAP_CA_CERT_FILE as a trust
+    # anchor (parity with Authentik). See _enable_partial_chain_for_ldap3.
+    _enable_partial_chain_for_ldap3()
+
+    # version=None makes ldap3 build the context via create_default_context(),
+    # which (a) gives modern, secure TLS defaults and (b) is the factory the
+    # partial-chain patch above hooks into.
     tls = ldap3.Tls(
         validate=validate_mode,
         ca_certs_file=ca_certs_file,
-        version=ssl.PROTOCOL_TLS_CLIENT if validate_mode == ssl.CERT_REQUIRED else ssl.PROTOCOL_TLS,
+        version=None,
     )
 
     return ldap3.Server(
