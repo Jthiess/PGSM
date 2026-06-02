@@ -33,6 +33,7 @@
 <div class="card" style="padding: 1rem; margin-bottom: 1rem;">
     <form method="POST" action="{{ url_for('files.upload', server_id=server.id) }}"
           enctype="multipart/form-data" class="flex gap-1 items-center">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="path" value="{{ current_path }}">
         <input type="file" name="file" style="flex:1;">
         <button type="submit" class="btn btn-primary btn-sm">Upload</button>
@@ -53,6 +54,7 @@
 (function() {
     var serverId    = {{ server.id | tojson }};
     var currentPath = {{ current_path | tojson }};
+    var csrfToken   = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
     var baseUrl     = {{ url_for('files.browse', server_id=server.id) | tojson }}.replace(/\/[^\/]*$/, '');
     var container   = document.getElementById('file-listing');
     var listUrl     = baseUrl + '/' + serverId + '/list/' + currentPath.replace(/^\//, '');
@@ -116,6 +118,7 @@
                     '<div class="file-actions">' +
                     '<form method="POST" action="' + baseUrl + '/' + serverId + '/delete_dir" ' +
                     'onsubmit="return confirm(\'Delete directory ' + safeName + ' and ALL its contents? This cannot be undone.\')" style="display:inline">' +
+                    '<input type="hidden" name="csrf_token" value="' + escapeHtml(csrfToken) + '">' +
                     '<input type="hidden" name="path" value="' + escapeHtml(e.path) + '">' +
                     '<button type="submit" class="btn btn-ghost btn-xs" style="color: var(--accent-danger)">Delete</button>' +
                     '</form></div>';
@@ -128,6 +131,7 @@
                     '<a href="' + baseUrl + '/' + serverId + '/download?path=' + encodeURIComponent(e.path) + '" class="btn btn-ghost btn-xs">Download</a>' +
                     '<form method="POST" action="' + baseUrl + '/' + serverId + '/delete_file" ' +
                     'onsubmit="return confirm(\'Delete ' + safeName + '?\')" style="display:inline">' +
+                    '<input type="hidden" name="csrf_token" value="' + escapeHtml(csrfToken) + '">' +
                     '<input type="hidden" name="path" value="' + escapeHtml(e.path) + '">' +
                     '<button type="submit" class="btn btn-ghost btn-xs" style="color: var(--accent-danger)">Delete</button>' +
                     '</form></div>';

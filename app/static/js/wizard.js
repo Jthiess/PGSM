@@ -28,7 +28,8 @@ function wizardGo(step) {
     }
 
     currentStep = step;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
 }
 
 // Initialize: show step 1

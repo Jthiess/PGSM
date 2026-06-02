@@ -1,58 +1,101 @@
 /*
- * PGSM Theme Configuration — Default (PGSM Dark)
+ * PGSM Theme — "vCard" identity
  * ─────────────────────────────────────────────────────────────────────────────
- * Edit the values below to customise the look of PGSM.
- * This file is loaded before pgsm.css so every variable here overrides the
- * built-in defaults automatically.
+ * Single source of truth for every design token. Matches the Jack Thiess
+ * portfolio: a dark, calm, card-based interface with a single purple accent
+ * and Poppins type. There is intentionally ONE palette — the runtime theme
+ * switcher has been removed so every Thiess site shares one identity.
  *
- * To use a preset theme, switch to it via the palette button in the navbar.
- * Preset themes live in css/themes/
- *
- * Colour format: standard CSS colour values (#hex, rgb(), hsl(), etc.)
+ * Load order: theme.css → design-system.css → panel.css
+ * Colour reference lives in DESIGN.md.
  */
 
 :root {
-    /* ── Backgrounds ───────────────────────────────────────────────────────── */
-    --bg:           #0d1117;    /* Page / outer background                      */
-    --bg-card:      #161b22;    /* Cards, panels, navbar                        */
-    --bg-input:     #0d1117;    /* Form input fields                            */
-    --bg-hover:     rgba(255,255,255,0.04); /* Subtle hover tint               */
+    /* ── Backgrounds (darkest → lightest surface) ──────────────────────────── */
+    --bg:          hsl(0, 0%, 7%);       /* smoky-black — page background        */
+    --bg-elev:     hsl(240, 2%, 10%);    /* faint lift over the page             */
+    --bg-card:     hsl(240, 2%, 12%);    /* eerie-black-2 — cards, panels, nav   */
+    --bg-card-2:   hsl(240, 2%, 13%);    /* eerie-black-1 — nested surfaces      */
+    --bg-sidebar:  hsl(240, 2%, 11%);    /* sidebar rail                         */
+    --bg-input:    hsl(0, 0%, 9%);       /* form fields — inset, darker than card*/
+    --onyx:        hsl(240, 1%, 17%);    /* pills, badges, scrollbar track       */
+    --bg-hover:    hsla(240, 5%, 50%, 0.12); /* subtle grayscale hover tint       */
 
     /* ── Borders & Radius ──────────────────────────────────────────────────── */
-    --border:       #30363d;    /* Borders, dividers                            */
-    --radius:       10px;       /* Global corner radius                         */
+    --border:      hsl(0, 0%, 22%);      /* jet — borders, dividers              */
+    --radius:      14px;                 /* default card / medium radius         */
+    --radius-lg:   20px;                 /* large cards, banners                 */
+    --radius-sm:   8px;                  /* pills, icon boxes, inputs            */
 
-    /* ── Shadows ────────────────────────────────────────────────────────────  */
-    --shadow:       0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
-    --shadow-card:  0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,0.3);
+    /* ── Shadows (soft, black, low-opacity — elevation only) ──────────────── */
+    --shadow-1:    -4px 8px 24px hsla(0, 0%, 0%, 0.25);   /* default card lift    */
+    --shadow-2:    0 16px 30px hsla(0, 0%, 0%, 0.25);     /* buttons, inner cards */
+    --shadow-5:    0 24px 80px hsla(0, 0%, 0%, 0.25);     /* modals, big screens  */
+    --shadow:      var(--shadow-1);
+    --shadow-card: var(--shadow-1);
 
-    /* ── Accent / Brand Colours ────────────────────────────────────────────── */
-    --accent:         #4f8ef7;  /* Primary blue (buttons, links, active states) */
-    --accent-hover:   #3b7de8;  /* Hover state of primary accent                */
-    --accent-glow:    rgba(79,142,247,0.25); /* Glow for badges/buttons         */
+    /* ── Accent — purple is the ONLY saturated colour. Spend it carefully. ── */
+    --accent:        hsl(253, 100%, 72%);   /* purp-one — links, active, focus   */
+    --accent-hover:  hsl(253, 100%, 78%);   /* brighter purple on hover          */
+    --accent-2:      rgb(115, 90, 206);     /* purp-two — metadata, deep accent  */
+    --accent-glow:   hsla(253, 100%, 72%, 0.18);
+    --accent-info:   var(--accent);
 
-    --accent-danger:     #f85149; /* Red  – destructive / error actions         */
-    --accent-danger-bg:  rgba(248,81,73,0.12);
-    --accent-success:    #3fb950; /* Green – success states                     */
-    --accent-success-bg: rgba(63,185,80,0.12);
-    --accent-warning:    #d29922; /* Yellow – warnings                          */
-    --accent-warning-bg: rgba(210,153,34,0.12);
-    --accent-info:       #4f8ef7; /* Info messages (defaults to accent)         */
+    /* ── Functional status colours (kept muted to sit on the dark base) ────── */
+    --accent-danger:     hsl(5, 78%, 63%);
+    --accent-danger-bg:  hsla(5, 78%, 63%, 0.13);
+    --accent-success:    hsl(145, 50%, 55%);
+    --accent-success-bg: hsla(145, 50%, 55%, 0.13);
+    --accent-warning:    hsl(40, 85%, 60%);
+    --accent-warning-bg: hsla(40, 85%, 60%, 0.13);
 
     /* ── Text ──────────────────────────────────────────────────────────────── */
-    --text:         #c9d1d9;    /* Body / primary text                          */
-    --text-muted:   #8b949e;    /* Secondary / hint text                        */
-    --text-heading: #f0f6fc;    /* Headings and card values                     */
+    --text:         hsl(0, 0%, 84%);          /* light-gray — body                */
+    --text-muted:   hsla(0, 0%, 84%, 0.52);   /* labels, captions, metadata       */
+    --text-heading: hsl(0, 0%, 98%);          /* white-2 — headings               */
+
+    /* ── Gradients (depth on cards, borders, accent marks) ─────────────────── */
+    --border-gradient-onyx:
+        linear-gradient(to bottom right, hsl(0, 0%, 28%) 0%, hsla(0, 0%, 28%, 0) 55%);
+    --bg-gradient-onyx:
+        linear-gradient(to bottom right, hsl(240, 1%, 17%) 3%, hsl(0, 0%, 7%) 97%);
+    --bg-gradient-jet:
+        linear-gradient(to bottom right, hsla(240, 1%, 18%, 0.3) 0%, hsla(240, 2%, 12%, 0) 100%),
+        var(--bg-card);
+    --text-gradient-purple:
+        linear-gradient(to right, hsl(253, 100%, 72%), hsl(253, 52%, 58%));
 
     /* ── Typography ─────────────────────────────────────────────────────────  */
-    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
 
     /* ── Layout ──────────────────────────────────────────────────────────────  */
-    --nav-height: 58px;
+    --nav-height: 60px;
+
+    /* ── Transitions ─────────────────────────────────────────────────────────  */
+    --transition-1: 0.25s ease;
+    --transition-2: 0.5s ease-in-out;
 
     /* ── Terminal (used by console.js) ───────────────────────────────────────  */
-    --term-bg:     #0d1117;
-    --term-fg:     #c9d1d9;
-    --term-cursor: #4f8ef7;
+    --term-bg:     hsl(240, 2%, 9%);
+    --term-fg:     hsl(0, 0%, 84%);
+    --term-cursor: hsl(253, 100%, 72%);
+
+    /* ── Panel-side aliases (used by panel.css / Game-Panel templates) ───────── */
+    --surface:       var(--bg-card);
+    --card-bg:       var(--bg);
+    --muted:         var(--text-muted);
+    --muted-border:  var(--border);
+    --online:        var(--accent-success);
+    --offline:       var(--text-muted);
+    --archived:      var(--accent);
+    --scroll-thumb:  var(--accent);
+
+    /* ── Bootstrap 5 bridge (legacy) ────────────────────────────────────────── */
+    --bs-primary:       var(--accent);
+    --bs-body-bg:       var(--bg);
+    --bs-body-color:    var(--text);
+    --bs-link-color:    var(--accent);
+    --bs-border-color:  var(--border);
+    --bs-body-font-family: var(--font);
 }

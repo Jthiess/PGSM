@@ -6,6 +6,7 @@
 # ============================================================
 
 import logging
+import re
 
 import requests
 from flask import (
@@ -13,12 +14,16 @@ from flask import (
     request, url_for,
 )
 
-from app.auth import is_admin
+from app.auth import require_admin
 from app.blueprints.whitelist_panel import bp
 from app.models.server import GameServer
 from app.services import panel_db
 
 log = logging.getLogger(__name__)
+
+# Valid Minecraft (Java) usernames: 3–16 chars of [A-Za-z0-9_]. Validated before
+# the value is interpolated into the Mojang lookup URL / stored.
+_MC_USERNAME_RE = re.compile(r'^[A-Za-z0-9_]{3,16}$')
 
 
 # ------------------------------------------------------------
@@ -53,6 +58,7 @@ def _sync_whitelist_to_pgsm_servers() -> None:
             resp = requests.post(
                 f'{base_url}/api/servers/{sid}/whitelist',
                 json=entries,
+                headers={'X-PGSM-Internal-Token': current_app.config.get('INTERNAL_API_TOKEN', '')},
                 timeout=15,
             )
             if resp.status_code != 200:
@@ -95,6 +101,15 @@ def index():
 
         if not username or not discord_username:
             flash('Both fields are required.', 'error')
+            return redirect(url_for('whitelist_panel.index'))
+
+        if not _MC_USERNAME_RE.match(username):
+            flash('Please enter a valid Minecraft username (3–16 letters, digits or underscores).', 'error')
+            return redirect(url_for('whitelist_panel.index'))
+
+        # Bound the Discord username to a sane length before external calls.
+        if len(discord_username) > 64:
+            flash('Discord username is too long.', 'error')
             return redirect(url_for('whitelist_panel.index'))
 
         # --------------------------------------------------
@@ -183,6 +198,7 @@ def index():
 # ------------------------------------------------------------
 
 @bp.route('/admin')
+@require_admin
 def admin():
     """Whitelist admin — list all entries and sync status for every PGSM server.
 
@@ -194,9 +210,6 @@ def admin():
     Returns:
         Rendered whitelist_panel/admin.html with entries, game_servers, pgsm_servers, and stats.
     """
-    if not is_admin():
-        return redirect(url_for('admin_panel.login', next=request.path))
-
     entries = panel_db.get_whitelist_entries()
 
     all_game_servers = GameServer.query.order_by(GameServer.name).all()
@@ -229,6 +242,7 @@ def admin():
 
 
 @bp.route('/admin/toggle/<int:id>', methods=['POST'])
+@require_admin
 def toggle(id: int):
     """Toggle the approved state for a whitelist entry, then sync.
 
@@ -238,9 +252,6 @@ def toggle(id: int):
     Returns:
         Redirect to /whitelist/admin.
     """
-    if not is_admin():
-        return redirect(url_for('admin_panel.login', next=request.path))
-
     try:
         panel_db.toggle_whitelist_approval(id)
         _sync_whitelist_to_pgsm_servers()
@@ -252,6 +263,7 @@ def toggle(id: int):
 
 
 @bp.route('/admin/delete/<int:id>', methods=['POST'])
+@require_admin
 def delete_entry(id: int):
     """Delete a whitelist entry, then sync.
 
@@ -261,9 +273,6 @@ def delete_entry(id: int):
     Returns:
         Redirect to /whitelist/admin.
     """
-    if not is_admin():
-        return redirect(url_for('admin_panel.login', next=request.path))
-
     try:
         panel_db.delete_whitelist_entry(id)
         _sync_whitelist_to_pgsm_servers()
@@ -276,6 +285,7 @@ def delete_entry(id: int):
 
 
 @bp.route('/admin/strike/<int:entry_id>', methods=['POST'])
+@require_admin
 def strike(entry_id: int):
     """Add one strike to a whitelist entry. Auto-bans at 3 strikes.
 
@@ -289,9 +299,6 @@ def strike(entry_id: int):
     Returns:
         Redirect to /whitelist/admin.
     """
-    if not is_admin():
-        return redirect(url_for('admin_panel.login'))
-
     try:
         new_count, was_banned = panel_db.add_strike(entry_id)
         if was_banned:
@@ -310,6 +317,7 @@ def strike(entry_id: int):
 
 
 @bp.route('/admin/unstrike/<int:entry_id>', methods=['POST'])
+@require_admin
 def unstrike(entry_id: int):
     """Remove one strike from a whitelist entry (minimum 0).
 
@@ -322,9 +330,6 @@ def unstrike(entry_id: int):
     Returns:
         Redirect to /whitelist/admin.
     """
-    if not is_admin():
-        return redirect(url_for('admin_panel.login'))
-
     try:
         new_count = panel_db.remove_strike(entry_id)
         flash(f'Strike removed ({new_count}/3).', 'info')
@@ -336,6 +341,7 @@ def unstrike(entry_id: int):
 
 
 @bp.route('/admin/servers/toggle/<int:id>', methods=['POST'])
+@require_admin
 def toggle_server(id: int):
     """Toggle the enabled flag for a PGSM whitelist sync target.
 
@@ -348,9 +354,6 @@ def toggle_server(id: int):
     Returns:
         Redirect to /whitelist/admin.
     """
-    if not is_admin():
-        return redirect(url_for('admin_panel.login', next=request.path))
-
     try:
         panel_db.toggle_pgsm_server(id)
         _sync_whitelist_to_pgsm_servers()

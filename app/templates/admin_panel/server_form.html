@@ -13,6 +13,7 @@
 
     <div class="pub-form-card">
         <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <!-- Basic Info -->
             <div class="form-section-title">Basic Information</div>

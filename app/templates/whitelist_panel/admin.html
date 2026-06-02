@@ -154,7 +154,9 @@
                 </td>
                 <td>
                     {% if ps %}
-                    <form class="inline" action="{{ url_for('whitelist_panel.toggle_server', id=ps['id']) }}" method="post">
+                    <form class="inline" action="{{ url_for('whitelist_panel.toggle_server', id=ps['id']) }}" method="post"
+                          onsubmit="return confirm('Change whitelist sync for this server? This pushes the whitelist to the affected servers immediately.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-xs {% if ps['enabled'] %}btn-secondary{% else %}btn-success{% endif %}" type="submit">
                             {{ 'Disable' if ps['enabled'] else 'Enable' }}
                         </button>
@@ -232,21 +234,26 @@
                 </td>
                 <td>
                     <div class="flex gap-1 items-center flex-wrap">
-                        <form class="inline" action="{{ url_for('whitelist_panel.toggle', id=entry['id']) }}" method="post">
+                        <form class="inline" action="{{ url_for('whitelist_panel.toggle', id=entry['id']) }}" method="post"
+                              {% if entry['approved'] %}onsubmit="return confirm('Revoke whitelist access for {{ entry['username'] }}?');"{% endif %}>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button class="btn btn-xs {% if entry['approved'] %}btn-secondary{% else %}btn-success{% endif %}" type="submit">
                                 {{ 'Revoke' if entry['approved'] else 'Approve' }}
                             </button>
                         </form>
                         <form class="inline" action="{{ url_for('whitelist_panel.strike', entry_id=entry['id']) }}" method="post">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button class="btn btn-xs btn-warning" type="submit"
                                     title="Add a strike to {{ entry['username'] }}">+Strike</button>
                         </form>
                         <form class="inline" action="{{ url_for('whitelist_panel.unstrike', entry_id=entry['id']) }}" method="post">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button class="btn btn-xs btn-secondary" type="submit"
                                     title="Remove a strike from {{ entry['username'] }}"
                                     {% if strike_count == 0 %}disabled{% endif %}>&#8722;Strike</button>
                         </form>
                         <form class="inline" action="{{ url_for('whitelist_panel.delete_entry', id=entry['id']) }}" method="post">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button class="btn btn-xs btn-danger" type="submit"
                                     onclick="return confirm('Delete whitelist entry for \u201c{{ entry['username'] }}\u201d?')">Delete</button>
                         </form>

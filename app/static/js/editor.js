@@ -1,7 +1,9 @@
 /* PGSM File Editor - CodeMirror integration */
 
-function initEditor(serverId, remotePath) {
+function initEditor(serverId, remotePath, saveUrl) {
     var ext = remotePath.split('.').pop().toLowerCase();
+    // Fall back to the correctly-prefixed route if no explicit URL was passed.
+    saveUrl = saveUrl || ('/manage/files/' + serverId + '/save');
 
     var modeMap = {
         'json':       { name: 'javascript', json: true },
@@ -60,6 +62,10 @@ function initEditor(serverId, remotePath) {
         statusLines.textContent = cm.lineCount() + ' lines';
     });
 
+    // Tracks the last-saved content for the unsaved-changes guard. Declared
+    // before saveFile so it is robust to a future let/const refactor.
+    var originalContent = cm.getValue();
+
     function saveFile() {
         saveStatus.textContent = 'Saving...';
         saveStatus.className = 'saving';
@@ -68,7 +74,7 @@ function initEditor(serverId, remotePath) {
         formData.append('path', remotePath);
         formData.append('content', cm.getValue());
 
-        fetch('/files/' + serverId + '/save', {
+        fetch(saveUrl, {
             method: 'POST',
             body: formData,
         })
@@ -96,7 +102,6 @@ function initEditor(serverId, remotePath) {
     document.getElementById('btn-save').addEventListener('click', saveFile);
 
     // Warn on unsaved changes when navigating away
-    var originalContent = cm.getValue();
     window.addEventListener('beforeunload', function(e) {
         if (cm.getValue() !== originalContent) {
             e.preventDefault();

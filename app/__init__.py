@@ -5,7 +5,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 from authlib.integrations.flask_client import OAuth
-from app.extensions import db, socketio
+from app.extensions import db, socketio, csrf
 from app.config import Config
 
 # Module-level OAuth instance; registered routes use oauth.authentik.*
@@ -29,10 +29,20 @@ def create_app(config_class=Config):
 
     # Init extensions
     db.init_app(app)
+    csrf.init_app(app)
+
+    # SocketIO CORS: never allow the wildcard '*' for authenticated, cookie-based
+    # socket sessions. An empty list means same-origin only (the safe default).
+    _cors_env = os.getenv('CORS_ORIGINS', '').strip()
+    if _cors_env == '*':
+        app.logger.warning("CORS_ORIGINS='*' is unsafe for cookie-auth sockets; falling back to same-origin only")
+        _cors_origins = []
+    else:
+        _cors_origins = [o.strip() for o in _cors_env.split(',') if o.strip()]
     socketio.init_app(
         app,
         async_mode='eventlet',
-        cors_allowed_origins=os.getenv('CORS_ORIGINS', '').split(',') if os.getenv('CORS_ORIGINS') else [],
+        cors_allowed_origins=_cors_origins,
     )
 
     # Init OAuth (Authentik OIDC)
@@ -98,10 +108,36 @@ def create_app(config_class=Config):
     app.jinja_env.globals['header_image_path'] = lambda game: _resolve_static_image('headers', game)
     app.jinja_env.globals['authentik_enabled'] = bool(app.config.get('AUTHENTIK_CLIENT_ID'))
 
+    _register_security_headers(app)
+
     # Start background scheduler for panel jobs
     _start_scheduler(app)
 
     return app
+
+
+def _register_security_headers(app: Flask) -> None:
+    """Adds baseline security response headers to every response.
+
+    CSP is intentionally limited to `frame-ancestors 'none'` (clickjacking
+    protection) so it does not break the app's existing inline scripts/styles;
+    tighten `Content-Security-Policy` further once inline JS is externalised.
+    HSTS is only emitted when the session cookie is marked Secure (i.e. the app
+    is served over HTTPS) to avoid breaking plain-HTTP local development.
+    """
+    hsts_enabled = bool(app.config.get('SESSION_COOKIE_SECURE'))
+
+    @app.after_request
+    def _set_security_headers(response):
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'DENY')
+        response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+        response.headers.setdefault('Content-Security-Policy', "frame-ancestors 'none'")
+        if hsts_enabled:
+            response.headers.setdefault(
+                'Strict-Transport-Security', 'max-age=31536000; includeSubDomains'
+            )
+        return response
 
 
 def _configure_logging(app: Flask) -> None:

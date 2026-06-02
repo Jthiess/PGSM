@@ -35,20 +35,30 @@
         {% endif %}
         <div class="detail-actions">
             {% if server.status == 'running' %}
-                <form method="POST" action="{{ url_for('servers.stop', server_id=server.id) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('servers.stop', server_id=server.id) }}" style="display:inline"
+                      onsubmit="if(!confirm('Shut down the Minecraft server?'))return false; this.querySelector('button').disabled=true;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-warning btn-sm">&#9646; Shutdown</button>
                 </form>
-                <form method="POST" action="{{ url_for('servers.restart', server_id=server.id) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('servers.restart', server_id=server.id) }}" style="display:inline"
+                      onsubmit="if(!confirm('Restart the Minecraft server?'))return false; this.querySelector('button').disabled=true;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-secondary btn-sm">&#8635; Restart</button>
                 </form>
-                <form method="POST" action="{{ url_for('servers.power_off', server_id=server.id) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('servers.power_off', server_id=server.id) }}" style="display:inline"
+                      onsubmit="if(!confirm('Power off the entire container? This hard-stops the VM.'))return false; this.querySelector('button').disabled=true;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-danger btn-sm">&#9866; Power Off</button>
                 </form>
             {% elif server.status in ['stopped', 'error'] %}
-                <form method="POST" action="{{ url_for('servers.start', server_id=server.id) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('servers.start', server_id=server.id) }}" style="display:inline"
+                      onsubmit="this.querySelector('button').disabled=true;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-success btn-sm">&#9654; Start</button>
                 </form>
-                <form method="POST" action="{{ url_for('servers.power_off', server_id=server.id) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('servers.power_off', server_id=server.id) }}" style="display:inline"
+                      onsubmit="if(!confirm('Power off the entire container? This hard-stops the VM.'))return false; this.querySelector('button').disabled=true;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-danger btn-sm">&#9866; Power Off</button>
                 </form>
             {% elif server.status == 'updating' %}
@@ -166,6 +176,7 @@
 <div id="tab-game-settings" class="tab-panel" {% if active_tab != 'game-settings' %}style="display:none"{% endif %}>
     <div class="card" style="padding: 1.375rem;">
         <form method="POST" action="{{ url_for('servers.update_settings', server_id=server.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-row">
                 <div class="form-group">
                     <label for="motd">MOTD</label>
@@ -236,6 +247,7 @@
         <h3 class="section-title" style="margin-bottom: 0.5rem;">CPU &amp; Memory Allocation</h3>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">Changes are applied immediately to the Proxmox container.</p>
         <form method="POST" action="{{ url_for('servers.update_resources', server_id=server.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-row">
                 <div class="form-group">
                     <label for="cores">CPU Cores</label>
@@ -381,6 +393,7 @@
                         <form method="POST" action="{{ url_for('servers.remove_permission', server_id=server.id, permission_id=perm.id) }}"
                               onsubmit="return confirm('Revoke access for ' + {{ perm.username | tojson }} + '?')"
                               style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-ghost btn-sm" style="color: var(--accent-danger);">Revoke</button>
                         </form>
                     </td>
@@ -393,10 +406,11 @@
         {% endif %}
 
         <form method="POST" action="{{ url_for('servers.add_permission', server_id=server.id) }}" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
                 <label for="perm-username" style="margin-bottom: 0.25rem;">Grant Access To</label>
                 <input type="text" id="perm-username" name="username"
-                       placeholder="LDAP/Authentik display name"
+                       placeholder="LDAP/Authentik login name (sAMAccountName)"
                        style="margin: 0;">
             </div>
             <button type="submit" class="btn btn-primary btn-sm">Grant Access</button>
@@ -420,6 +434,7 @@
         </div>
         <form method="POST" action="{{ url_for('servers.update_version', server_id=server.id) }}"
               onsubmit="return confirm('Update server to Minecraft ' + document.getElementById('new_version').value + '? The server will restart.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-row" style="align-items: flex-end;">
                 <div class="form-group">
                     <label for="new_version">Update To</label>
@@ -509,6 +524,7 @@ loadServerLog();
     <p>Permanently delete this server and its Proxmox container. This cannot be undone.</p>
     <form method="POST" action="{{ url_for('servers.delete', server_id=server.id) }}"
           onsubmit="return confirm('Are you sure you want to permanently delete {{ server.name }}?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-danger btn-sm">Delete Server</button>
     </form>
 </div>
@@ -626,7 +642,17 @@ if (currentStatus === 'creating' || currentStatus === 'updating') {
     }
 
     pollMetrics();
-    setInterval(pollMetrics, 2000);
+    var metricsTimer = setInterval(pollMetrics, 2000);
+    // Pause polling while the tab is hidden to save resources.
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            clearInterval(metricsTimer);
+            metricsTimer = null;
+        } else if (!metricsTimer) {
+            pollMetrics();
+            metricsTimer = setInterval(pollMetrics, 2000);
+        }
+    });
 })();
 {% endif %}
 

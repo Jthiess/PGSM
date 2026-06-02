@@ -20,7 +20,9 @@
     <div class="wizard-step-indicator" id="step-ind-3"><span class="step-num">3</span> Settings</div>
 </div>
 
-<form method="POST" action="{{ url_for('servers.create_server') }}" id="create-form" enctype="multipart/form-data">
+<form method="POST" action="{{ url_for('servers.create_server') }}" id="create-form" enctype="multipart/form-data"
+      onsubmit="var b=this.querySelector('button[type=submit]'); if(b){b.disabled=true; b.textContent='Creating…';}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <!-- Step 1: Game type + version -->
     <div class="wizard-panel active card" id="panel-1" style="padding: 1.375rem;">

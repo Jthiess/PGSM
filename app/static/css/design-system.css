@@ -1,11 +1,15 @@
 /*
- * PGSM Design System
+ * PGSM Design System — "vCard" identity
  * ──────────────────────────────────────────────────────────────────────────────
- * Ground-up design system. All colors come from theme variables.
- * No hardcoded colors. No gradients. No glow effects.
- * Shadows are elevation-only (never decorative or colorful).
+ * All colours come from the tokens in theme.css. The aesthetic follows the
+ * Jack Thiess portfolio (see DESIGN.md): a dark, calm, card-based interface
+ * with soft gradient borders, gentle elevation shadows, generous radii and a
+ * single purple accent. Poppins is the only typeface.
  *
- * Load order: theme file → design-system.css
+ * The base rules below are the original flat system; the "vCARD REDESIGN LAYER"
+ * at the foot of this file layers the portfolio motifs on top.
+ *
+ * Load order: theme.css → design-system.css → panel.css
  */
 
 /* ── Reset ───────────────────────────────────────────────────────────────── */
@@ -381,85 +385,6 @@ code {
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
-}
-
-/* Theme switcher in topbar */
-.theme-switcher {
-    position: relative;
-    flex-shrink: 0;
-}
-
-.theme-toggle-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 0.3rem 0.55rem;
-    font-size: 0.8rem;
-    line-height: 1;
-    transition: color 0.12s, background 0.12s, border-color 0.12s;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font);
-}
-
-.theme-toggle-btn:hover {
-    color: var(--text);
-    background: var(--bg-hover);
-    border-color: var(--text-muted);
-}
-
-.theme-menu {
-    display: none;
-    position: absolute;
-    bottom: calc(100% + 6px);
-    top: auto;
-    right: 0;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-    min-width: 168px;
-    padding: 0.35rem;
-    z-index: 300;
-}
-
-.theme-menu.open { display: block; }
-
-.theme-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-radius: 5px;
-    color: var(--text);
-    cursor: pointer;
-    font-size: 0.82rem;
-    font-family: var(--font);
-    padding: 0.45rem 0.6rem;
-    text-align: left;
-    transition: background 0.1s;
-    white-space: nowrap;
-}
-
-.theme-menu-item:hover { background: var(--bg-hover); }
-
-.theme-menu-item.active {
-    background: var(--bg-hover);
-    color: var(--accent);
-    font-weight: 600;
-}
-
-.theme-swatch {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    border: 1.5px solid rgba(255,255,255,0.2);
 }
 
 /* ── Page content area ───────────────────────────────────────────────────── */
@@ -981,7 +906,7 @@ select:focus-visible,
 textarea:focus-visible {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(79,142,247,0.15);
+    box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 input[type="checkbox"] {
@@ -1388,7 +1313,7 @@ input[type="file"] {
 /* ── Console ─────────────────────────────────────────────────────────────── */
 
 .console-wrap {
-    background: var(--term-bg, #0d1117);
+    background: var(--term-bg, #161618);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
@@ -1664,7 +1589,7 @@ input[type="file"] {
 
 /* ── Legacy console-container compat ────────────────────────────────────── */
 .console-container {
-    background: var(--term-bg, #0d1117);
+    background: var(--term-bg, #161618);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
@@ -1711,3 +1636,168 @@ input[type="file"] {
 /* ── Panel-specific styles ────────────────────────────────────────────────── */
 /* .panel-nav, .panel-nav-brand, .panel-nav-links, .panel-nav-btn, .pub-container
    are defined in panel.css (loaded only on public/panel pages). */
+
+/* ── Accessibility utilities ──────────────────────────────────────────────── */
+/* Visually-hidden but available to screen readers. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Respect the user's reduced-motion preference: disable animations,
+   transitions and smooth scrolling for users who ask for it. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * vCARD REDESIGN LAYER — admin shell
+ * ──────────────────────────────────────────────────────────────────────────
+ * Brings the admin/dashboard surfaces in line with the Jack Thiess portfolio:
+ * layered cards with soft gradient borders, generous radii, gentle shadows,
+ * a frosted sidebar/topbar, and a single purple accent. See DESIGN.md.
+ * (Cross-cutting bits — buttons, scrollbar, selection, body type — live at the
+ * end of panel.css, which is the last sheet loaded on every page.)
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* Headings adopt the portfolio's calm, capitalised feel */
+h1, h2, h3, h4, h5, h6 { letter-spacing: -0.01em; }
+
+/* ── Frosted sidebar rail ──────────────────────────────────────────────────*/
+.sidebar {
+    background: hsla(240, 2%, 11%, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-right: 1px solid var(--border);
+}
+
+/* Brand mark becomes a gradient "icon box" like the portfolio's avatar frames */
+.sidebar-brand-icon {
+    background: var(--bg-gradient-onyx);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-1);
+}
+
+/* Active nav link gets a soft purple wash + crisp purple rail */
+.sidebar-link.active,
+.sidebar-sublink.active {
+    background: var(--accent-glow);
+    border-left-color: var(--accent);
+}
+
+/* ── Frosted topbar ────────────────────────────────────────────────────────*/
+.topbar {
+    background: hsla(240, 2%, 12%, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Page title with the signature purple gradient underline ───────────────*/
+.page-title {
+    position: relative;
+    display: inline-block;
+    padding-bottom: 0.5rem;
+}
+.page-title::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 32px;
+    height: 3px;
+    border-radius: 3px;
+    background-image: var(--text-gradient-purple);
+}
+
+/* Card-header titles get a smaller accent underline too */
+.card-header-title,
+.section-title {
+    position: relative;
+    padding-bottom: 0.35rem;
+}
+.card-header-title::after,
+.section-title::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 24px;
+    height: 2px;
+    border-radius: 2px;
+    background-image: var(--text-gradient-purple);
+}
+
+/* ── The layered card: soft fading gradient border + lift ──────────────────*/
+.card,
+.stat-card,
+.server-card,
+.detail-banner,
+.detail-header {
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    background:
+        linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+        var(--border-gradient-onyx) border-box;
+    box-shadow: var(--shadow-1);
+}
+
+/* Stat / server cards lift and reveal a purple border edge on hover */
+.stat-card,
+.server-card {
+    transition: box-shadow var(--transition-1), transform var(--transition-1), background var(--transition-1);
+}
+.stat-card:hover,
+.server-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-2);
+    background:
+        linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+        linear-gradient(to bottom right, var(--accent) 0%, hsla(253, 100%, 72%, 0) 65%) border-box;
+}
+
+/* Inset / framed surfaces: keep a solid jet border but adopt radius + lift */
+.table-wrap,
+.table-container,
+.console-wrap,
+.console-container,
+.wizard-track,
+.wizard-steps,
+.pub-form-card,
+.detail-banner,
+.detail-header {
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+}
+
+/* Badges read as soft onyx pills */
+.badge { border-radius: 999px; }
+.badge-stopped,
+.badge-unknown { background: var(--onyx); }
+
+/* Wizard active step uses the purple wash */
+.wizard-step-indicator.active { background: var(--accent-glow); }
+
+/* Spinner picks up the accent automatically via --accent */
+
+/* ── Page fade-in (matches the portfolio's gentle page change) ─────────────*/
+@keyframes pgsm-fade {
+    from { opacity: 0.55; }
+    to   { opacity: 1; }
+}
+.page-body { animation: pgsm-fade var(--transition-1); }

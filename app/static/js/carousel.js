@@ -6,14 +6,23 @@ document.addEventListener('DOMContentLoaded', function () {
   const closeBtn = document.getElementById('close-panel');
   const backdrop = document.getElementById('detail-panel-backdrop');
 
+  let lastFocused = null;
+
   function openPanel() {
     panel.classList.add('active');
     document.body.style.overflow = 'hidden';
+    // Move focus into the dialog (close button is reliably focusable).
+    if (closeBtn) closeBtn.focus({ preventScroll: true });
   }
 
   function closePanel() {
     panel.classList.remove('active');
     document.body.style.overflow = '';
+    // Restore focus to whatever opened the panel.
+    if (lastFocused && typeof lastFocused.focus === 'function') {
+      lastFocused.focus({ preventScroll: true });
+    }
+    lastFocused = null;
   }
 
   closeBtn.addEventListener('click', closePanel);
@@ -22,6 +31,23 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && panel.classList.contains('active')) {
       closePanel();
+    }
+  });
+
+  // Focus trap: keep Tab focus within the dialog while it is open.
+  panel.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab' || !panel.classList.contains('active')) return;
+    const focusables = Array.prototype.filter.call(
+      panel.querySelectorAll('a[href], button, input, textarea, select, [tabindex]:not([tabindex="-1"])'),
+      function (el) { return el.offsetParent !== null && !el.disabled; }
+    );
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
     }
   });
 
@@ -179,7 +205,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const iconEl = document.getElementById('modpack-icon');
       if (packImgId) {
-        iconEl.innerHTML = '<img src="/static/images/packicons/' + packImgId + '" alt="' + displayName + '" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">';
+        // Build via DOM (not innerHTML) so admin-entered pack name / image id
+        // cannot inject markup. encodeURIComponent keeps the id in the path.
+        iconEl.textContent = '';
+        const packImg = document.createElement('img');
+        packImg.src = '/static/images/packicons/' + encodeURIComponent(packImgId);
+        packImg.alt = displayName;
+        packImg.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:12px;';
+        iconEl.appendChild(packImg);
       } else {
         iconEl.textContent = '\uD83D\uDEE0\uFE0F'; // 🛠️
       }
@@ -207,11 +240,9 @@ document.addEventListener('DOMContentLoaded', function () {
       modpackSection.style.display = 'none';
     }
 
+    // Remember the trigger so focus can be restored on close.
+    lastFocused = card;
     openPanel();
-
-    // Move focus into the panel for accessibility
-    const panelTitle = document.getElementById('panel-title');
-    if (panelTitle) panelTitle.focus({ preventScroll: true });
   }
 
   // ── Mouse-drag horizontal scroll ─────────────────────────────────────────
@@ -258,10 +289,11 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }, true);
 
-    // Horizontal scroll via mouse wheel
+    // Horizontal scroll via mouse wheel (respect reduced-motion preference)
     row.addEventListener('wheel', function (e) {
       e.preventDefault();
-      row.scrollBy({ left: e.deltaY * 2.5, behavior: 'smooth' });
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      row.scrollBy({ left: e.deltaY * 2.5, behavior: reduce ? 'auto' : 'smooth' });
     }, { passive: false });
   });
 });

@@ -13,9 +13,38 @@ logger = logging.getLogger(__name__)
 class SSHManager:
     """Manages the PGSM SSH keypair and all SSH/SFTP operations against game nodes."""
 
+    def _resolve_key_path(self) -> str:
+        """Resolves SSH_KEY_PATH to an absolute path.
+
+        Relative paths are resolved against the Flask app root (one level up
+        from the app package) so the key is always found regardless of the
+        working directory — including from background threads/greenlets.
+        """
+        key_path = current_app.config['SSH_KEY_PATH']
+        if not os.path.isabs(key_path):
+            key_path = os.path.join(current_app.root_path, '..', key_path)
+        return os.path.normpath(key_path)
+
+    def _known_hosts_path(self) -> str:
+        """Path to PGSM's managed known_hosts file (created on first use).
+
+        Stored under the Flask instance folder. The file is created empty if it
+        does not exist so paramiko can both verify against and append to it.
+        """
+        path = os.path.join(current_app.instance_path, 'known_hosts')
+        if not os.path.exists(path):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            # Create empty so paramiko.load_host_keys() can read it.
+            open(path, 'a').close()
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+        return path
+
     def ensure_keypair(self) -> str:
         """Generates a 4096-bit RSA keypair if one does not exist. Returns the public key string."""
-        key_path = current_app.config['SSH_KEY_PATH']
+        key_path = self._resolve_key_path()
         pub_path = key_path + '.pub'
 
         if not os.path.exists(key_path):
@@ -45,12 +74,7 @@ class SSHManager:
 
     def get_client(self, ip: str, username: str = 'root') -> paramiko.SSHClient:
         """Returns a connected, authenticated Paramiko SSH client."""
-        key_path = current_app.config['SSH_KEY_PATH']
-        # Resolve relative paths against the Flask app root so this works
-        # correctly from background threads regardless of working directory
-        if not os.path.isabs(key_path):
-            key_path = os.path.join(current_app.root_path, '..', key_path)
-        key_path = os.path.normpath(key_path)
+        key_path = self._resolve_key_path()
 
         if not os.path.exists(key_path):
             raise FileNotFoundError(
@@ -61,6 +85,12 @@ class SSHManager:
         logger.debug('Opening SSH connection to %s@%s', username, ip)
         try:
             client = paramiko.SSHClient()
+            # Trust-on-first-use host-key pinning. paramiko verifies the
+            # presented key against this file; a host already recorded with a
+            # DIFFERENT key raises BadHostKeyException (blocks MITM/impersonation
+            # after the first contact). AutoAddPolicy only fires for hosts not
+            # yet seen, recording (pinning) their key to the file.
+            client.load_host_keys(self._known_hosts_path())
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             client.connect(
                 ip,
@@ -70,6 +100,13 @@ class SSHManager:
                 banner_timeout=10,
             )
             return client
+        except paramiko.BadHostKeyException as e:
+            logger.error(
+                'SSH host key mismatch for %s — refusing connection (possible MITM '
+                'or the container was rebuilt). Remove the stale entry from '
+                'instance/known_hosts if the rebuild was intentional. %s', ip, e,
+            )
+            raise
         except Exception as e:
             logger.error('SSH connection to %s@%s failed: %s', username, ip, e)
             raise
@@ -122,6 +159,23 @@ class SSHManager:
             raise
         finally:
             client.close()
+
+    def forget_host(self, ip: str) -> None:
+        """Removes any pinned host key(s) for an IP from known_hosts.
+
+        Call this when a container is (re)provisioned or deleted so a fresh
+        container reusing the same IP is pinned cleanly instead of tripping the
+        BadHostKeyException guard.
+        """
+        try:
+            path = self._known_hosts_path()
+            host_keys = paramiko.HostKeys(path)
+            if ip in host_keys:
+                del host_keys[ip]
+                host_keys.save(path)
+                logger.info('Cleared pinned SSH host key for %s', ip)
+        except Exception as e:
+            logger.warning('Could not clear pinned host key for %s: %s', ip, e)
 
     def get_sftp(self, ip: str, username: str = 'root') -> tuple[paramiko.SSHClient, paramiko.SFTPClient]:
         """Returns (ssh_client, sftp_client). Caller is responsible for closing both."""

@@ -15,6 +15,7 @@ where safe_server_name is the server's name with spaces and '/' replaced by '_'.
 """
 
 import os
+import re
 import glob
 from datetime import datetime, timezone
 
@@ -26,8 +27,9 @@ _ssh_mgr = SSHManager()
 def _safe_name(server_name: str) -> str:
     """Returns a filesystem-safe version of the server name.
 
-    Replaces spaces and forward-slashes with underscores so the name
-    can be used directly as part of a filename.
+    Whitelists to ``[A-Za-z0-9._-]`` (replacing every other character with an
+    underscore) so the result can be used directly in a filename and contains
+    no path separators, ``..`` sequences, or glob metacharacters (``*?[]``).
 
     Args:
         server_name: The raw ``GameServer.name`` string.
@@ -35,7 +37,10 @@ def _safe_name(server_name: str) -> str:
     Returns:
         A sanitised string suitable for use in a filename.
     """
-    return server_name.replace(' ', '_').replace('/', '_')
+    cleaned = re.sub(r'[^A-Za-z0-9._-]', '_', server_name or '')
+    # Collapse any leading dots so the name can never become '..' or hidden.
+    cleaned = cleaned.lstrip('.')
+    return cleaned or 'server'
 
 
 def backup_server(server, backup_dir: str) -> str:

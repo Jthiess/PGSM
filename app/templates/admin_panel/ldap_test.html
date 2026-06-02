@@ -159,14 +159,23 @@
         document.getElementById('res-minecraft').textContent  = data.minecraft_uuid || '—';
         document.getElementById('res-access').innerHTML       = accessBadge(data.access_level);
 
-        // Groups
+        // Groups — build via DOM so directory-supplied group strings cannot
+        // inject markup (textContent escapes them).
         const groupsEl = document.getElementById('res-groups-list');
+        groupsEl.textContent = '';
         if (data.groups && data.groups.length > 0) {
-            groupsEl.innerHTML = data.groups
-                .map(g => `<span class="badge badge-creating" style="margin-right: 0.3rem; margin-bottom: 0.3rem;">${g}</span>`)
-                .join('');
+            data.groups.forEach(function (g) {
+                const badge = document.createElement('span');
+                badge.className = 'badge badge-creating';
+                badge.style.cssText = 'margin-right: 0.3rem; margin-bottom: 0.3rem;';
+                badge.textContent = g;
+                groupsEl.appendChild(badge);
+            });
         } else {
-            groupsEl.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">No groups returned</span>';
+            const none = document.createElement('span');
+            none.style.cssText = 'color: var(--text-muted); font-size: 0.85rem;';
+            none.textContent = 'No groups returned';
+            groupsEl.appendChild(none);
         }
 
         // Raw attributes

@@ -147,7 +147,17 @@ function fetchWithTimeout(url, opts, ms) {
     }
 
     pollAllMetrics();
-    setInterval(pollAllMetrics, 2000);
+    var metricsTimer = setInterval(pollAllMetrics, 2000);
+    // Pause polling while the tab is hidden to save server/battery resources.
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            clearInterval(metricsTimer);
+            metricsTimer = null;
+        } else if (!metricsTimer) {
+            pollAllMetrics();
+            metricsTimer = setInterval(pollAllMetrics, 2000);
+        }
+    });
 })();
 </script>
 {% endblock %}

@@ -5,6 +5,7 @@
 # All routes except /login and /logout require admin auth.
 # ============================================================
 
+import hmac
 import os
 from urllib.parse import urlencode, urlparse
 
@@ -20,13 +21,18 @@ from app.blueprints.admin_panel import bp
 from app.services import panel_db
 
 
+def _is_safe_target(url: str) -> bool:
+    """Return True if url is a safe same-origin relative redirect target."""
+    if not url:
+        return False
+    parsed = urlparse(url)
+    # Reject absolute URLs (scheme/netloc) and protocol-relative (//evil) targets.
+    return not parsed.netloc and not parsed.scheme and url.startswith('/') and not url.startswith('//')
+
+
 def _safe_next_url(fallback: str) -> str:
     next_url = request.args.get('next', '')
-    if next_url:
-        parsed = urlparse(next_url)
-        if not parsed.netloc and not parsed.scheme:
-            return next_url
-    return fallback
+    return next_url if _is_safe_target(next_url) else fallback
 
 # Allowed extensions for pack icon uploads
 _ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -118,6 +124,8 @@ def login():
             result = ldap_service.authenticate(username, password)
 
             if result['success']:
+                # Reset the session on privilege change (session-fixation defense).
+                session.clear()
                 level = result['access_level']
                 display = result.get('display_name') or username
 
@@ -169,22 +177,27 @@ def login():
         # Legacy password-only path
         # ----------------------------------------------------------
         password = request.form.get('password', '')
-        admin_pw = current_app.config.get('ADMIN_PASSWORD', 'admin')
+        admin_pw = current_app.config.get('ADMIN_PASSWORD')   # None when unset → login disabled
         messages_pw = current_app.config.get('MESSAGES_PASSWORD')
 
-        if password == admin_pw:
+        # Fail closed: when no password is configured (and no LDAP/Authentik),
+        # password login is disabled rather than accepting a default credential.
+        if admin_pw and password and hmac.compare_digest(password, admin_pw):
+            session.clear()
             session['admin_auth'] = True
-            session.pop('messages_auth', None)
             flash('Logged in as admin.', 'success')
             return redirect(_safe_next_url(url_for('dashboard.index')))
 
-        if messages_pw and password == messages_pw:
+        if messages_pw and password and hmac.compare_digest(password, messages_pw):
+            session.clear()
             session['messages_auth'] = True
-            session.pop('admin_auth', None)
             flash('Logged in with messages access.', 'success')
             return redirect(_safe_next_url(url_for('panel.index')))
 
-        flash('Invalid password.', 'error')
+        if not admin_pw and not messages_pw:
+            flash('Password login is not configured. Set ADMIN_PASSWORD or configure LDAP/Authentik.', 'error')
+        else:
+            flash('Invalid password.', 'error')
 
     return render_template('admin_panel/login.html',
                            authentik_enabled=authentik_enabled,
@@ -238,7 +251,7 @@ def authentik_authorize():
         return redirect(url_for('admin_panel.login'))
 
     next_url = request.args.get('next', '')
-    if next_url:
+    if _is_safe_target(next_url):
         session['oauth_next'] = next_url
 
     redirect_uri = url_for('admin_panel.authentik_callback', _external=True)
@@ -309,6 +322,8 @@ def authentik_callback():
             access_level = 'messages'
 
     next_url = session.pop('oauth_next', None)
+    if not _is_safe_target(next_url or ''):
+        next_url = None
 
     if access_level == 'admin':
         session['admin_auth'] = True
@@ -834,7 +849,7 @@ def ldap_test_query():
     if not current_app.config.get('LDAP_HOST'):
         return jsonify({'error': 'LDAP is not configured.'}), 400
 
-    username = (request.json or {}).get('username', '').strip()
+    username = (request.get_json(silent=True) or {}).get('username', '').strip()
     if not username:
         return jsonify({'error': 'Username is required.'}), 400
 

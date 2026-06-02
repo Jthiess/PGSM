@@ -2,9 +2,10 @@
 # app/auth.py — Shared Authentication Helpers
 # ============================================================
 
+import hmac
 from functools import wraps
 
-from flask import session, redirect, url_for, request
+from flask import session, redirect, url_for, request, current_app, jsonify
 
 
 # ------------------------------------------------------------
@@ -46,23 +47,34 @@ def has_server_access(server_id: str) -> bool:
         return True
     if not is_server_user():
         return False
-    raw = session.get('ldap_raw_username')
-    display = session.get('ldap_username')
-    if not raw and not display:
+    names = _permission_match_names()
+    if not names:
         return False
     from app.models.server_permission import ServerPermission
-    from sqlalchemy import or_
-    conditions = []
-    if raw:
-        conditions.append(ServerPermission.username == raw)
-    if display and display != raw:
-        conditions.append(ServerPermission.username == display)
     return (
         ServerPermission.query.filter(
             ServerPermission.server_id == server_id,
-            or_(*conditions),
+            ServerPermission.username.in_(names),
         ).first() is not None
     )
+
+
+def _permission_match_names() -> list[str]:
+    """Usernames to match ServerPermission rows against.
+
+    Permissions are granted by the immutable raw login name (sAMAccountName /
+    preferred_username), so when that is present we match ONLY on it — display
+    names are admin-editable and non-unique, so matching them would let one user
+    inherit another's access via a colliding display name. The display name is
+    used solely as a legacy fallback for sessions with no raw username.
+    """
+    raw = session.get('ldap_raw_username')
+    display = session.get('ldap_username')
+    if raw:
+        return [raw]
+    if display:
+        return [display]
+    return []
 
 
 # ------------------------------------------------------------
@@ -101,18 +113,33 @@ def require_management_access(f):
 
 def get_permitted_server_ids() -> list[str]:
     from app.models.server_permission import ServerPermission
-    from sqlalchemy import or_
-    raw = session.get('ldap_raw_username')
-    display = session.get('ldap_username')
-    conditions = []
-    if raw:
-        conditions.append(ServerPermission.username == raw)
-    if display and display != raw:
-        conditions.append(ServerPermission.username == display)
-    if not conditions:
+    names = _permission_match_names()
+    if not names:
         return []
-    perms = ServerPermission.query.filter(or_(*conditions)).all()
+    perms = ServerPermission.query.filter(ServerPermission.username.in_(names)).all()
     return [p.server_id for p in perms]
+
+
+def require_internal_token(f):
+    """Decorator for internal-only API endpoints (e.g. the whitelist push).
+
+    Authorizes ONLY when the request carries the correct internal token header —
+    used by in-process server-to-self calls like the whitelist sync. There is
+    deliberately no admin-session bypass: these endpoints are CSRF-exempt, so a
+    cookie-based bypass would be forgeable cross-site. Returns 401 JSON
+    otherwise.
+
+    The token is compared in constant time and is never source-IP dependent,
+    so it holds even though ProxyFix lets clients influence remote_addr.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        expected = current_app.config.get('INTERNAL_API_TOKEN') or ''
+        provided = request.headers.get('X-PGSM-Internal-Token', '')
+        if expected and hmac.compare_digest(provided, expected):
+            return f(*args, **kwargs)
+        return jsonify({'error': 'Unauthorized'}), 401
+    return decorated
 
 
 def require_server_access(f):

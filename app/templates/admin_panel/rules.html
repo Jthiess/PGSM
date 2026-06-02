@@ -11,6 +11,7 @@
     <div class="pub-form-card">
         <p class="form-hint" style="margin-bottom: 1rem;">Edit server rules in Markdown format. Changes appear on the /rules page.</p>
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label class="form-label" for="content">rules.md</label>
                 <textarea id="content" name="content" rows="22" style="font-family: var(--mono); font-size: 0.875rem; resize: vertical;">{{ content }}</textarea>

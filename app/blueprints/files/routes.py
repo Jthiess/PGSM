@@ -1,17 +1,25 @@
 import io
+import logging
 import posixpath
 import stat
 
 from flask import render_template, request, redirect, url_for, send_file, flash, jsonify, abort
+from werkzeug.exceptions import HTTPException
 
 from app.auth import require_server_access
 from app.blueprints.files import bp
 from app.models.server import GameServer
 from app.services.ssh import SSHManager
 
+logger = logging.getLogger(__name__)
+
 ssh_mgr = SSHManager()
 
 _ALLOWED_BASE = '/PGSM'
+
+# Cap for in-browser downloads (buffered in memory). Larger files must be
+# fetched over SFTP directly.
+_DOWNLOAD_SIZE_LIMIT = 512 * 1024 * 1024  # 512 MB
 
 
 def _safe_path(user_path: str) -> str:
@@ -19,6 +27,38 @@ def _safe_path(user_path: str) -> str:
     if not (normalized == _ALLOWED_BASE or normalized.startswith(_ALLOWED_BASE + '/')):
         abort(403)
     return normalized
+
+
+def _within_base(p: str) -> bool:
+    return p == _ALLOWED_BASE or p.startswith(_ALLOWED_BASE + '/')
+
+
+def _resolve_within_base(sftp, remote_path: str) -> str:
+    """Resolves remote_path server-side (following symlinks) and enforces that
+    the *real* target stays within _ALLOWED_BASE, then returns the canonical
+    path.
+
+    The lexical `_safe_path` check only inspects the string; because all file
+    operations run as root over SFTP, a symlink that lives under /PGSM but
+    points outside it would otherwise be followed (arbitrary read/write/delete).
+    `sftp.normalize()` issues SSH_FXP_REALPATH so the server resolves every
+    symlink. For paths that do not exist yet (new uploads/saves) the parent
+    directory is resolved instead and the leaf re-attached. Aborts 403 on any
+    escape.
+    """
+    try:
+        real = sftp.normalize(remote_path)
+    except IOError:
+        # Target doesn't exist yet — resolve the (existing) parent directory.
+        parent = posixpath.dirname(remote_path.rstrip('/')) or '/'
+        leaf = posixpath.basename(remote_path.rstrip('/'))
+        real_parent = sftp.normalize(parent)
+        if not _within_base(real_parent):
+            abort(403)
+        real = posixpath.join(real_parent, leaf)
+    if not _within_base(real):
+        abort(403)
+    return real
 
 
 @bp.route('/<server_id>')
@@ -58,6 +98,7 @@ def list_files(server_id, remote_path='/PGSM'):
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
+            remote_path = _resolve_within_base(sftp, remote_path)
             entries = []
             for attr in sftp.listdir_attr(remote_path):
                 entries.append({
@@ -70,8 +111,11 @@ def list_files(server_id, remote_path='/PGSM'):
         finally:
             sftp.close()
             client.close()
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 502
+        logger.warning('list_files failed for server=%s: %s', server_id, e)
+        return jsonify({'error': 'Could not list directory'}), 502
 
     return jsonify({'entries': entries})
 
@@ -89,17 +133,37 @@ def download(server_id):
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
+            remote_path = _resolve_within_base(sftp, remote_path)
+            st = sftp.stat(remote_path)
+            if stat.S_ISDIR(st.st_mode):
+                flash('Cannot download a directory.', 'error')
+                return redirect(url_for('files.browse', server_id=server_id))
+            # Reject oversized regular files (buffered in memory) and anything
+            # that isn't a regular file (e.g. a device that would read forever).
+            if not stat.S_ISREG(st.st_mode):
+                flash('Only regular files can be downloaded.', 'error')
+                return redirect(url_for('files.browse', server_id=server_id))
+            if st.st_size > _DOWNLOAD_SIZE_LIMIT:
+                flash(
+                    f'File is too large to download from the browser '
+                    f'({st.st_size // (1024 * 1024)} MB). Use SFTP instead.',
+                    'error',
+                )
+                return redirect(url_for('files.browse', server_id=server_id))
             buf = io.BytesIO()
             sftp.getfo(remote_path, buf)
             buf.seek(0)
         finally:
             sftp.close()
             client.close()
+    except HTTPException:
+        raise
     except Exception as e:
-        flash(f'Download failed: {e}', 'error')
+        logger.warning('download failed for server=%s: %s', server_id, e)
+        flash('Download failed.', 'error')
         return redirect(url_for('files.browse', server_id=server_id))
 
-    filename = remote_path.split('/')[-1]
+    filename = posixpath.basename(remote_path)
     return send_file(buf, as_attachment=True, download_name=filename)
 
 
@@ -124,13 +188,18 @@ def upload(server_id):
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
-            sftp.putfo(file.stream, f'{remote_dir.rstrip("/")}/{safe_name}')
+            real_dir = _resolve_within_base(sftp, remote_dir)
+            dest = _resolve_within_base(sftp, f'{real_dir.rstrip("/")}/{safe_name}')
+            sftp.putfo(file.stream, dest)
         finally:
             sftp.close()
             client.close()
         flash(f'Uploaded {safe_name} successfully.', 'success')
+    except HTTPException:
+        raise
     except Exception as e:
-        flash(f'Upload failed: {e}', 'error')
+        logger.warning('upload failed for server=%s: %s', server_id, e)
+        flash('Upload failed.', 'error')
 
     return redirect(url_for('files.browse', server_id=server_id,
                             remote_path=remote_dir))
@@ -150,13 +219,17 @@ def delete_file(server_id):
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
-            sftp.remove(remote_path)
+            real_path = _resolve_within_base(sftp, remote_path)
+            sftp.remove(real_path)
         finally:
             sftp.close()
             client.close()
-        flash(f'Deleted {remote_path.split("/")[-1]}.', 'warning')
+        flash(f'Deleted {posixpath.basename(remote_path)}.', 'warning')
+    except HTTPException:
+        raise
     except Exception as e:
-        flash(f'Delete failed: {e}', 'error')
+        logger.warning('delete_file failed for server=%s: %s', server_id, e)
+        flash('Delete failed.', 'error')
 
     return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
 
@@ -179,10 +252,24 @@ def delete_dir(server_id):
 
     try:
         import shlex
-        ssh_mgr.exec(server.ip_address, f'rm -rf {shlex.quote(remote_path)}')
-        flash(f'Deleted directory {remote_path.split("/")[-1]}.', 'warning')
+        # Resolve symlinks server-side and confirm containment before the
+        # (root) rm -rf, so a symlink under /PGSM can't target an outside path.
+        client, sftp = ssh_mgr.get_sftp(server.ip_address)
+        try:
+            real_path = _resolve_within_base(sftp, remote_path)
+        finally:
+            sftp.close()
+            client.close()
+        if real_path == _ALLOWED_BASE:
+            flash('Cannot delete the server root directory.', 'error')
+            return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
+        ssh_mgr.exec(server.ip_address, f'rm -rf {shlex.quote(real_path)}')
+        flash(f'Deleted directory {posixpath.basename(remote_path)}.', 'warning')
+    except HTTPException:
+        raise
     except Exception as e:
-        flash(f'Delete failed: {e}', 'error')
+        logger.warning('delete_dir failed for server=%s: %s', server_id, e)
+        flash('Delete failed.', 'error')
 
     return redirect(url_for('files.browse', server_id=server_id, remote_path=parent))
 
@@ -204,6 +291,7 @@ def edit_file(server_id):
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
+            remote_path = _resolve_within_base(sftp, remote_path)
             file_stat = sftp.stat(remote_path)
             if file_stat.st_size > _EDIT_SIZE_LIMIT:
                 flash(
@@ -218,8 +306,11 @@ def edit_file(server_id):
         finally:
             sftp.close()
             client.close()
+    except HTTPException:
+        raise
     except Exception as e:
-        flash(f'Could not open file: {e}', 'error')
+        logger.warning('edit_file failed for server=%s: %s', server_id, e)
+        flash('Could not open file.', 'error')
         return redirect(url_for('files.browse', server_id=server_id))
 
     # Reject binary files (null bytes in first 8 KB)
@@ -257,12 +348,16 @@ def save_file(server_id):
     try:
         client, sftp = ssh_mgr.get_sftp(server.ip_address)
         try:
-            with sftp.file(remote_path, 'w') as f:
+            real_path = _resolve_within_base(sftp, remote_path)
+            with sftp.file(real_path, 'w') as f:
                 f.write(content)
         finally:
             sftp.close()
             client.close()
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.warning('save_file failed for server=%s: %s', server_id, e)
+        return jsonify({'error': 'Could not save file'}), 500
 
     return jsonify({'ok': True})

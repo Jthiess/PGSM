@@ -72,6 +72,7 @@
                             <a href="{{ url_for('admin_panel.server_edit', id=server.id) }}" class="btn btn-primary btn-xs">Edit</a>
                             <form method="post" action="{{ url_for('admin_panel.server_delete', id=server.id) }}"
                                   style="display:inline;" onsubmit="return confirm('Delete this server?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-danger btn-xs">Delete</button>
                             </form>
                         </div>

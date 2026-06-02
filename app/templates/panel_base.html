@@ -3,15 +3,20 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0d1117">
+    <meta name="theme-color" content="#121212">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <!-- Auto-attach the CSRF token to every same-origin state-changing fetch. -->
+    <script>(function(){var m=document.querySelector('meta[name="csrf-token"]');if(!m)return;var token=m.content;var orig=window.fetch;window.fetch=function(input,init){init=init||{};var method=(init.method||(typeof input==='object'&&input&&input.method)||'GET').toUpperCase();if(['POST','PUT','PATCH','DELETE'].indexOf(method)!==-1){var h=new Headers(init.headers||(typeof input==='object'&&input&&input.headers)||{});if(!h.has('X-CSRFToken'))h.set('X-CSRFToken',token);init.headers=h;}return orig.call(this,input,init);};})();</script>
     <title>{% block title %}Game Panel{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
 
-    <!-- Inline script creates the theme link with the correct saved theme before first paint -->
-    <script>(function(){var t;try{t=localStorage.getItem('pgsm-theme')}catch(e){}var v=['default','light','nord','catppuccin-mocha','gruvbox','discord','midnight-purple','high-contrast','dracula','tokyo-night'];if(!t||v.indexOf(t)===-1)t='default';var l=document.createElement('link');l.id='theme-link';l.rel='stylesheet';l.href='{{ url_for("static", filename="css/themes/theme-default.css") }}'.replace('theme-default','theme-'+t);document.head.appendChild(l)})();</script>
-    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <!-- Poppins — the single brand typeface (shared across all Thiess sites) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Design system (no Bootstrap) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
 
@@ -48,46 +53,6 @@
         </ul>
 
         <div class="panel-nav-right">
-            <!-- Theme switcher -->
-            <div class="theme-switcher">
-                <button class="theme-toggle-btn" onclick="toggleThemeMenu()" title="Switch theme" aria-label="Switch theme" aria-expanded="false" aria-controls="theme-menu">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                    <span class="theme-btn-label">Theme</span>
-                </button>
-                <div class="theme-menu" id="theme-menu" role="menu">
-                    <button class="theme-menu-item" data-theme="default" onclick="setTheme('default')" role="menuitem">
-                        <span class="theme-swatch" style="background:#4f8ef7"></span>PGSM Dark
-                    </button>
-                    <button class="theme-menu-item" data-theme="light" onclick="setTheme('light')" role="menuitem">
-                        <span class="theme-swatch" style="background:#0969da;border-color:rgba(0,0,0,0.15)"></span>Light
-                    </button>
-                    <button class="theme-menu-item" data-theme="nord" onclick="setTheme('nord')" role="menuitem">
-                        <span class="theme-swatch" style="background:#88c0d0"></span>Nord
-                    </button>
-                    <button class="theme-menu-item" data-theme="catppuccin-mocha" onclick="setTheme('catppuccin-mocha')" role="menuitem">
-                        <span class="theme-swatch" style="background:#cba6f7"></span>Catppuccin
-                    </button>
-                    <button class="theme-menu-item" data-theme="gruvbox" onclick="setTheme('gruvbox')" role="menuitem">
-                        <span class="theme-swatch" style="background:#d79921"></span>Gruvbox
-                    </button>
-                    <button class="theme-menu-item" data-theme="discord" onclick="setTheme('discord')" role="menuitem">
-                        <span class="theme-swatch" style="background:#5865f2"></span>Discord
-                    </button>
-                    <button class="theme-menu-item" data-theme="midnight-purple" onclick="setTheme('midnight-purple')" role="menuitem">
-                        <span class="theme-swatch" style="background:#a855f7"></span>Midnight Purple
-                    </button>
-                    <button class="theme-menu-item" data-theme="high-contrast" onclick="setTheme('high-contrast')" role="menuitem">
-                        <span class="theme-swatch" style="background:#ffff00;border-color:rgba(255,255,255,0.3)"></span>High Contrast
-                    </button>
-                    <button class="theme-menu-item" data-theme="dracula" onclick="setTheme('dracula')" role="menuitem">
-                        <span class="theme-swatch" style="background:#bd93f9"></span>Dracula
-                    </button>
-                    <button class="theme-menu-item" data-theme="tokyo-night" onclick="setTheme('tokyo-night')" role="menuitem">
-                        <span class="theme-swatch" style="background:#7aa2f7"></span>Tokyo Night
-                    </button>
-                </div>
-            </div>
-
             <!-- Mobile menu toggle -->
             <button class="nav-hamburger" id="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="panel-nav-links" onclick="toggleMobileNav()">
                 <span></span>

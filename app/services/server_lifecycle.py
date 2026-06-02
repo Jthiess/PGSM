@@ -4,7 +4,6 @@ Server lifecycle management.
 All operations that control game server state: provisioning, start, stop,
 restart, console command sending, and status queries.
 """
-import io
 import logging
 import os
 import time
@@ -31,6 +30,27 @@ TMUX_SESSION = 'PGSM'
 _BOOT_RETRY_INTERVAL = 5
 _BOOT_MAX_ATTEMPTS = 60  # 5 minutes total
 
+# Java major versions PGSM ships under /opt/java. The value is interpolated into
+# SSH command strings, so it MUST be validated against this allowlist before use
+# (defence-in-depth against command injection if the field is ever set from a
+# non-integer source).
+_ALLOWED_JAVA_VERSIONS = {8, 11, 16, 17, 21}
+
+
+def _safe_java_version(server: GameServer) -> int:
+    """Returns the server's Java major version, validated against the allowlist.
+
+    Raises ValueError if it is not a known-safe integer, preventing any
+    untrusted value from reaching a shell command.
+    """
+    try:
+        jv = int(server.java_version)
+    except (TypeError, ValueError):
+        raise ValueError(f'Invalid Java version: {server.java_version!r}')
+    if jv not in _ALLOWED_JAVA_VERSIONS:
+        raise ValueError(f'Disallowed Java version: {jv}')
+    return jv
+
 
 def provision_server(server_id: str) -> None:
     """Full provisioning pipeline after LXC container creation.
@@ -52,6 +72,11 @@ def provision_server(server_id: str) -> None:
         '[server=%s] Starting provisioning pipeline — type=%s, version=%s, ip=%s, ct_id=%s',
         server_id, server.server_type, server.game_version, ip, server.ct_id,
     )
+
+    # A freshly (re)created container may reuse a recycled IP. Drop any stale
+    # pinned host key so the new container's key is pinned cleanly instead of
+    # tripping the host-key-mismatch guard.
+    ssh_mgr.forget_host(ip)
 
     # Step 1: Wait for SSH
     logger.info('[server=%s] Step 1/6: Waiting for SSH on %s', server_id, ip)
@@ -273,7 +298,7 @@ def update_server_version(server_id: str, new_version: str) -> None:
         elif server.server_type == 'fabric':
             installer_url = mc_svc.get_fabric_installer_url()
             loader_version = mc_svc.get_fabric_loader_version(server.fabric_loader_version)
-            java_bin = f'/opt/java/java{server.java_version}/bin/java'
+            java_bin = f'/opt/java/java{_safe_java_version(server)}/bin/java'
             stdout, stderr = ssh_mgr.exec(
                 ip,
                 f'cd /PGSM && '
@@ -297,7 +322,7 @@ def update_server_version(server_id: str, new_version: str) -> None:
         db.session.commit()
 
         # Update Java symlink — auto-resolved Java version may change with new MC version
-        java_dir = f'java{server.java_version}'
+        java_dir = f'java{_safe_java_version(server)}'
         ssh_mgr.exec(ip, f'ln -sf /opt/java/{java_dir}/bin/java /usr/local/bin/java')
 
         # Write updated server.properties

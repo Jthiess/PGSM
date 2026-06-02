@@ -220,20 +220,36 @@ class MinecraftService:
 
         return ' '.join(args)
 
+    # Valid Minecraft difficulty values; anything else falls back to 'normal'.
+    _DIFFICULTIES = {'peaceful', 'easy', 'normal', 'hard'}
+
     def generate_server_properties(self, server) -> str:
-        """Generates the content of server.properties for a Minecraft Java server."""
+        """Generates the content of server.properties for a Minecraft Java server.
+
+        All free-text/user-controlled values are sanitised so they cannot
+        inject additional properties via embedded newlines (a CR/LF in `motd`
+        could otherwise enable rcon with a known password, etc.).
+        """
+        # Strip CR/LF so a multi-line value cannot smuggle in extra keys.
+        motd = (server.motd or 'A PGSM Minecraft Server').replace('\r', ' ').replace('\n', ' ')
+        difficulty = server.difficulty if server.difficulty in self._DIFFICULTIES else 'normal'
+        # These are integer columns, but coerce defensively before interpolating.
+        game_port = int(server.game_port)
+        view_distance = int(server.render_distance)
+        spawn_protection = int(server.spawn_protection)
+
         lines = [
-            f"server-port={server.game_port}",
-            f"motd={server.motd or 'A PGSM Minecraft Server'}",
-            f"view-distance={server.render_distance}",
-            f"spawn-protection={server.spawn_protection}",
-            f"difficulty={server.difficulty}",
+            f"server-port={game_port}",
+            f"motd={motd}",
+            f"view-distance={view_distance}",
+            f"spawn-protection={spawn_protection}",
+            f"difficulty={difficulty}",
             f"hardcore={'true' if server.hardcore else 'false'}",
             "online-mode=true",
             "max-players=20",
             "enable-rcon=false",
             "white-list=false",
             "enable-query=true",
-            f"query.port={server.game_port}",
+            f"query.port={game_port}",
         ]
         return "\n".join(lines) + "\n"

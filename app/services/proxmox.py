@@ -19,31 +19,50 @@ class ProxmoxService:
             host = cfg.get('PROXMOX_HOST')
             user = cfg.get('PROXMOX_USERNAME')
             password = cfg.get('PROXMOX_PASSWORD')
+            token_name = cfg.get('PROXMOX_TOKEN_NAME')
+            token_value = cfg.get('PROXMOX_TOKEN_VALUE')
+            verify_ssl = cfg.get('PROXMOX_VERIFY_SSL', True)
+            timeout = cfg.get('PROXMOX_TIMEOUT', 30)
 
-            missing = [k for k, v in [('Proxmox_Host', host), ('Proxmox_Username', user), ('Proxmox_Password', password)] if not v]
+            use_token = bool(token_name and token_value)
+            required = [('Proxmox_Host', host), ('Proxmox_Username', user)]
+            if not use_token:
+                required.append(('Proxmox_Password', password))
+            missing = [k for k, v in required if not v]
             if missing:
                 raise RuntimeError(
                     f"Proxmox connection not configured. Missing from .env: {', '.join(missing)}"
                 )
 
-            logger.info('Connecting to Proxmox API at %s (user=%s)', host, user)
-            self._api = ProxmoxAPI(
-                host,
-                user=user,
-                password=password,
-                port=cfg['PROXMOX_PORT'],
-                verify_ssl=False,
-            )
+            if not verify_ssl:
+                logger.warning(
+                    'Proxmox TLS verification is DISABLED (Proxmox_Verify_SSL=false) — '
+                    'credentials are exposed to MITM on the path to %s', host,
+                )
+
+            common = dict(host=host, user=user, port=cfg['PROXMOX_PORT'],
+                          verify_ssl=verify_ssl, timeout=timeout)
+            if use_token:
+                logger.info('Connecting to Proxmox API at %s (user=%s, token auth)', host, user)
+                self._api = ProxmoxAPI(token_name=token_name, token_value=token_value, **common)
+            else:
+                logger.info('Connecting to Proxmox API at %s (user=%s, password auth)', host, user)
+                self._api = ProxmoxAPI(password=password, **common)
         return self._api
 
     def get_nodes(self) -> list[dict]:
         """Returns list of online Proxmox nodes."""
         return [n for n in self._get_api().nodes.get() if n['status'] == 'online']
 
-    def get_next_ct_id(self) -> int:
-        """Returns the lowest available CT ID at or above 500."""
+    def get_next_ct_id(self, reserved_ids: set[int] | None = None) -> int:
+        """Returns the lowest available CT ID at or above 500.
+
+        `reserved_ids` lets the caller exclude IDs that are allocated but not yet
+        visible in Proxmox (e.g. rows just written to the PGSM DB), closing the
+        race where two concurrent creates pick the same VMID.
+        """
         api = self._get_api()
-        existing_ids: set[int] = set()
+        existing_ids: set[int] = set(reserved_ids or set())
         for node in api.nodes.get():
             for ct in api.nodes(node['node']).lxc.get():
                 existing_ids.add(int(ct['vmid']))
@@ -134,7 +153,7 @@ class ProxmoxService:
         """
         logger.info('Disabling HA for ct_id=%s', ct_id)
         try:
-            self._get_api().cluster.ha.resources(f'lxc:{ct_id}').delete()
+            self._get_api().cluster.ha.resources(f'ct:{ct_id}').delete()
             logger.info('HA disabled for ct_id=%s', ct_id)
         except Exception as e:
             logger.error('Failed to disable HA for ct_id=%s: %s', ct_id, e, exc_info=True)

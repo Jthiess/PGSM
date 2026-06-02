@@ -121,7 +121,11 @@ def _search_user(conn: 'ldap3.Connection', username: str) -> tuple[str | None, d
     raw_filter = cfg.get('LDAP_USER_SEARCH_FILTER', '(sAMAccountName={username})')
 
     safe_username = ldap3.utils.conv.escape_filter_chars(username)
-    search_filter = raw_filter.format(username=safe_username)
+    # Use a literal token replace rather than str.format: a username containing
+    # '{' / '}' would otherwise raise inside str.format (and str.format on
+    # attacker-influenced templates is a known footgun). The username is already
+    # LDAP-filter-escaped above.
+    search_filter = raw_filter.replace('{username}', safe_username)
 
     # Build the full attribute list, including any custom UUID attributes
     attr_discord = cfg.get('LDAP_ATTR_DISCORD_UUID', 'extensionAttribute1')

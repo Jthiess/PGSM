@@ -90,7 +90,29 @@ def rules():
     if rules_content:
         try:
             import markdown as md_lib
-            rules_html = md_lib.markdown(rules_content, extensions=['extra', 'nl2br'])
+            raw_html = md_lib.markdown(rules_content, extensions=['extra', 'nl2br'])
+            # Sanitise: python-markdown passes raw HTML through, and rules.md is
+            # editable by the lower-privilege "messages" tier — without this a
+            # <script> in the source would be stored XSS on this public page.
+            try:
+                import bleach
+                allowed_tags = set(bleach.sanitizer.ALLOWED_TAGS) | {
+                    'p', 'pre', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    'br', 'hr', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+                }
+                allowed_attrs = {
+                    '*': ['class'],
+                    'a': ['href', 'title', 'rel'],
+                    'img': ['src', 'alt', 'title'],
+                }
+                rules_html = bleach.clean(
+                    raw_html, tags=allowed_tags, attributes=allowed_attrs,
+                    protocols=['http', 'https', 'mailto'], strip=True,
+                )
+            except ImportError:
+                # bleach not installed — fail safe by escaping instead of
+                # serving unsanitised HTML.
+                rules_html = f'<pre>{escape(rules_content)}</pre>'
         except ImportError:
             # Graceful fallback when markdown library is not installed
             rules_html = f'<pre>{escape(rules_content)}</pre>'

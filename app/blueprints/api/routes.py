@@ -1,14 +1,17 @@
 import json
+import logging
 import threading
 
 from flask import current_app, jsonify, request
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.auth import require_admin, require_server_access, is_admin, is_server_user
+from app.auth import require_admin, require_server_access, require_internal_token
 from app.blueprints.api import bp
-from app.extensions import db
+from app.extensions import db, csrf
 from app.models.server import GameServer
 from app.services.ssh import SSHManager
+
+logger = logging.getLogger(__name__)
 
 _ssh_mgr = SSHManager()
 
@@ -20,7 +23,8 @@ def nodes():
     try:
         return jsonify(ProxmoxService().get_nodes())
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.warning('nodes lookup failed: %s', e)
+        return jsonify({'error': 'Could not reach Proxmox'}), 500
 
 
 @bp.route('/ports/used')
@@ -102,7 +106,8 @@ def sync_server(server_id):
         new_status = sync_server_status(server)
         return jsonify({'status': new_status, 'changed': new_status != old_status})
     except Exception as e:
-        return jsonify({'error': str(e), 'status': server.status}), 500
+        logger.warning('sync_server failed for server=%s: %s', server_id, e)
+        return jsonify({'error': 'Sync failed', 'status': server.status}), 500
 
 
 @bp.route('/servers/<server_id>/metrics')
@@ -265,8 +270,9 @@ def set_primary_port(server_id):
 
 
 @bp.route('/servers', methods=['GET'])
+@require_admin
 def list_servers():
-    """Lists all game servers for external integrations (e.g. Game-Panel whitelist sync)."""
+    """Lists all game servers. Admin-only — exposes server IPs and ports."""
     servers = GameServer.query.all()
     return jsonify([
         {
@@ -284,17 +290,29 @@ def list_servers():
 
 
 @bp.route('/servers/<server_id>/whitelist', methods=['POST'])
+@csrf.exempt
+@require_internal_token
 def push_whitelist(server_id):
     """Writes whitelist.json to a server and reloads the whitelist.
 
     Expects JSON body: [{"uuid": "...", "name": "..."}, ...]
+
+    CSRF-exempt because it is a machine-to-machine endpoint authenticated by
+    the internal token header (see require_internal_token).
     """
     server = GameServer.query.get_or_404(server_id)
     data = request.get_json(silent=True)
-    if data is None:
-        return jsonify({'error': 'Request body must be JSON'}), 400
+    # Strict schema validation: a list of {uuid, name} string pairs only, so an
+    # attacker cannot write arbitrary structures into the root-owned file.
+    if not isinstance(data, list):
+        return jsonify({'error': 'Request body must be a JSON array'}), 400
+    for entry in data:
+        if (not isinstance(entry, dict)
+                or not isinstance(entry.get('uuid'), str)
+                or not isinstance(entry.get('name'), str)):
+            return jsonify({'error': 'Each entry must have string "uuid" and "name"'}), 400
 
-    payload = json.dumps(data, indent=2)
+    payload = json.dumps([{'uuid': e['uuid'], 'name': e['name']} for e in data], indent=2)
     try:
         ssh_client, sftp = _ssh_mgr.get_sftp(server.ip_address)
         try:
@@ -310,7 +328,8 @@ def push_whitelist(server_id):
             timeout=5,
         )
     except Exception as e:
-        return jsonify({'error': f'Failed to push whitelist: {e}'}), 500
+        logger.warning('push_whitelist failed for server=%s: %s', server_id, e)
+        return jsonify({'error': 'Failed to push whitelist'}), 500
 
     return jsonify({'ok': True, 'entries': len(data)})
 
@@ -389,9 +408,18 @@ def create_backup(server_id):
     # inside a new thread because the request context will be gone by then.
     app = current_app._get_current_object()
 
-    def _run_backup():
+    def _run_backup(sid=server_id, bdir=backup_dir):
         with app.app_context():
-            backup_service.backup_server(server, backup_dir)
+            # Re-query inside the thread's own session; the request-scoped
+            # `server` instance must not be used across threads/sessions.
+            s = GameServer.query.get(sid)
+            if not s:
+                logger.warning('Backup thread: server %s no longer exists', sid)
+                return
+            try:
+                backup_service.backup_server(s, bdir)
+            except Exception as e:
+                logger.error('Backup failed for server=%s: %s', sid, e)
 
     threading.Thread(target=_run_backup, daemon=True).start()
 
@@ -420,7 +448,8 @@ def list_backups(server_id):
     try:
         return jsonify(backup_service.list_backups(server, backup_dir))
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.warning('list_backups failed for server=%s: %s', server_id, e)
+        return jsonify({'error': 'Could not list backups'}), 500
 
 
 @bp.route('/servers/<server_id>/ports/remove', methods=['POST'])

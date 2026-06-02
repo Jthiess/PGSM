@@ -11,6 +11,7 @@
     <div class="pub-form-card">
         <p class="form-hint" style="margin-bottom: 1rem;">One message per line. A random line is shown on the homepage.</p>
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label class="form-label" for="content">messages.txt</label>
                 <textarea id="content" name="content" rows="14" style="font-family: var(--mono); font-size: 0.875rem; resize: vertical;">{{ content }}</textarea>

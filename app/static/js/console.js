@@ -3,7 +3,8 @@
  * Connects to the server's tmux session via SSH → SocketIO bridge.
  */
 function initConsole(serverId, isRunning) {
-    // Use terminal colours from the active PGSM theme (set by theme.js), with fallbacks
+    // Terminal colours match the PGSM "vCard" palette (see theme.css).
+    // window.PGSM_TERM_THEME may override these if set by a host page.
     var termTheme = window.PGSM_TERM_THEME || {};
     const term = new Terminal({
         cursorBlink: true,
@@ -11,9 +12,9 @@ function initConsole(serverId, isRunning) {
         fontSize: 13,
         scrollback: 5000,
         theme: {
-            background: termTheme.bg     || '#0d1117',
-            foreground: termTheme.fg     || '#c9d1d9',
-            cursor:     termTheme.cursor || '#4f8ef7',
+            background: termTheme.bg     || '#161618',
+            foreground: termTheme.fg     || '#d6d6d6',
+            cursor:     termTheme.cursor || '#9b7bff',
         },
     });
 
@@ -34,13 +35,35 @@ function initConsole(serverId, isRunning) {
         return { cols: term.cols, rows: term.rows };
     }
 
+    const input = document.getElementById('cmd-input');
+    const sendBtn = document.getElementById('cmd-send');
+
+    function setConnected(connected) {
+        if (input) {
+            input.disabled = !connected;
+            input.placeholder = connected
+                ? 'Type a command and press Enter…'
+                : 'Disconnected — reconnecting…';
+        }
+        if (sendBtn) sendBtn.disabled = !connected;
+    }
+
+    setConnected(false);  // start disabled until the socket connects
+
     socket.on('connect', function () {
         term.write('\r\n[PGSM] Connecting to server console...\r\n');
         socket.emit('join_console', { server_id: serverId, ...getDimensions() });
+        setConnected(true);
     });
 
     socket.on('disconnect', function () {
-        term.write('\r\n[PGSM] Disconnected from console.\r\n');
+        term.write('\r\n[PGSM] Disconnected from console. Attempting to reconnect…\r\n');
+        setConnected(false);
+    });
+
+    socket.on('connect_error', function () {
+        term.write('\r\n[PGSM] Connection error — retrying…\r\n');
+        setConnected(false);
     });
 
     socket.on('console_output', function (data) {
@@ -53,10 +76,7 @@ function initConsole(serverId, isRunning) {
         socket.emit('console_resize', { server_id: serverId, ...getDimensions() });
     });
 
-    // Send command via input field
-    const input = document.getElementById('cmd-input');
-    const sendBtn = document.getElementById('cmd-send');
-
+    // Send command via input field (input/sendBtn declared above)
     function sendCommand() {
         const cmd = input.value.trim();
         if (!cmd) return;

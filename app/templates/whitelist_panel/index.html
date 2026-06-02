@@ -34,7 +34,8 @@
 
         <!-- Right: Form -->
         <div class="wl-form-card">
-            <form method="post" action="{{ url_for('whitelist_panel.index') }}" novalidate>
+            <form method="post" action="{{ url_for('whitelist_panel.index') }}" onsubmit="this.querySelector('button[type=submit]').disabled=true; this.querySelector('button[type=submit]').classList.add('is-loading');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="form-group">
                     <label class="form-label" for="mc_username">

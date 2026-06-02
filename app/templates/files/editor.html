@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>PGSM - Edit: {{ filename }}</title>
-    <!-- Theme first so CSS vars are available; theme.js swaps it based on localStorage -->
-    <link id="theme-link" rel="stylesheet" href="{{ url_for('static', filename='css/themes/theme-default.css') }}">
-    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <!-- Attach CSRF token to state-changing fetches (editor save). -->
+    <script>(function(){var m=document.querySelector('meta[name="csrf-token"]');if(!m)return;var token=m.content;var orig=window.fetch;window.fetch=function(input,init){init=init||{};var method=(init.method||(typeof input==='object'&&input&&input.method)||'GET').toUpperCase();if(['POST','PUT','PATCH','DELETE'].indexOf(method)!==-1){var h=new Headers(init.headers||(typeof input==='object'&&input&&input.headers)||{});if(!h.has('X-CSRFToken'))h.set('X-CSRFToken',token);init.headers=h;}return orig.call(this,input,init);};})();</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
@@ -107,7 +111,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.js"></script>
     <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
     <script>
-        initEditor({{ server.id | tojson }}, {{ remote_path | tojson }});
+        initEditor({{ server.id | tojson }}, {{ remote_path | tojson }}, {{ url_for('files.save_file', server_id=server.id) | tojson }});
     </script>
 </body>
 </html>

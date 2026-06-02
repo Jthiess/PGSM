@@ -1,10 +1,47 @@
 import os
+import re
+import threading
 
 from flask import render_template, request, redirect, url_for, flash, current_app, session
 from app.auth import require_admin, require_management_access, require_server_access, is_admin, get_permitted_server_ids
 from app.blueprints.servers import bp
 from app.models.server import GameServer
 from app.extensions import db
+
+# Serialises CT-ID / IP allocation + DB row creation so two concurrent create
+# requests cannot grab the same VMID or IP (TOCTOU).
+_provision_lock = threading.Lock()
+
+# Conservative allowlist for the Java startup command. The value is written
+# verbatim into the systemd ExecStart line (and handed to tmux), so it must
+# never contain shell metacharacters.
+_STARTUP_CMD_RE = re.compile(r'^[A-Za-z0-9 ._:=+/@-]+$')
+
+
+def _validate_startup_command(cmd: str) -> str:
+    """Validates a user-supplied Java startup command.
+
+    Returns the trimmed command (empty string if none). Raises ValueError if it
+    contains characters outside the safe allowlist, preventing command
+    injection into the systemd unit / tmux session.
+    """
+    cmd = (cmd or '').strip()
+    if not cmd:
+        return ''
+    if '\n' in cmd or '\r' in cmd or not _STARTUP_CMD_RE.match(cmd):
+        raise ValueError(
+            'Startup command contains disallowed characters. Only letters, '
+            'digits, spaces and . _ : = + / @ - are permitted.'
+        )
+    return cmd
+
+
+def _parse_port(raw, default=None):
+    """Parses a port value, returning an int in 1..65535 or raising ValueError."""
+    port = int(raw) if str(raw).strip() != '' else default
+    if port is None or not (1 <= int(port) <= 65535):
+        raise ValueError('Port must be between 1 and 65535.')
+    return int(port)
 
 
 @bp.route('/')
@@ -69,6 +106,27 @@ def create_server():
     hostname = f'PGSM-{game_code}-{partial_uuid}'
     ha_enabled = 'ha_enabled' in form
 
+    # Validate the startup command and game port up front so a bad request
+    # fails before we allocate or upload anything.
+    try:
+        custom_startup_command = _validate_startup_command(form.get('custom_startup_command', ''))
+    except ValueError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('servers.create_server'))
+
+    cfg = current_app.config
+    try:
+        game_port = _parse_port(form.get('game_port', cfg['SERVER_DEFAULT_GAME_PORT']))
+    except (TypeError, ValueError):
+        flash('Game port must be a number between 1 and 65535.', 'error')
+        return redirect(url_for('servers.create_server'))
+
+    jv_raw = form.get('java_version_override', '').strip()
+    try:
+        java_version_override = int(jv_raw) if jv_raw else None
+    except ValueError:
+        java_version_override = None
+
     # Save uploaded zip before any error that would redirect, so we have the path ready
     import_archive_path = None
     if server_type == 'import':
@@ -78,57 +136,69 @@ def create_server():
         import_file.save(import_archive_path)
 
     try:
-        ct_id = proxmox.get_next_ct_id()
         pubkey = ssh_mgr.ensure_keypair()
-        used_ips = [s.ip_address for s in GameServer.query.all()]
-        ip = proxmox.get_next_ip(used_ips)
     except Exception as e:
         if import_archive_path and os.path.exists(import_archive_path):
             os.remove(import_archive_path)
         flash(f'Setup error: {e}', 'error')
         return redirect(url_for('servers.create_server'))
 
-    cfg = current_app.config
-    game_port = int(form.get('game_port', cfg['SERVER_DEFAULT_GAME_PORT']))
-    port_conflict = GameServer.port_in_use_by(game_port)
-    if port_conflict:
-        if import_archive_path and os.path.exists(import_archive_path):
-            os.remove(import_archive_path)
-        flash(f'Port {game_port} is already in use by server "{port_conflict.name}".', 'error')
-        return redirect(url_for('servers.create_server'))
     # Import servers don't have a meaningful MC version; use 'import' as sentinel
     game_version = 'import' if server_type == 'import' else form.get('game_version', 'latest')
 
-    server = GameServer(
-        id=server_id,
-        name=form.get('name', hostname),
-        game_code=game_code,
-        server_type=server_type,
-        game_version=game_version,
-        ct_id=ct_id,
-        proxmox_node=form.get('node'),
-        hostname=hostname,
-        ip_address=ip,
-        disk_gb=int(form.get('disk_gb', cfg['SERVER_DEFAULT_DISK_GB'])),
-        cores=int(form.get('cores', cfg['SERVER_DEFAULT_CORES'])),
-        memory_mb=int(form.get('memory_mb', cfg['SERVER_DEFAULT_MEMORY_MB'])),
-        game_port=game_port,
-        motd=form.get('motd') or None,
-        render_distance=int(form.get('render_distance', cfg['SERVER_DEFAULT_RENDER_DIST'])),
-        spawn_protection=int(form.get('spawn_protection', cfg['SERVER_DEFAULT_SPAWN_PROT'])),
-        difficulty=form.get('difficulty', cfg['SERVER_DEFAULT_DIFFICULTY']),
-        hardcore='hardcore' in form,
-        ha_enabled=ha_enabled,
-        status='creating',
-        # Modded / import fields
-        fabric_loader_version=form.get('fabric_loader_version', '').strip() or None,
-        forge_version=form.get('forge_version', '').strip() or None,
-        import_archive_url=import_archive_path,  # local path to uploaded zip
-        custom_startup_command=form.get('custom_startup_command', '').strip() or None,
-        java_version_override=int(form['java_version_override']) if form.get('java_version_override', '').strip() else None,
-    )
-    db.session.add(server)
-    db.session.commit()
+    # Allocate VMID + IP and commit the DB row under a lock so two concurrent
+    # creates cannot pick the same VMID or IP (the DB row is the source of
+    # truth the next allocation reads, so it must be committed before release).
+    with _provision_lock:
+        try:
+            existing = GameServer.query.all()
+            reserved_ct_ids = {s.ct_id for s in existing if s.ct_id}
+            used_ips = [s.ip_address for s in existing]
+            ct_id = proxmox.get_next_ct_id(reserved_ct_ids)
+            ip = proxmox.get_next_ip(used_ips)
+        except Exception as e:
+            if import_archive_path and os.path.exists(import_archive_path):
+                os.remove(import_archive_path)
+            flash(f'Setup error: {e}', 'error')
+            return redirect(url_for('servers.create_server'))
+
+        port_conflict = GameServer.port_in_use_by(game_port)
+        if port_conflict:
+            if import_archive_path and os.path.exists(import_archive_path):
+                os.remove(import_archive_path)
+            flash(f'Port {game_port} is already in use by server "{port_conflict.name}".', 'error')
+            return redirect(url_for('servers.create_server'))
+
+        server = GameServer(
+            id=server_id,
+            name=form.get('name', hostname),
+            game_code=game_code,
+            server_type=server_type,
+            game_version=game_version,
+            ct_id=ct_id,
+            proxmox_node=form.get('node'),
+            hostname=hostname,
+            ip_address=ip,
+            disk_gb=int(form.get('disk_gb', cfg['SERVER_DEFAULT_DISK_GB'])),
+            cores=int(form.get('cores', cfg['SERVER_DEFAULT_CORES'])),
+            memory_mb=int(form.get('memory_mb', cfg['SERVER_DEFAULT_MEMORY_MB'])),
+            game_port=game_port,
+            motd=form.get('motd') or None,
+            render_distance=int(form.get('render_distance', cfg['SERVER_DEFAULT_RENDER_DIST'])),
+            spawn_protection=int(form.get('spawn_protection', cfg['SERVER_DEFAULT_SPAWN_PROT'])),
+            difficulty=form.get('difficulty', cfg['SERVER_DEFAULT_DIFFICULTY']),
+            hardcore='hardcore' in form,
+            ha_enabled=ha_enabled,
+            status='creating',
+            # Modded / import fields
+            fabric_loader_version=form.get('fabric_loader_version', '').strip() or None,
+            forge_version=form.get('forge_version', '').strip() or None,
+            import_archive_url=import_archive_path,  # local path to uploaded zip
+            custom_startup_command=custom_startup_command or None,
+            java_version_override=java_version_override,
+        )
+        db.session.add(server)
+        db.session.commit()
 
     # Create LXC container
     try:
@@ -289,18 +359,37 @@ def update_settings(server_id):
     server = GameServer.query.get_or_404(server_id)
     form = request.form
 
+    # Java/startup settings change the systemd ExecStart line — restrict to
+    # admins and validate the command to block injection. Non-admin server
+    # users may still edit the cosmetic game settings below.
+    allow_service_edits = server.game_code == 'MCJAV' and is_admin()
+    new_startup_command = server.custom_startup_command
+    new_java_override = server.java_version_override
+    if allow_service_edits:
+        try:
+            new_startup_command = _validate_startup_command(form.get('custom_startup_command', '')) or None
+        except ValueError as e:
+            flash(str(e), 'error')
+            return redirect(url_for('servers.detail', server_id=server_id, tab='game-settings'))
+        jv_raw = form.get('java_version_override', '').strip()
+        try:
+            new_java_override = int(jv_raw) if jv_raw else None
+        except ValueError:
+            new_java_override = None
+
     # Update DB fields
     server.motd = form.get('motd') or None
-    server.render_distance = int(form.get('render_distance', server.render_distance))
-    server.spawn_protection = int(form.get('spawn_protection', server.spawn_protection))
+    try:
+        server.render_distance = int(form.get('render_distance', server.render_distance))
+        server.spawn_protection = int(form.get('spawn_protection', server.spawn_protection))
+    except (TypeError, ValueError):
+        flash('Render distance and spawn protection must be numbers.', 'error')
+        return redirect(url_for('servers.detail', server_id=server_id, tab='game-settings'))
     server.difficulty = form.get('difficulty', server.difficulty)
     server.hardcore = 'hardcore' in form
-
-    # Java/startup settings (Java servers only)
-    if server.game_code == 'MCJAV':
-        jv_raw = form.get('java_version_override', '').strip()
-        server.java_version_override = int(jv_raw) if jv_raw else None
-        server.custom_startup_command = form.get('custom_startup_command', '').strip() or None
+    if allow_service_edits:
+        server.java_version_override = new_java_override
+        server.custom_startup_command = new_startup_command
 
     db.session.commit()
 
@@ -326,7 +415,8 @@ def update_settings(server_id):
         warnings.append(f'Could not write server.properties: {e}')
 
     # Rewrite systemd unit if Java version or startup command changed
-    if server.game_code == 'MCJAV':
+    # (only admins can change those fields).
+    if allow_service_edits:
         try:
             _rewrite_systemd_unit(server, ssh_mgr)
         except Exception as e:
@@ -344,10 +434,14 @@ def _rewrite_systemd_unit(server, ssh_mgr):
     """Rewrites /etc/systemd/system/PGSM.service on the container to reflect
     current java_version and custom_startup_command, then reloads systemd.
     Also ensures the run.sh wrapper script exists."""
+    from app.services.server_lifecycle import _safe_java_version
+
+    java_dir = f'java{_safe_java_version(server)}'
     if server.custom_startup_command:
-        startup_cmd = server.custom_startup_command.replace('\n', ' ').replace('\r', '')
+        # Re-validate at the sink: the value is interpolated into ExecStart and
+        # handed to tmux, so it must contain no shell metacharacters.
+        startup_cmd = _validate_startup_command(server.custom_startup_command)
     else:
-        java_dir = f'java{server.java_version}'
         startup_cmd = f'/opt/java/{java_dir}/bin/java -jar server.jar'
 
     # Ensure the crash-recovery wrapper script exists
@@ -404,7 +498,7 @@ def _rewrite_systemd_unit(server, ssh_mgr):
         sftp.close()
         client.close()
     # Update /usr/local/bin/java symlink to match the active Java version
-    java_dir = f'java{server.java_version}'
+    # (java_dir was validated via _safe_java_version above).
     ssh_mgr.exec(server.ip_address, f'ln -sf /opt/java/{java_dir}/bin/java /usr/local/bin/java')
     ssh_mgr.exec(server.ip_address, 'systemctl daemon-reload')
 
@@ -474,13 +568,35 @@ def delete(server_id):
     except Exception:
         pass  # CT may already be stopped or Proxmox unreachable
 
+    # Only remove the DB record once we are confident the container is gone.
+    # Deleting the row while the CT still exists would orphan a running
+    # container and free its IP/VMID for reuse, causing later collisions.
     try:
         proxmox.delete_ct(server.proxmox_node, server.ct_id)
-    except Exception:
-        pass  # CT may not exist or Proxmox unreachable
+    except Exception as e:
+        msg = str(e).lower()
+        if 'does not exist' not in msg and 'not found' not in msg:
+            server.status = 'error'
+            db.session.commit()
+            current_app.logger.error('Delete aborted — CT %s not confirmed removed: %s', server.ct_id, e)
+            flash(
+                f'Could not delete the Proxmox container (CT {server.ct_id}): {e}. '
+                f'The server record was kept so it is not orphaned — resolve the issue and retry.',
+                'error',
+            )
+            return redirect(url_for('servers.detail', server_id=server_id))
+        # Otherwise the CT is already gone — safe to remove the record.
 
     try:
         NginxService().remove_server(server)
+    except Exception:
+        pass
+
+    # Drop the pinned SSH host key so a future container reusing this IP is
+    # pinned cleanly.
+    try:
+        from app.services.server_lifecycle import ssh_mgr
+        ssh_mgr.forget_host(server.ip_address)
     except Exception:
         pass
 

@@ -4,33 +4,80 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def _stable_secret_key() -> str:
-    key = os.getenv('Secret_Key')
-    if key:
-        return key
-    key_file = os.path.join(os.path.dirname(__file__), '..', 'instance', '.flask_secret')
+def _stable_random_secret(filename: str, env_names: tuple[str, ...]) -> str:
+    """Return a stable random secret, preferring an env var, else a persisted file.
+
+    Accepts multiple env var names (the first non-empty wins) so both the
+    conventional spelling and any legacy spelling are honoured. When no env var
+    is set, a 32-byte random value is generated once and persisted under
+    instance/ with owner-only permissions so it survives restarts/workers.
+    """
+    for name in env_names:
+        value = os.getenv(name)
+        if value:
+            return value
+    key_file = os.path.join(os.path.dirname(__file__), '..', 'instance', filename)
     key_file = os.path.abspath(key_file)
     try:
         with open(key_file, 'r') as f:
             return f.read().strip()
     except FileNotFoundError:
         pass
-    key = os.urandom(32).hex()
+    value = os.urandom(32).hex()
     os.makedirs(os.path.dirname(key_file), exist_ok=True)
     with open(key_file, 'w') as f:
-        f.write(key)
-    return key
+        f.write(value)
+    try:
+        os.chmod(key_file, 0o600)
+    except OSError:
+        pass
+    return value
+
+
+def _stable_secret_key() -> str:
+    # Accept the conventional SECRET_KEY spelling as well as the legacy
+    # `Secret_Key` used by older .env files.
+    return _stable_random_secret('.flask_secret', ('SECRET_KEY', 'Secret_Key'))
 
 
 class Config:
     SECRET_KEY = _stable_secret_key()
     FLASK_PORT = int(os.getenv('Flask_Port', 5000))
 
+    # ----------------------------------------------------------
+    # Session / cookie hardening
+    # SESSION_COOKIE_SECURE defaults ON; set SESSION_COOKIE_SECURE=false in .env
+    # only for local plain-HTTP development.
+    # ----------------------------------------------------------
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'true').lower() == 'true'
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
+    PERMANENT_SESSION_LIFETIME = int(os.getenv('SESSION_LIFETIME_SECONDS', 12 * 60 * 60))
+    # Flask-WTF CSRF: tokens do not expire mid-session (avoids spurious failures
+    # on long-lived admin pages); protection itself stays on.
+    WTF_CSRF_TIME_LIMIT = None
+
+    # Token guarding internal-only API endpoints (e.g. the whitelist push the
+    # panel makes to itself over localhost). An INDEPENDENT random secret —
+    # deliberately NOT derived from SECRET_KEY, so a SECRET_KEY disclosure does
+    # not also hand an attacker the internal token. Stable across
+    # restarts/workers via a persisted file; override via env if the panel and
+    # PGSM API run as separate deployments.
+    INTERNAL_API_TOKEN = _stable_random_secret('.internal_token', ('INTERNAL_API_TOKEN',))
+
     # Proxmox
     PROXMOX_HOST = os.getenv('Proxmox_Host')
     PROXMOX_PORT = int(os.getenv('Proxmox_Port', 8006))
     PROXMOX_USERNAME = os.getenv('Proxmox_Username')
     PROXMOX_PASSWORD = os.getenv('Proxmox_Password')
+    # Optional API token auth (preferred over the root password). When both
+    # token id and secret are set they take precedence over PROXMOX_PASSWORD.
+    PROXMOX_TOKEN_NAME = os.getenv('Proxmox_Token_Name')
+    PROXMOX_TOKEN_VALUE = os.getenv('Proxmox_Token_Value')
+    # TLS verification ON by default; set Proxmox_Verify_SSL=false ONLY for a
+    # self-signed cert on a trusted management network.
+    PROXMOX_VERIFY_SSL = os.getenv('Proxmox_Verify_SSL', 'true').lower() == 'true'
+    PROXMOX_TIMEOUT = int(os.getenv('Proxmox_Timeout', 30))
 
     # Database
     SQLALCHEMY_DATABASE_URI = 'sqlite:///pgsm.db'
@@ -67,9 +114,12 @@ class Config:
     # ----------------------------------------------------------
     # Game-Panel: Admin auth (password fallback)
     # Used only when LDAP_HOST is not configured.
+    # NO DEFAULT: if neither LDAP/Authentik nor an explicit ADMIN_PASSWORD is
+    # configured, password login is DISABLED (fail closed) rather than shipping
+    # a guessable default credential.
     # ----------------------------------------------------------
-    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin')
-    MESSAGES_PASSWORD = os.getenv('MESSAGES_PASSWORD')
+    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD') or None
+    MESSAGES_PASSWORD = os.getenv('MESSAGES_PASSWORD') or None
 
     # ----------------------------------------------------------
     # LDAP / LDAPS Authentication
@@ -79,7 +129,7 @@ class Config:
     LDAP_HOST = os.getenv('LDAP_HOST')                          # None = LDAP disabled
     LDAP_PORT = int(os.getenv('LDAP_PORT', 636))
     LDAP_USE_SSL = os.getenv('LDAP_USE_SSL', 'true').lower() == 'true'
-    LDAP_TLS_VALIDATE = os.getenv('LDAP_TLS_VALIDATE', 'false').lower() == 'true'  # false = accept self-signed
+    LDAP_TLS_VALIDATE = os.getenv('LDAP_TLS_VALIDATE', 'true').lower() == 'true'  # set false ONLY to accept self-signed
     LDAP_CA_CERT_FILE = os.getenv('LDAP_CA_CERT_FILE')         # path to CA bundle, optional
     LDAP_BIND_DN = os.getenv('LDAP_BIND_DN')                   # service account DN
     LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD')       # service account password
