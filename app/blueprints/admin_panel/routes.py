@@ -163,10 +163,17 @@ def login():
                         session['minecraft_uuid'] = result.get('minecraft_uuid')
                         flash(f'Logged in as {display}.', 'success')
                         return redirect(_safe_next_url(url_for('dashboard.index')))
-                    flash(
-                        'Access denied. Your account does not have the required group membership.',
-                        'error',
-                    )
+
+                    # No AL-4/AL-5 group and no server permissions: a valid
+                    # directory user still gets a basic profile-only session.
+                    # This grants no admin/messages/management access — those
+                    # decorators check their own flags — just their own profile.
+                    session['user_auth'] = True
+                    session['ldap_username'] = display
+                    session['ldap_raw_username'] = username
+                    session['minecraft_uuid'] = result.get('minecraft_uuid')
+                    flash(f'Logged in as {display}.', 'success')
+                    return redirect(_safe_next_url(url_for('panel.index')))
             else:
                 flash(result.get('error') or 'Invalid credentials.', 'error')
 
@@ -218,6 +225,7 @@ def logout():
     session.pop('admin_auth', None)
     session.pop('messages_auth', None)
     session.pop('server_user', None)
+    session.pop('user_auth', None)
     session.pop('ldap_username', None)
     session.pop('ldap_raw_username', None)
     session.pop('minecraft_uuid', None)
@@ -363,11 +371,17 @@ def authentik_callback():
     except Exception:
         pass
 
-    flash(
-        'Access denied. Your account does not have the required group membership.',
-        'error',
-    )
-    return redirect(url_for('admin_panel.login'))
+    # No AL-4/AL-5 group and no server permissions: still grant a basic
+    # profile-only session (no admin/messages/management access).
+    session['user_auth'] = True
+    session.pop('admin_auth', None)
+    session.pop('messages_auth', None)
+    session.pop('server_user', None)
+    session['ldap_username'] = display_name
+    session['ldap_raw_username'] = username
+    session['minecraft_uuid'] = result.get('minecraft_uuid') if current_app.config.get('LDAP_HOST') else None
+    flash(f'Logged in as {display_name}.', 'success')
+    return redirect(next_url or url_for('panel.index'))
 
 
 # ------------------------------------------------------------

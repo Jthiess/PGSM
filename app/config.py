@@ -131,6 +131,10 @@ class Config:
     LDAP_USE_SSL = os.getenv('LDAP_USE_SSL', 'true').lower() == 'true'
     LDAP_TLS_VALIDATE = os.getenv('LDAP_TLS_VALIDATE', 'true').lower() == 'true'  # set false ONLY to accept self-signed
     LDAP_CA_CERT_FILE = os.getenv('LDAP_CA_CERT_FILE')         # path to CA bundle, optional
+    # Comma-separated cert names (CN/SAN) to accept during TLS validation, in
+    # addition to LDAP_HOST. Set this when connecting by IP to a server whose
+    # cert only carries DNS names, e.g. LDAP_TLS_VALID_NAMES=Kinglet.ecasd.org
+    LDAP_TLS_VALID_NAMES = os.getenv('LDAP_TLS_VALID_NAMES')
     LDAP_BIND_DN = os.getenv('LDAP_BIND_DN')                   # service account DN
     LDAP_BIND_PASSWORD = os.getenv('LDAP_BIND_PASSWORD')       # service account password
     LDAP_BASE_DN = os.getenv('LDAP_BASE_DN')                   # e.g. dc=example,dc=com

@@ -39,7 +39,11 @@ def index():
     # Resolve the logged-in user's whitelist profile, if any
     # ----------------------------------------------------------
     minecraft_uuid = session.get('minecraft_uuid')
-    logged_in = bool(session.get('admin_auth') or session.get('messages_auth'))
+    logged_in = bool(
+        session.get('admin_auth')
+        or session.get('messages_auth')
+        or session.get('user_auth')
+    )
     current_user_profile = None
 
     if minecraft_uuid:

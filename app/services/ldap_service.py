@@ -117,6 +117,12 @@ def _build_server() -> 'ldap3.Server':
     validate_mode = ssl.CERT_REQUIRED if cfg.get('LDAP_TLS_VALIDATE') else ssl.CERT_NONE
     ca_certs_file = cfg.get('LDAP_CA_CERT_FILE') or None
 
+    # Extra cert names (CN/SAN) accepted during hostname validation, on top of
+    # LDAP_HOST. Needed when connecting by IP to a server whose cert carries
+    # only DNS names. ldap3 checks LDAP_HOST + valid_names against the cert.
+    valid_names_cfg = cfg.get('LDAP_TLS_VALID_NAMES') or ''
+    valid_names = [n.strip() for n in valid_names_cfg.split(',') if n.strip()] or None
+
     # Accept a pinned leaf/intermediate cert in LDAP_CA_CERT_FILE as a trust
     # anchor (parity with Authentik). See _enable_partial_chain_for_ldap3.
     _enable_partial_chain_for_ldap3()
@@ -128,6 +134,7 @@ def _build_server() -> 'ldap3.Server':
         validate=validate_mode,
         ca_certs_file=ca_certs_file,
         version=None,
+        valid_names=valid_names,
     )
 
     return ldap3.Server(
