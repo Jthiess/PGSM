@@ -48,7 +48,12 @@
             {% elif session.get('messages_auth') %}
             <li><a href="{{ url_for('admin_panel.messages') }}" class="panel-nav-btn">Panel</a></li>
             {% elif session.get('user_auth') %}
-            <li><a href="{{ url_for('admin_panel.logout') }}" class="panel-nav-btn">Logout</a></li>
+            <li>
+                <form method="post" action="{{ url_for('admin_panel.logout') }}" style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="panel-nav-btn" style="background:none; border:none; cursor:pointer; font:inherit;">Logout</button>
+                </form>
+            </li>
             {% else %}
             <li><a href="{{ url_for('admin_panel.authentik_authorize') if authentik_enabled else url_for('admin_panel.login') }}" class="panel-nav-btn">Login</a></li>
             {% endif %}
@@ -88,7 +93,12 @@
             {% elif session.get('messages_auth') %}
             <li><a href="{{ url_for('admin_panel.messages') }}" onclick="closeMobileNav()">Panel</a></li>
             {% elif session.get('user_auth') %}
-            <li><a href="{{ url_for('admin_panel.logout') }}" onclick="closeMobileNav()">Logout</a></li>
+            <li>
+                <form method="post" action="{{ url_for('admin_panel.logout') }}" style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" onclick="closeMobileNav()" style="background:none; border:none; cursor:pointer; font:inherit; width:100%; text-align:left; padding:0; color:inherit;">Logout</button>
+                </form>
+            </li>
             {% else %}
             <li><a href="{{ url_for('admin_panel.authentik_authorize') if authentik_enabled else url_for('admin_panel.login') }}" onclick="closeMobileNav()">Login</a></li>
             {% endif %}
