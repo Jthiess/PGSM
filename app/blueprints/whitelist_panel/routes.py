@@ -6,7 +6,6 @@
 # ============================================================
 
 import logging
-import re
 
 import requests
 from flask import (
@@ -20,10 +19,6 @@ from app.models.server import GameServer
 from app.services import panel_db
 
 log = logging.getLogger(__name__)
-
-# Valid Minecraft (Java) usernames: 3–16 chars of [A-Za-z0-9_]. Validated before
-# the value is interpolated into the Mojang lookup URL / stored.
-_MC_USERNAME_RE = re.compile(r'^[A-Za-z0-9_]{3,16}$')
 
 
 # ------------------------------------------------------------
@@ -76,121 +71,11 @@ def _sync_whitelist_to_pgsm_servers() -> None:
 
 @bp.route('/', methods=['GET', 'POST'])
 def index():
-    """Public whitelist submission form.
+    """Redirect: game account linking has moved to the main panel profile drawer.
 
-    GET:  Render the submission form.
-    POST: Validate Minecraft username (UUID lookup via Mojang API),
-          check Discord guild membership, enforce per-Discord request
-          limit, insert pending entry, and send ntfy notification if
-          configured.
-
-    Flash messages:
-        success — request submitted successfully.
-        error   — validation failure or DB error.
-
-    Returns:
-        Redirect to /whitelist/ on POST; rendered whitelist_panel/index.html on GET.
+    Redirects to panel.index so users find the account-based flow there.
     """
-    if request.method == 'POST':
-        username = (
-            request.form.get('username')
-            or request.form.get('mc_username')
-            or ''
-        ).strip()
-        discord_username = (request.form.get('discord_username') or '').strip()
-
-        if not username or not discord_username:
-            flash('Both fields are required.', 'error')
-            return redirect(url_for('whitelist_panel.index'))
-
-        if not _MC_USERNAME_RE.match(username):
-            flash('Please enter a valid Minecraft username (3–16 letters, digits or underscores).', 'error')
-            return redirect(url_for('whitelist_panel.index'))
-
-        # Bound the Discord username to a sane length before external calls.
-        if len(discord_username) > 64:
-            flash('Discord username is too long.', 'error')
-            return redirect(url_for('whitelist_panel.index'))
-
-        # --------------------------------------------------
-        # Discord guild membership check
-        # --------------------------------------------------
-        is_member, discord_avatar_url = panel_db.check_discord_guild_membership(
-            discord_username
-        )
-        if not is_member:
-            flash(
-                "You don't appear to be in the server. "
-                "Please make sure your Discord Username is correct.",
-                'error',
-            )
-            return redirect(url_for('whitelist_panel.index'))
-
-        # --------------------------------------------------
-        # Per-Discord request limit
-        # --------------------------------------------------
-        max_per = current_app.config.get('MAX_REQUESTS_PER_DISCORD', 1)
-        existing_count = panel_db.count_whitelist_requests_by_discord(discord_username)
-
-        if existing_count >= max_per:
-            if max_per == 1:
-                flash(
-                    'Sorry, you have already submitted a whitelist request. '
-                    'You cannot submit another one.',
-                    'error',
-                )
-            else:
-                flash(
-                    f'This Discord username has reached the limit of {max_per} whitelist requests.',
-                    'error',
-                )
-            return redirect(url_for('whitelist_panel.index'))
-
-        # --------------------------------------------------
-        # Minecraft UUID lookup
-        # --------------------------------------------------
-        player_uuid = panel_db.lookup_minecraft_uuid(username)
-        if not player_uuid:
-            flash(f"Minecraft user '{username}' not found.", 'error')
-            return redirect(url_for('whitelist_panel.index'))
-
-        # --------------------------------------------------
-        # Persist entry
-        # --------------------------------------------------
-        client_ip = request.remote_addr
-        try:
-            panel_db.create_whitelist_entry({
-                'username': username,
-                'player_uuid': player_uuid,
-                'discord_username': discord_username,
-                'client_ip': client_ip,
-                'discord_avatar_url': discord_avatar_url,
-            })
-        except Exception:
-            log.exception("Failed to insert whitelist entry")
-            flash('Failed to submit request. Please try again later.', 'error')
-            return redirect(url_for('whitelist_panel.index'))
-
-        log.info("New whitelist request: %s (%s) from %s", username, player_uuid, client_ip)
-
-        # --------------------------------------------------
-        # Optional ntfy.sh notification
-        # --------------------------------------------------
-        ntfy_topic = current_app.config.get('NTFY_TOPIC')
-        if ntfy_topic:
-            try:
-                requests.post(
-                    f'https://ntfy.sh/{ntfy_topic}',
-                    data=f'New Whitelist Request: {username}'.encode('utf-8'),
-                    timeout=3,
-                )
-            except Exception:
-                log.exception("ntfy notification failed")
-
-        flash('Your request has been submitted for approval.', 'success')
-        return redirect(url_for('whitelist_panel.index'))
-
-    return render_template('whitelist_panel/index.html')
+    return redirect(url_for('panel.index'))
 
 
 # ------------------------------------------------------------

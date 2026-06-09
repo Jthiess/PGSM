@@ -190,7 +190,7 @@
         <thead>
             <tr>
                 <th>MC Username</th>
-                <th>Discord</th>
+                <th>Account</th>
                 <th>UUID</th>
                 <th>IP</th>
                 <th>Status</th>
@@ -203,7 +203,15 @@
             {% for entry in sorted_entries %}
             <tr {% if not entry['approved'] %}class="wla-row-pending"{% endif %}>
                 <td style="font-weight: 600;">{{ entry['username'] }}</td>
-                <td>{{ entry['discord_username'] or '—' }}</td>
+                <td>
+                    {% if entry.get('authentik_username') %}
+                    <span title="Authentik account">{{ entry['authentik_username'] }}</span>
+                    {% elif entry.get('discord_username') %}
+                    <span class="text-muted" style="font-size: 0.8rem;" title="Discord (legacy)">{{ entry['discord_username'] }}</span>
+                    {% else %}
+                    <span class="wla-unlinked">—</span>
+                    {% endif %}
+                </td>
                 <td>
                     <span class="wla-uuid" title="{{ entry['player_uuid'] }}">{{ entry['player_uuid'] }}</span>
                 </td>

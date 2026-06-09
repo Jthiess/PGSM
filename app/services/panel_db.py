@@ -243,6 +243,12 @@ def init_db_tables():
                     "ALTER TABLE {}.whitelist ADD COLUMN discord_avatar_url TEXT"
                 ).format(_pub))
 
+            # Add authentik_username (account-based system — ties entry to Authentik login)
+            if 'authentik_username' not in existing_cols:
+                cur.execute(psycopg2.sql.SQL(
+                    "ALTER TABLE {}.whitelist ADD COLUMN authentik_username TEXT"
+                ).format(_pub))
+
             # Migrate ptero_servers -> pgsm_servers if legacy table still exists
             cur.execute(
                 """
@@ -806,8 +812,8 @@ def create_whitelist_entry(data: dict) -> None:
     """Insert a new whitelist request with approved=False.
 
     Args:
-        data: Dict with keys: username, player_uuid, discord_username,
-              client_ip, and optional discord_avatar_url.
+        data: Dict with keys: username, player_uuid, client_ip, and optionally
+              discord_username, discord_avatar_url, authentik_username.
     """
     conn = None
     try:
@@ -817,16 +823,17 @@ def create_whitelist_entry(data: dict) -> None:
                 """
                 INSERT INTO whitelist
                     (username, player_uuid, discord_username, approved,
-                     client_ip, discord_avatar_url)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                     client_ip, discord_avatar_url, authentik_username)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     data['username'],
                     data['player_uuid'],
-                    data['discord_username'],
+                    data.get('discord_username', ''),
                     False,
                     data.get('client_ip'),
                     data.get('discord_avatar_url'),
+                    data.get('authentik_username'),
                 ),
             )
         conn.commit()
@@ -976,6 +983,33 @@ def get_whitelist_entry_by_username(username: str) -> dict | None:
             return dict(zip(col_names, row))
     except Exception:
         log.exception("panel_db.get_whitelist_entry_by_username failed")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_whitelist_entry_by_authentik_username(username: str) -> dict | None:
+    """Fetch a whitelist entry by Authentik preferred_username (case-insensitive).
+
+    Args:
+        username: The Authentik preferred_username to look up.
+
+    Returns:
+        A dict of all whitelist columns, or None if not found.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM whitelist WHERE LOWER(authentik_username) = LOWER(%s)",
+                (username,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception:
+        log.exception("panel_db.get_whitelist_entry_by_authentik_username failed")
         return None
     finally:
         if conn:

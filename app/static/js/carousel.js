@@ -64,19 +64,21 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   function activateCard(card) {
-    const modded     = card.dataset.modded === 'true';
-    const packName   = card.dataset.packName  || '';
-    const serverName = card.dataset.serverName || '';
-    const title      = modded && packName ? packName : serverName;
-    const motd       = card.querySelector('.card-motd') ? card.querySelector('.card-motd').textContent : '';
-    const descEl     = card.querySelector('.card-desc');
-    const description = descEl ? descEl.textContent : '';
-    const statusBadge = card.querySelector('.status-badge');
-    const status      = statusBadge.textContent.trim();
-    const isOnline    = statusBadge.classList.contains('status-online');
-    const isArchived  = statusBadge.classList.contains('status-archived');
-    const serverIp    = card.dataset.ip   || '';
-    const game        = card.dataset.game || '';
+    const modded       = card.dataset.modded === 'true';
+    const packName     = card.dataset.packName  || '';
+    const serverName   = card.dataset.serverName || '';
+    const title        = modded && packName ? packName : serverName;
+    const motd         = card.querySelector('.card-motd') ? card.querySelector('.card-motd').textContent : '';
+    const descEl       = card.querySelector('.card-desc');
+    const description  = descEl ? descEl.textContent : '';
+    const statusBadge  = card.querySelector('.status-badge');
+    const status       = statusBadge.textContent.trim();
+    const isOnline     = statusBadge.classList.contains('status-online');
+    const isArchived   = statusBadge.classList.contains('status-archived');
+    const serverIp     = card.dataset.ip || '';
+    const requiresLogin = card.dataset.requiresLogin === 'true';
+    const loginUrl     = panel.dataset.loginUrl || '';
+    const game         = card.dataset.game || '';
 
     // ── Determine info field labels / values ───────────────────────────────
     let field1Label = 'Players';
@@ -140,6 +142,21 @@ document.addEventListener('DOMContentLoaded', function () {
     const copyIpBtn = document.getElementById('copy-ip-btn');
     const ipTextEl  = document.getElementById('ip-text');
 
+    function _showLoginPrompt(label) {
+      copyIpBtn.style.display = 'flex';
+      ipTextEl.textContent = label;
+      copyIpBtn.classList.remove('copied');
+      copyIpBtn.onclick = function (e) {
+        e.stopPropagation();
+        if (loginUrl) window.location.href = loginUrl;
+      };
+      const svgIcon = copyIpBtn.querySelector('svg');
+      if (svgIcon) {
+        svgIcon.innerHTML = '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+        svgIcon.setAttribute('viewBox', '0 0 24 24');
+      }
+    }
+
     if (isArchived) {
       const worldLink = card.dataset.worldLink || '';
       if (worldLink) {
@@ -154,6 +171,8 @@ document.addEventListener('DOMContentLoaded', function () {
           svgIcon.innerHTML = '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
           svgIcon.setAttribute('viewBox', '0 0 24 24');
         }
+      } else if (requiresLogin) {
+        _showLoginPrompt('Sign in to download world');
       } else {
         copyIpBtn.style.display = 'none';
       }
@@ -180,6 +199,8 @@ document.addEventListener('DOMContentLoaded', function () {
         svgIcon.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5" stroke="currentColor" stroke-width="2"/>';
         svgIcon.setAttribute('viewBox', '0 0 24 24');
       }
+    } else if (requiresLogin) {
+      _showLoginPrompt('Sign in to view server address');
     } else {
       copyIpBtn.style.display = 'none';
     }

@@ -2,14 +2,20 @@
 # app/blueprints/panel/routes.py — Public-Facing Game Panel
 # Serves the main entry point: server cards, rules page, and
 # the JSON API used by the frontend card renderer.
-# No authentication required — all routes are public.
 # ============================================================
 
+import logging
+import re
+
 from markupsafe import escape
-from flask import jsonify, render_template, session
+from flask import current_app, flash, jsonify, redirect, render_template, request, session, url_for
 
 from app.blueprints.panel import bp
 from app.services import panel_db
+
+log = logging.getLogger(__name__)
+
+_MC_USERNAME_RE = re.compile(r'^[A-Za-z0-9_]{3,16}$')
 
 
 # ------------------------------------------------------------
@@ -23,10 +29,9 @@ def index():
     Loads server data from PostgreSQL via panel_db and selects
     a random rotating message from messages.txt.
 
-    If a username is present in the session (set at login), the
-    corresponding whitelist entry is fetched and passed to the
-    template as `current_user_profile` so the profile panel can
-    be pre-loaded without any client-side username input.
+    If authenticated via Authentik, the corresponding game account
+    entry is fetched and passed to the template so the profile panel
+    can be pre-loaded.
 
     Returns:
         Rendered panel/index.html template.
@@ -35,34 +40,22 @@ def index():
     archived_servers = panel_db.get_archived_servers()
     random_message = panel_db.get_random_message()
 
-    # ----------------------------------------------------------
-    # Resolve the logged-in user's whitelist profile, if any
-    # ----------------------------------------------------------
-    minecraft_uuid = session.get('minecraft_uuid')
+    authentik_username = session.get('ldap_raw_username')
     logged_in = bool(
         session.get('admin_auth')
         or session.get('messages_auth')
         or session.get('user_auth')
+        or session.get('server_user')
     )
+    display_name = session.get('ldap_username') or authentik_username
     current_user_profile = None
 
-    if minecraft_uuid:
-        entry = panel_db.get_whitelist_entry_by_uuid(minecraft_uuid)
+    if authentik_username:
+        entry = panel_db.get_whitelist_entry_by_authentik_username(authentik_username)
         if entry:
-            avatar_url = entry.get('discord_avatar_url')
-            # If the avatar URL was never stored, try to fetch it now and cache it
-            if not avatar_url and entry.get('discord_username'):
-                _, fetched_url = panel_db.check_discord_guild_membership(
-                    entry['discord_username']
-                )
-                if fetched_url:
-                    panel_db.update_discord_avatar_url(entry['id'], fetched_url)
-                    avatar_url = fetched_url
             current_user_profile = {
                 'username': entry['username'],
                 'player_uuid': entry['player_uuid'],
-                'discord_username': entry['discord_username'],
-                'discord_avatar_url': avatar_url,
                 'approved': entry['approved'],
                 'strikes': entry.get('strikes', 0),
             }
@@ -73,8 +66,73 @@ def index():
         archived=archived_servers,
         message=random_message,
         logged_in=logged_in,
+        display_name=display_name,
         current_user_profile=current_user_profile,
     )
+
+
+@bp.route('/link-game', methods=['POST'])
+def link_game():
+    """Link a Minecraft account to the authenticated user's Authentik profile.
+
+    Validates the Minecraft username, looks up the UUID via Mojang API,
+    and creates a pending whitelist entry tied to the user's Authentik account.
+
+    Returns:
+        Redirect to panel.index with a flash message.
+    """
+    authentik_username = session.get('ldap_raw_username')
+    if not authentik_username:
+        flash('You must be logged in to link a game account.', 'error')
+        return redirect(url_for('panel.index'))
+
+    username = (request.form.get('mc_username') or '').strip()
+    if not username or not _MC_USERNAME_RE.match(username):
+        flash('Please enter a valid Minecraft username (3–16 letters, digits, or underscores).', 'error')
+        return redirect(url_for('panel.index'))
+
+    existing = panel_db.get_whitelist_entry_by_authentik_username(authentik_username)
+    if existing:
+        flash('You already have a Minecraft account linked.', 'error')
+        return redirect(url_for('panel.index'))
+
+    player_uuid = panel_db.lookup_minecraft_uuid(username)
+    if not player_uuid:
+        flash(
+            f"Minecraft user '{username}' was not found. "
+            "Make sure it's a valid Java Edition account.",
+            'error',
+        )
+        return redirect(url_for('panel.index'))
+
+    try:
+        panel_db.create_whitelist_entry({
+            'username': username,
+            'player_uuid': player_uuid,
+            'authentik_username': authentik_username,
+            'client_ip': request.remote_addr,
+        })
+    except Exception:
+        log.exception("Failed to create whitelist entry for %s", authentik_username)
+        flash('Failed to link account. Please try again later.', 'error')
+        return redirect(url_for('panel.index'))
+
+    log.info("New game account link: %s linked %s (%s)", authentik_username, username, player_uuid)
+
+    ntfy_topic = current_app.config.get('NTFY_TOPIC')
+    if ntfy_topic:
+        try:
+            import requests as _req
+            _req.post(
+                f'https://ntfy.sh/{ntfy_topic}',
+                data=f'New account link request: {username} ({authentik_username})'.encode('utf-8'),
+                timeout=3,
+            )
+        except Exception:
+            log.exception("ntfy notification failed")
+
+    flash("Your Minecraft account has been linked! An admin will review your request.", 'success')
+    return redirect(url_for('panel.index'))
 
 
 @bp.route('/rules')
